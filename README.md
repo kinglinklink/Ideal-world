@@ -13,7 +13,7 @@ Working now:
 - All five tools: Place, Delete, Transform, Config and Paint
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
 - Display models for eighteen mechanical parts: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake. They are models only and do nothing until Spawn is built.
-- Display models for three logic parts (light panel, vanishing block, impact detector) and four combat parts (explosive block, machine gun, large cannon, ammo generator). Also models only for now.
+- Display models for every other planned part: 13 fluid and engine parts, 4 aero parts, 11 logic blocks and sensors, 4 combat parts, and the seat, anchor block and dynamic offsetter. Also models only for now. That makes 75 parts in nine fold-out categories.
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build

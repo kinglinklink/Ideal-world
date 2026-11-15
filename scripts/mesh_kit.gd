@@ -7,6 +7,7 @@ const TOOTH_AT_TIP := [false, true, true, false]  # which of those corners are o
 
 static var _detail_material: StandardMaterial3D = null
 static var _lens_material: StandardMaterial3D = null
+static var _tint_cache: Dictionary = {}
 
 
 static func new_surface() -> SurfaceTool:
@@ -69,6 +70,51 @@ static func add_cylinder(surface: SurfaceTool, center: Vector3, axis: int, radiu
 		add_triangle(surface, center - along, center + rim_a - along, center + rim_b - along, -along)
 
 
+## A cone section along the given axis: `radius_low` at the end toward the
+## negative direction, `radius_high` at the end toward the positive direction.
+static func add_frustum(surface: SurfaceTool, center: Vector3, axis: int, radius_low: float,
+		radius_high: float, length: float, segments: int = 16) -> void:
+	var along := axis_vector(axis) * (length * 0.5)
+	var u := axis_vector((axis + 1) % 3)
+	var v := axis_vector((axis + 2) % 3)
+	for segment in segments:
+		var angle_a := float(segment) / float(segments) * TAU
+		var angle_b := float(segment + 1) / float(segments) * TAU
+		var spoke_a := u * cos(angle_a) + v * sin(angle_a)
+		var spoke_b := u * cos(angle_b) + v * sin(angle_b)
+		var low_a := center - along + spoke_a * radius_low
+		var low_b := center - along + spoke_b * radius_low
+		var high_a := center + along + spoke_a * radius_high
+		var high_b := center + along + spoke_b * radius_high
+		var outward := spoke_a + spoke_b
+		add_triangle(surface, low_a, high_a, high_b, outward)
+		add_triangle(surface, low_a, high_b, low_b, outward)
+		add_triangle(surface, center + along, high_a, high_b, along)
+		add_triangle(surface, center - along, low_a, low_b, -along)
+
+
+## A flat convex outline pushed along `offset` into a solid.
+static func add_extruded_polygon(surface: SurfaceTool, points: Array, offset: Vector3) -> void:
+	var count := points.size()
+	var middle := Vector3.ZERO
+	for point in points:
+		var corner: Vector3 = point
+		middle += corner
+	middle /= float(count)
+	for index in range(1, count - 1):
+		var a: Vector3 = points[0]
+		var b: Vector3 = points[index]
+		var c: Vector3 = points[index + 1]
+		add_triangle(surface, a, b, c, -offset)
+		add_triangle(surface, a + offset, b + offset, c + offset, offset)
+	for index in count:
+		var p: Vector3 = points[index]
+		var q: Vector3 = points[(index + 1) % count]
+		var outward := (p + q) * 0.5 - middle
+		add_triangle(surface, p, p + offset, q + offset, outward)
+		add_triangle(surface, p, q + offset, q, outward)
+
+
 static func _sphere_point(center: Vector3, radius: float, polar: float, azimuth: float) -> Vector3:
 	return center + Vector3(sin(polar) * cos(azimuth), cos(polar), sin(polar) * sin(azimuth)) * radius
 
@@ -128,6 +174,18 @@ static func detail_material() -> StandardMaterial3D:
 		_detail_material.metallic = 0.7
 		_detail_material.roughness = 0.45
 	return _detail_material
+
+
+## A plain coloured look for details that mark what kind of part this is,
+## such as the chip on a logic block.
+static func tinted_material(color: Color) -> StandardMaterial3D:
+	var key := color.to_html(false)
+	if not _tint_cache.has(key):
+		var tint := StandardMaterial3D.new()
+		tint.albedo_color = color
+		tint.roughness = 0.5
+		_tint_cache[key] = tint
+	return _tint_cache[key]
 
 
 ## The glossy black look of a light panel that is switched off.

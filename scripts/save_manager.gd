@@ -130,9 +130,27 @@ static func _three_numbers(value: Variant) -> Variant:
 	return Vector3(float(list[0]), float(list[1]), float(list[2]))
 
 
-## Reads a part's rotation from its three axis lists. Anything missing or not
-## a clean quarter-turn rotation falls back to "not rotated".
+## A whole number of quarter turns about one world axis, with exact entries.
+static func _quarter_turns(axis: Vector3, degrees: float) -> Basis:
+	var quarters := int(round(degrees / 90.0))
+	var turn := Basis(axis, float(quarters) * PI * 0.5)
+	return Basis(turn.x.round(), turn.y.round(), turn.z.round())
+
+
+## Reads a part's rotation. Two spellings are accepted:
+##   "rotation": [x, y, z]   degrees in steps of 90, applied about the world
+##                           X axis, then Y, then Z, like pressing R, T, Y
+##   "x_axis", "y_axis", "z_axis"   where the part's own axes end up pointing
+## Anything missing or not a clean quarter-turn rotation means "not rotated".
 static func _read_rotation(entry: Dictionary) -> Basis:
+	var turns: Variant = _three_numbers(entry.get("rotation"))
+	if turns != null:
+		var degrees: Vector3 = turns
+		var about_x := _quarter_turns(Vector3(1.0, 0.0, 0.0), degrees.x)
+		var about_y := _quarter_turns(Vector3(0.0, 1.0, 0.0), degrees.y)
+		var about_z := _quarter_turns(Vector3(0.0, 0.0, 1.0), degrees.z)
+		var combined := about_z * about_y * about_x
+		return Basis(combined.x.round(), combined.y.round(), combined.z.round())
 	var x_axis: Variant = _three_numbers(entry.get("x_axis"))
 	var y_axis: Variant = _three_numbers(entry.get("y_axis"))
 	var z_axis: Variant = _three_numbers(entry.get("z_axis"))

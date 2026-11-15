@@ -26,9 +26,7 @@ FILE FORMAT
             "type": "block",
             "pos": [20.5, 0.5, 10.5],
             "size": [1, 1, 1],
-            "x_axis": [1, 0, 0],
-            "y_axis": [0, 1, 0],
-            "z_axis": [0, 0, 1],
+            "rotation": [0, 90, 0],
             "material": "steel",
             "color": "#7a8088"
         }
@@ -49,10 +47,17 @@ required and everything else is optional.
             Left out: the part's normal size.
             The smallest step is 0.005 block.
 
-  x_axis,   Where the part's own X, Y and Z directions point after it has
-  y_axis,   been turned. Each is a list of three whole numbers made of one
-  z_axis    1 or -1 and two 0s. Left out: not turned.
-            Example, a quarter turn about Y:
+  rotation  How the part is turned, as three angles in degrees: about X,
+            then about Y, then about Z. Each must be a multiple of 90.
+            It works like pressing R, T and Y in the game: [0, 90, 0] is
+            one press of T. Left out: not turned.
+
+  x_axis,   The other way to write a rotation, and the way the game writes
+  y_axis,   it when it saves: where the part's own X, Y and Z directions
+  z_axis    end up pointing. Each is a list of three whole numbers made of
+            one 1 or -1 and two 0s. You never need to write these by hand;
+            use "rotation". If a part has both, "rotation" wins.
+            Example, the same quarter turn about Y:
             "x_axis": [0, 0, -1], "y_axis": [0, 1, 0], "z_axis": [1, 0, 0]
 
   material  The material's id. Left out: plastic. See the list below.
@@ -75,8 +80,15 @@ Advanced:    corner_wedge, inverse_corner, pyramid, cone, frustum,
 Mechanical:  motor, servo, door_hinge_servo, hinge, ball_joint, bearing,
              piston, solenoid, spring, gear, bevel_gear, rack, pulley,
              crankshaft, wheel, linkage_bar, clutch, brake
-Logic:       light_panel, vanish_block, impact_detector
+Fluid and    fluid_cylinder, pump, valve, fluid_pipe, fuel_tank,
+Engine:      pressure_tank, combustion_cylinder, compressor, combustor,
+             turbine, nozzle, thruster, solid_rocket
+Aero:        aero_panel, aero_panel_triangle, propeller, lift_gas_tank
+Logic:       input_block, boolean_gate, number_gate, pid_controller,
+             speed_sensor, altitude_sensor, attitude_sensor,
+             distance_sensor, impact_detector, light_panel, vanish_block
 Combat:      explosive_block, machine_gun, large_cannon, ammo_generator
+Misc:        seat, anchor_block, dynamic_offsetter
 
 
 MATERIALS

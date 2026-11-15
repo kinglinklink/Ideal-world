@@ -59,6 +59,34 @@ const PARTS := {
 	"machine_gun": ["Machine gun", "Combat", Vector3(1, 1, 2), 0.3, Vector3(0, 0, 0), "box"],
 	"large_cannon": ["Large cannon", "Combat", Vector3(1, 1, 4), 0.3, Vector3(0, 0, 0), "box"],
 	"ammo_generator": ["Ammo generator", "Combat", Vector3(2, 2, 2), 0.7, Vector3(0, 0, 0), "box"],
+	"fluid_cylinder": ["Fluid cylinder", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"pump": ["Pump", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"valve": ["Valve", "Fluid and Engine", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"fluid_pipe": ["Fluid pipe", "Fluid and Engine", Vector3(1, 1, 1), 0.1, Vector3(0, 0, 0), "box"],
+	"fuel_tank": ["Fuel tank", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"pressure_tank": ["Pressure tank", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"combustion_cylinder": ["Combustion cylinder", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"compressor": ["Compressor", "Fluid and Engine", Vector3(1, 1, 1), 0.6, Vector3(0, 0, 0), "box"],
+	"combustor": ["Combustor", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"turbine": ["Turbine", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"nozzle": ["Nozzle", "Fluid and Engine", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"thruster": ["Thruster", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"solid_rocket": ["Solid rocket", "Fluid and Engine", Vector3(1, 1, 2), 0.5, Vector3(0, 0, 0), "box"],
+	"aero_panel": ["Square aero panel", "Aero", Vector3(1, 0.125, 1), 0.9, Vector3(0, 0, 0), "box"],
+	"aero_panel_triangle": ["Triangle aero panel", "Aero", Vector3(1, 0.125, 1), 0.45, Vector3(0, 0, 0), "box"],
+	"propeller": ["Propeller", "Aero", Vector3(1, 0.25, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"lift_gas_tank": ["Lift-gas tank", "Aero", Vector3(1, 1, 1), 0.1, Vector3(0, 0, 0), "box"],
+	"input_block": ["Input", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"boolean_gate": ["Boolean gate", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"number_gate": ["Number logic", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"pid_controller": ["PID controller", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"speed_sensor": ["Speed sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"altitude_sensor": ["Altitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"attitude_sensor": ["Attitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"distance_sensor": ["Distance sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"seat": ["Seat", "Misc", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"anchor_block": ["Anchor block", "Misc", Vector3(1, 1, 1), 0.9, Vector3(0, 0, 0), "box"],
+	"dynamic_offsetter": ["Dynamic offsetter", "Misc", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
 }
 
 ## Parts that start in their own colour instead of the brush colour.
@@ -71,9 +99,19 @@ const DEFAULT_COLORS := {
 	"machine_gun": Color(0.30, 0.33, 0.27),
 	"large_cannon": Color(0.30, 0.33, 0.27),
 	"ammo_generator": Color(0.30, 0.33, 0.27),
+	"lift_gas_tank": Color(0.88, 0.92, 0.96),
+	"anchor_block": Color(0.55, 0.57, 0.60),
+	"input_block": Color(0.20, 0.21, 0.23),
+	"boolean_gate": Color(0.20, 0.21, 0.23),
+	"number_gate": Color(0.20, 0.21, 0.23),
+	"pid_controller": Color(0.20, 0.21, 0.23),
+	"speed_sensor": Color(0.20, 0.21, 0.23),
+	"altitude_sensor": Color(0.20, 0.21, 0.23),
+	"attitude_sensor": Color(0.20, 0.21, 0.23),
+	"distance_sensor": Color(0.20, 0.21, 0.23),
 }
 
-const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical", "Logic", "Combat"]
+const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical", "Fluid and Engine", "Aero", "Logic", "Combat", "Misc"]
 const RING_INNER_RADIUS := 0.3   # of a unit ring whose outer radius is 0.5
 const PIPE_INNER_RADIUS := 0.4   # a thinner wall than the ring
 const ARCH_RADIUS := 0.4         # of the opening cut into a unit arch
