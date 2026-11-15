@@ -17,7 +17,7 @@ const IDS := [
 	"motor", "servo", "door_hinge_servo", "hinge", "ball_joint", "bearing",
 	"piston", "solenoid", "spring", "gear", "bevel_gear", "rack", "pulley",
 	"crankshaft", "wheel", "linkage_bar", "clutch", "brake",
-	"light_panel", "explosive_block", "machine_gun", "large_cannon", "ammo_generator",
+	"light_panel", "impact_detector", "explosive_block", "machine_gun", "large_cannon", "ammo_generator",
 ]
 
 
@@ -132,6 +132,11 @@ static func build(part_id: String) -> ArrayMesh:
 			Kit.add_box(body, Vector3(0.0, -0.2, 0.0), Vector3(1.0, 0.6, 1.0))
 			Kit.add_box(detail, Vector3(0.0, 0.3, 0.0), Vector3(0.875, 0.4, 0.875))
 			detail_look = Kit.lens_material()
+		"impact_detector":
+			# A sensor housing with a collar and a domed sensing head.
+			Kit.add_box(body, Vector3(0.0, -0.25, 0.0), Vector3(0.75, 0.5, 0.75))
+			Kit.add_cylinder(detail, Vector3(0.0, 0.03125, 0.0), Y, 0.3, 0.0625)
+			Kit.add_sphere(detail, Vector3(0.0, 0.15, 0.0), 0.22)
 		"explosive_block":
 			# A charge wrapped in two bands, with a detonator cap on top.
 			Kit.add_box(body, Vector3.ZERO, Vector3(0.9375, 0.9375, 0.9375))

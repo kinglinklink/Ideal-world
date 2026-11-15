@@ -54,6 +54,7 @@ const PARTS := {
 	"brake": ["Brake", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"light_panel": ["Light panel", "Logic", Vector3(1, 0.125, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"vanish_block": ["Vanishing block", "Logic", Vector3(1, 1, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"impact_detector": ["Impact detector", "Logic", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
 	"explosive_block": ["Explosive block", "Combat", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
 	"machine_gun": ["Machine gun", "Combat", Vector3(1, 1, 2), 0.3, Vector3(0, 0, 0), "box"],
 	"large_cannon": ["Large cannon", "Combat", Vector3(1, 1, 4), 0.3, Vector3(0, 0, 0), "box"],
@@ -65,6 +66,7 @@ const PARTS := {
 const DEFAULT_COLORS := {
 	"vanish_block": Color(1.0, 1.0, 1.0),
 	"light_panel": Color(0.20, 0.21, 0.23),
+	"impact_detector": Color(0.95, 0.75, 0.15),
 	"explosive_block": Color(0.78, 0.12, 0.10),
 	"machine_gun": Color(0.30, 0.33, 0.27),
 	"large_cannon": Color(0.30, 0.33, 0.27),
