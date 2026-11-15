@@ -13,6 +13,11 @@ const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
 
 const GROUND_SIZE := 6000.0   # metres across
 
+# The garage sits behind the start point, with its door facing the build pad.
+const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
+const GARAGE_GAP := 12.0                        # from the garage door to the pad
+const DOOR_SIZE := Vector2(16.0, 5.5)           # width, height in metres
+
 
 func _ready() -> void:
 	_make_sky_and_sun()
@@ -23,11 +28,14 @@ func _ready() -> void:
 	add_child(grid)
 	_make_pad_surface(grid)
 
+	var pad_size: Vector3 = grid.size_metres()
+	var map_features: Array = _make_garage(pad_size)
+	map_features.append([Rect2(0.0, 0.0, pad_size.x, pad_size.z), Color(0.20, 0.26, 0.36), "Build pad"])
+
 	var player: CharacterBody3D = Player.new()
 	player.name = "Player"
-	# Start just outside the pad, looking along +Z across it.
-	var pad_size: Vector3 = grid.size_metres()
-	player.position = Vector3(pad_size.x * 0.5, 0.1, -5.0)
+	# Start between the garage door and the pad, looking along +Z across the pad.
+	player.position = Vector3(pad_size.x * 0.5, 0.1, -GARAGE_GAP * 0.5)
 	player.yaw = PI
 	add_child(player)
 
@@ -40,6 +48,7 @@ func _ready() -> void:
 	hud.name = "Hud"
 	add_child(hud)
 	hud.setup(controller, grid, player)
+	hud.set_map_features(map_features)
 
 
 func _make_sky_and_sun() -> void:
@@ -96,6 +105,79 @@ func _make_ground() -> void:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = mesh
 	ground.add_child(mesh_instance)
+
+
+func _solid(parent: Node3D, size: Vector3, at: Vector3, color: Color) -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.85
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh.material = material
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = mesh
+	mesh_instance.position = at
+	parent.add_child(mesh_instance)
+
+
+## The garage: a closed building with a large sectional door facing the pad,
+## and a concrete apron between the two. Returns its footprints for the map.
+func _make_garage(pad_size: Vector3) -> Array:
+	var half_depth := GARAGE_SIZE.z * 0.5
+	var centre := Vector3(pad_size.x * 0.5, 0.0, -GARAGE_GAP - half_depth)
+
+	var garage := StaticBody3D.new()
+	garage.name = "Garage"
+	garage.position = centre
+	add_child(garage)
+
+	# One solid box to walk into. The garage stays shut for now.
+	var shape := BoxShape3D.new()
+	shape.size = GARAGE_SIZE
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	collider.position = Vector3(0.0, GARAGE_SIZE.y * 0.5, 0.0)
+	garage.add_child(collider)
+
+	var wall := Color(0.74, 0.78, 0.84)
+	var roof := Color(0.86, 0.42, 0.24)
+	var trim := Color(0.94, 0.95, 0.97)
+	var door := Color(0.32, 0.36, 0.42)
+	var seam := Color(0.20, 0.23, 0.28)
+
+	_solid(garage, GARAGE_SIZE, Vector3(0.0, GARAGE_SIZE.y * 0.5, 0.0), wall)
+	_solid(garage, Vector3(GARAGE_SIZE.x + 1.0, 0.5, GARAGE_SIZE.z + 1.0),
+			Vector3(0.0, GARAGE_SIZE.y + 0.25, 0.0), roof)
+
+	# The door, on the wall that faces the pad (+Z).
+	var front := half_depth
+	_solid(garage, Vector3(DOOR_SIZE.x, DOOR_SIZE.y, 0.2), Vector3(0.0, DOOR_SIZE.y * 0.5, front + 0.1), door)
+	for panel in range(1, 5):
+		var seam_height := DOOR_SIZE.y * float(panel) / 5.0
+		_solid(garage, Vector3(DOOR_SIZE.x, 0.06, 0.26), Vector3(0.0, seam_height, front + 0.1), seam)
+	_solid(garage, Vector3(DOOR_SIZE.x + 0.8, 0.4, 0.3), Vector3(0.0, DOOR_SIZE.y + 0.2, front + 0.15), trim)
+	_solid(garage, Vector3(0.4, DOOR_SIZE.y, 0.3), Vector3(-DOOR_SIZE.x * 0.5 - 0.2, DOOR_SIZE.y * 0.5, front + 0.15), trim)
+	_solid(garage, Vector3(0.4, DOOR_SIZE.y, 0.3), Vector3(DOOR_SIZE.x * 0.5 + 0.2, DOOR_SIZE.y * 0.5, front + 0.15), trim)
+
+	# A concrete apron from the door to the pad. It is too thin to trip on.
+	var apron_width := DOOR_SIZE.x + 4.0
+	var apron := MeshInstance3D.new()
+	var apron_mesh := BoxMesh.new()
+	apron_mesh.size = Vector3(apron_width, 0.02, GARAGE_GAP)
+	var apron_material := StandardMaterial3D.new()
+	apron_material.albedo_color = Color(0.62, 0.62, 0.64)
+	apron_material.roughness = 1.0
+	apron_mesh.material = apron_material
+	apron.mesh = apron_mesh
+	apron.position = Vector3(pad_size.x * 0.5, 0.011, -GARAGE_GAP * 0.5)
+	apron.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(apron)
+
+	return [
+		[Rect2(centre.x - apron_width * 0.5, -GARAGE_GAP, apron_width, GARAGE_GAP), Color(0.34, 0.34, 0.36), ""],
+		[Rect2(centre.x - GARAGE_SIZE.x * 0.5, centre.z - half_depth, GARAGE_SIZE.x, GARAGE_SIZE.z),
+				Color(0.62, 0.34, 0.22), "Garage"],
+	]
 
 
 ## The visible grid on the build pad. Clicks land on the ground collider

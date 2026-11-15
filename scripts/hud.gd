@@ -10,6 +10,7 @@ const BuildController = preload("res://scripts/build_controller.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
+const Minimap = preload("res://scripts/minimap.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
@@ -55,6 +56,7 @@ var _settings_key := ""                  # which part the settings rows were bui
 var _signals_title: Label
 var _signals_scroll: ScrollContainer
 var _signals_box: VBoxContainer
+var _minimap: Control
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -70,6 +72,11 @@ func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
 	controller.connect("message", _on_message)
 	grid.connect("parts_changed", _on_changed)
 	_refresh()
+
+
+## The buildings and areas the mini map should draw.
+func set_map_features(features: Array) -> void:
+	_minimap.features = features
 
 
 # --- Small builders ----------------------------------------------------------
@@ -213,6 +220,13 @@ func _build_interface() -> void:
 	_count_label = _readout(readouts)
 	_speed_label = _readout(readouts)
 	_fps_label = _readout(readouts)
+
+	# Mini map, top right.
+	_minimap = Minimap.new()
+	_minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_minimap.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_minimap.player = player
+	root.add_child(_minimap)
 
 	# Saves window, screen centre, hidden until the Saves button is pressed.
 	_saves_panel = _build_saves_panel()
