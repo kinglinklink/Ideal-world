@@ -132,6 +132,10 @@ func _physics_process(delta: float) -> void:
 	# Ctrl+A, Ctrl+C and friends are tool shortcuts, not walking.
 	if Input.is_physical_key_pressed(KEY_CTRL):
 		input = Vector2.ZERO
+	# While a text box has the keyboard, typing must not walk the character.
+	var typing := get_viewport().gui_get_focus_owner() != null
+	if typing:
+		input = Vector2.ZERO
 
 	var direction := Basis(Vector3.UP, yaw) * Vector3(input.x, 0.0, input.y)
 	if direction.length() > 1.0:
@@ -145,7 +149,7 @@ func _physics_process(delta: float) -> void:
 
 	var grounded := is_on_floor()
 	if grounded:
-		if Input.is_physical_key_pressed(KEY_SPACE):
+		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
 			velocity.y = JUMP_SPEED
 			grounded = false
 	else:

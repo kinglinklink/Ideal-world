@@ -7,6 +7,7 @@ const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const BuildController = preload("res://scripts/build_controller.gd")
+const SaveManager = preload("res://scripts/save_manager.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
@@ -37,6 +38,12 @@ var _fps_label: Label
 var _crosshair: Label
 var _message_label: Label
 var _message_time := 0.0
+var _saves_panel: PanelContainer
+var _saves_list: ItemList
+var _saves_folder_label: Label
+var _save_name_edit: LineEdit
+var _saves_status: Label
+var _pending_action := ""            # a load or delete waiting for its second click
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -115,7 +122,8 @@ func _build_interface() -> void:
 	var help := _outlined(_label(
 			"WASD walk   Shift run   Space jump   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)\n"
-			+ "1 Place   2 Delete   3 Transform   4 Config   5 Paint   Left click use tool", 14))
+			+ "1 Place   2 Delete   3 Transform   4 Config   5 Paint   Left click use tool\n"
+			+ "Saves button, bottom right, saves and loads builds", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(help)
@@ -175,9 +183,17 @@ func _build_interface() -> void:
 	readouts.size_flags_vertical = Control.SIZE_SHRINK_END
 	readouts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(readouts)
+	var saves_button := _button("Saves", 110.0)
+	saves_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	saves_button.pressed.connect(_on_saves_button)
+	readouts.add_child(saves_button)
 	_count_label = _readout(readouts)
 	_speed_label = _readout(readouts)
 	_fps_label = _readout(readouts)
+
+	# Saves window, screen centre, hidden until the Saves button is pressed.
+	_saves_panel = _build_saves_panel()
+	root.add_child(_saves_panel)
 
 
 func _readout(parent: Control) -> Label:
@@ -353,6 +369,183 @@ func _build_paint_panel() -> Control:
 	panel.add_child(_paint_brush_label)
 	panel.add_child(_label("Click a part to paint it.\nParts that overlap are painted together.", 13))
 	return panel
+
+
+# --- Saves window ------------------------------------------------------------
+
+func _build_saves_panel() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.visible = false
+	var margin := MarginContainer.new()
+	for margin_name in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(margin_name, 12)
+	panel.add_child(margin)
+	var box := _column()
+	margin.add_child(box)
+
+	box.add_child(_label("Saves", 18))
+	_saves_folder_label = _label("", 12)
+	_saves_folder_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+	box.add_child(_saves_folder_label)
+
+	_saves_list = ItemList.new()
+	_saves_list.custom_minimum_size = Vector2(440, 240)
+	_saves_list.focus_mode = Control.FOCUS_NONE
+	_saves_list.item_selected.connect(_on_save_selected)
+	_saves_list.item_activated.connect(_on_save_activated)
+	box.add_child(_saves_list)
+
+	var name_row := _row()
+	name_row.add_child(_label("Name"))
+	_save_name_edit = LineEdit.new()
+	_save_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_save_name_edit.placeholder_text = "Type a name for this build"
+	_save_name_edit.text_submitted.connect(_on_save_name_submitted)
+	name_row.add_child(_save_name_edit)
+	box.add_child(name_row)
+
+	var actions := _row()
+	box.add_child(actions)
+	var save_button := _button("Save", 104.0)
+	save_button.pressed.connect(_on_save_pressed)
+	actions.add_child(save_button)
+	var load_button := _button("Load", 104.0)
+	load_button.pressed.connect(_on_load_pressed)
+	actions.add_child(load_button)
+	var delete_button := _button("Delete", 104.0)
+	delete_button.pressed.connect(_on_delete_save_pressed)
+	actions.add_child(delete_button)
+
+	var extras := _row()
+	box.add_child(extras)
+	var refresh_button := _button("Refresh", 104.0)
+	refresh_button.pressed.connect(_on_refresh_saves_pressed)
+	extras.add_child(refresh_button)
+	var folder_button := _button("Open folder", 104.0)
+	folder_button.pressed.connect(_on_open_folder_pressed)
+	extras.add_child(folder_button)
+	var close_button := _button("Close", 104.0)
+	close_button.pressed.connect(_on_close_saves_pressed)
+	extras.add_child(close_button)
+
+	_saves_status = _label("", 13)
+	_saves_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_saves_status)
+	return panel
+
+
+## Re-reads the saves folder and shows a status line under the list.
+func _refresh_saves(status: String) -> void:
+	_pending_action = ""
+	_saves_list.clear()
+	for save_name in SaveManager.list_saves():
+		_saves_list.add_item(str(save_name))
+	_saves_folder_label.text = "Folder: %s" % SaveManager.saves_dir()
+	_saves_status.text = status
+
+
+func _typed_name() -> String:
+	return SaveManager.clean_name(_save_name_edit.text)
+
+
+## Loading over a build and deleting a save both need a second click.
+func _confirmed(action: String) -> bool:
+	if _pending_action == action:
+		_pending_action = ""
+		return true
+	_pending_action = action
+	return false
+
+
+func _on_saves_button() -> void:
+	_saves_panel.visible = not _saves_panel.visible
+	if _saves_panel.visible:
+		_refresh_saves("Files in this folder can be copied, shared and edited.")
+	else:
+		_save_name_edit.release_focus()
+
+
+func _on_save_selected(index: int) -> void:
+	_save_name_edit.text = _saves_list.get_item_text(index)
+	_pending_action = ""
+
+
+func _on_save_activated(index: int) -> void:
+	_save_name_edit.text = _saves_list.get_item_text(index)
+	_on_load_pressed()
+
+
+func _on_save_name_submitted(_text: String) -> void:
+	_on_save_pressed()
+	_save_name_edit.release_focus()
+
+
+func _on_save_pressed() -> void:
+	var save_name := _typed_name()
+	if save_name == "":
+		_saves_status.text = "Type a name first."
+		return
+	var replaced: bool = SaveManager.exists(save_name)
+	var problem: String = SaveManager.save_build(grid, save_name)
+	if problem != "":
+		_saves_status.text = problem
+		return
+	var count: int = grid.part_count()
+	var verb := "Replaced" if replaced else "Saved"
+	_refresh_saves("%s \"%s\" with %d part(s)." % [verb, save_name, count])
+
+
+func _on_load_pressed() -> void:
+	var save_name := _typed_name()
+	if save_name == "" or not SaveManager.exists(save_name):
+		_saves_status.text = "Pick a save from the list first."
+		return
+	var count: int = grid.part_count()
+	if count > 0 and not _confirmed("load:" + save_name):
+		_saves_status.text = "Loading replaces the current build. Click Load again to confirm."
+		return
+	var result: Dictionary = SaveManager.load_build(grid, save_name)
+	var error: String = result["error"]
+	if error != "":
+		_saves_status.text = error
+		return
+	var loaded: int = result["loaded"]
+	var skipped: int = result["skipped"]
+	var status := "Loaded \"%s\": %d part(s)." % [save_name, loaded]
+	if skipped > 0:
+		status += " Skipped %d that did not fit or were not recognised." % skipped
+	_refresh_saves(status)
+
+
+func _on_delete_save_pressed() -> void:
+	var save_name := _typed_name()
+	if save_name == "" or not SaveManager.exists(save_name):
+		_saves_status.text = "Pick a save from the list first."
+		return
+	if not _confirmed("delete:" + save_name):
+		_saves_status.text = "Click Delete again to remove \"%s\" for good." % save_name
+		return
+	if SaveManager.delete_save(save_name):
+		_save_name_edit.text = ""
+		_refresh_saves("Deleted \"%s\"." % save_name)
+	else:
+		_saves_status.text = "Could not delete \"%s\"." % save_name
+
+
+func _on_refresh_saves_pressed() -> void:
+	_refresh_saves("List refreshed.")
+
+
+func _on_open_folder_pressed() -> void:
+	SaveManager.ensure_dir()
+	OS.shell_open(SaveManager.saves_dir())
+
+
+func _on_close_saves_pressed() -> void:
+	_saves_panel.visible = false
+	_save_name_edit.release_focus()
 
 
 # --- Every frame -------------------------------------------------------------

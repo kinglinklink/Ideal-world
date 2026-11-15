@@ -17,8 +17,9 @@ Working now:
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
+- Saving and loading builds as shareable text files
 
-Not built yet: saving and loading, logic parts, and everything to do with Spawn and physics.
+Not built yet: Spawn, physics, and the behavior of the mechanical, logic and combat parts.
 
 ## How to run it
 
@@ -51,6 +52,16 @@ Not built yet: saving and loading, logic parts, and everything to do with Spawn 
 
 Parts of the same material may overlap. Parts of different materials may not.
 
+## Saves
+
+Press the **Saves** button in the bottom-right corner. Type a name and press Save, or pick a build from the list and press Load. Loading replaces the current build and deleting is permanent, so both ask for a second click.
+
+Every build is one `.json` file in the `saves` folder, next to `project.godot`. In an exported game the folder sits beside the program.
+
+- **Share a build:** send someone its `.json` file.
+- **Add a build:** drop its `.json` file into `saves` and press Refresh.
+- **Make one outside the game:** the files are plain text. [`saves/README.txt`](saves/README.txt) describes the format, and `saves/example-gate.json` is a small build written by hand.
+
 ## Units
 
 One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole multiples of 0.005 block (1.25 mm). The scale is one number, `CELL`, in `scripts/units.gd`. The simulation works in SI units at true size: meters, kilograms, newtons. Y is up; X and Z are the ground plane.
@@ -70,7 +81,9 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/mech_models.gd` | Display models for the mechanical parts |
 | `scripts/mesh_kit.gd` | Helpers that build meshes from boxes, cylinders and gear discs |
 | `scripts/material_library.gd` | Materials: density, friction, strength, look |
+| `scripts/save_manager.gd` | Saving and loading builds |
 | `scripts/hud.gd` | The on-screen interface |
+| `saves/` | Saved builds, the format guide and an example |
 | `shaders/pad_grid.gdshader` | Draws the grid lines on the build pad |
 
 ## Roadmap

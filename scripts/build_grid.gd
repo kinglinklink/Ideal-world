@@ -18,6 +18,8 @@ const EPSILON := 0.0001                 # metres; keeps touching parts from coun
 var _parts: Dictionary = {}   # uid -> record (see make_record)
 var _nodes: Dictionary = {}   # uid -> StaticBody3D
 var _next_uid := 1
+var _batching := false
+var _batch_dirty := false
 
 
 # --- Records -----------------------------------------------------------------
@@ -186,6 +188,37 @@ func center_of_mass() -> Vector3:
 
 # --- Changes -----------------------------------------------------------------
 
+## Announces a change, unless a batch of changes is still in progress.
+func _changed() -> void:
+	if _batching:
+		_batch_dirty = true
+	else:
+		parts_changed.emit()
+
+
+## Between begin_batch() and end_batch(), any number of changes are announced
+## once at the end instead of one by one. Used when loading a whole build.
+func begin_batch() -> void:
+	_batching = true
+	_batch_dirty = false
+
+
+func end_batch() -> void:
+	_batching = false
+	if _batch_dirty:
+		_batch_dirty = false
+		parts_changed.emit()
+
+
+## Removes every part.
+func clear() -> void:
+	for uid in _nodes.keys():
+		_free_node(uid)
+	_parts.clear()
+	_nodes.clear()
+	_changed()
+
+
 ## Adds a part. Returns its uid, or 0 with nothing changed if it does not fit.
 func add_part(record: Dictionary) -> int:
 	if check(record) != "":
@@ -194,7 +227,7 @@ func add_part(record: Dictionary) -> int:
 	_next_uid += 1
 	_parts[uid] = record.duplicate()
 	_rebuild_node(uid)
-	parts_changed.emit()
+	_changed()
 	return uid
 
 
@@ -203,7 +236,7 @@ func remove_part(uid: int) -> bool:
 		return false
 	_parts.erase(uid)
 	_free_node(uid)
-	parts_changed.emit()
+	_changed()
 	return true
 
 
@@ -212,7 +245,7 @@ func remove_parts(uids: Array) -> void:
 		if _parts.has(uid):
 			_parts.erase(uid)
 			_free_node(uid)
-	parts_changed.emit()
+	_changed()
 
 
 ## Replaces several parts' records at once. `updates` maps uid -> new record.
@@ -230,7 +263,7 @@ func update_parts(updates: Dictionary) -> String:
 	for uid in updates:
 		_parts[uid] = (updates[uid] as Dictionary).duplicate()
 		_rebuild_node(uid)
-	parts_changed.emit()
+	_changed()
 	return ""
 
 
@@ -244,7 +277,7 @@ func paint(uid: int, material: String, color: Color) -> void:
 		record["material"] = material
 		record["color"] = color
 		_rebuild_node(member)
-	parts_changed.emit()
+	_changed()
 
 
 # --- Nodes -------------------------------------------------------------------
