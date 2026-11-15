@@ -5,6 +5,8 @@ extends RefCounted
 ## part's real shape is that unit shape stretched to its size, so the volume
 ## and centre of mass below are given as fractions of the bounding box.
 
+const MechModels = preload("res://scripts/mech_models.gd")
+
 ## id -> [name, category, default size in cells, volume fraction,
 ##        centre of mass in unit-box coordinates, collision kind]
 const PARTS := {
@@ -30,9 +32,29 @@ const PARTS := {
 	"ring": ["Ring", "Advanced", Vector3(1, 1, 1), 0.502655, Vector3(0, 0, 0), "concave"],
 	"pipe": ["Pipe", "Advanced", Vector3(1, 1, 1), 0.282743, Vector3(0, 0, 0), "concave"],
 	"torus": ["Torus", "Advanced", Vector3(1, 0.25, 1), 0.462637, Vector3(0, 0, 0), "concave"],
+	# Mechanical parts are models only for now. Their volume share (0.5) and
+	# centre of mass are placeholders until the Spawn milestone defines them.
+	"motor": ["Motor", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"servo": ["Servo", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"door_hinge_servo": ["Door hinge servo", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"hinge": ["Hinge", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"ball_joint": ["Ball joint", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"bearing": ["Bearing block", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"piston": ["Piston", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"solenoid": ["Solenoid", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"spring": ["Spring", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"gear": ["Gear", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"bevel_gear": ["Bevel gear", "Mechanical", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"rack": ["Rack", "Mechanical", Vector3(1, 0.5, 0.5), 0.5, Vector3(0, 0, 0), "box"],
+	"pulley": ["Belt pulley", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"crankshaft": ["Crankshaft", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"wheel": ["Wheel", "Mechanical", Vector3(0.5, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"linkage_bar": ["Linkage bar", "Mechanical", Vector3(1, 0.25, 0.25), 0.5, Vector3(0, 0, 0), "box"],
+	"clutch": ["Clutch", "Mechanical", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"brake": ["Brake", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
 }
 
-const CATEGORIES := ["Basic", "Structural", "Advanced"]
+const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical"]
 const RING_INNER_RADIUS := 0.3   # of a unit ring whose outer radius is 0.5
 const PIPE_INNER_RADIUS := 0.4   # a thinner wall than the ring
 const ARCH_RADIUS := 0.4         # of the opening cut into a unit arch
@@ -83,6 +105,8 @@ static func get_mesh(part_id: String) -> Mesh:
 
 
 static func _build_mesh(part_id: String) -> Mesh:
+	if MechModels.has_model(part_id):
+		return MechModels.build(part_id)
 	match part_id:
 		"wedge":
 			var wedge := PrismMesh.new()

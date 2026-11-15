@@ -12,11 +12,12 @@ Working now:
 - A blocky character who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - All five tools: Place, Delete, Transform, Config and Paint
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
+- Display models for eighteen mechanical parts: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake. They are models only and do nothing until Spawn is built.
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
 
-Not built yet: saving and loading, mechanical and logic parts, and everything to do with Spawn and physics.
+Not built yet: saving and loading, logic parts, and everything to do with Spawn and physics.
 
 ## How to run it
 
@@ -41,7 +42,7 @@ Not built yet: saving and loading, mechanical and logic parts, and everything to
 
 ### Tools
 
-- **Place.** Pick a part from the menu and click to place it against whatever you point at. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
+- **Place.** Pick a part from the menu and click to place it against whatever you point at. Click a category heading to fold it open or shut. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
 - **Delete.** Click a part to remove it.
 - **Transform.** Click to select a part; Shift+click adds to the selection. Arrow keys move the selection along the ground and Page Up / Page Down move it vertically, by the step chosen in the panel. Ctrl+C copies, Ctrl+X cuts, Ctrl+V pastes where you point, Ctrl+A selects everything, and Delete removes the selection.
 - **Config.** Click a part to see its volume, mass and health and to change its dimensions. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.
@@ -65,6 +66,8 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/build_grid.gd` | Stores every part; overlap rules, mass and center of mass |
 | `scripts/build_controller.gd` | The five build tools |
 | `scripts/part_library.gd` | Part shapes: meshes, collision, volume |
+| `scripts/mech_models.gd` | Display models for the mechanical parts |
+| `scripts/mesh_kit.gd` | Helpers that build meshes from boxes, cylinders and gear discs |
 | `scripts/material_library.gd` | Materials: density, friction, strength, look |
 | `scripts/hud.gd` | The on-screen interface |
 | `shaders/pad_grid.gdshader` | Draws the grid lines on the build pad |

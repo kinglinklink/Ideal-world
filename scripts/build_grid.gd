@@ -271,7 +271,9 @@ func _rebuild_node(uid: int) -> void:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = PartLibrary.get_mesh(type)
 	mesh_instance.scale = size_m
-	mesh_instance.material_override = MaterialLibrary.surface(record["material"], record["color"])
+	# Surface 0 is the paintable body. A mechanical part's dark-metal detail
+	# is surface 1 and keeps its own look.
+	mesh_instance.set_surface_override_material(0, MaterialLibrary.surface(record["material"], record["color"]))
 	body.add_child(mesh_instance)
 
 	var collider := CollisionShape3D.new()

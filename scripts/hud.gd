@@ -190,9 +190,17 @@ func _readout(parent: Control) -> Label:
 func _build_place_panel() -> Control:
 	var panel := _column()
 	for category in PartLibrary.CATEGORIES:
-		panel.add_child(_label("%s parts" % category))
+		# Each category is a header that folds its buttons away when clicked.
+		var category_name: String = category
+		var expanded: bool = category_name == "Basic"
+		var header := _button(_category_title(category_name, expanded), 0.0, true)
+		header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		header.set_pressed_no_signal(expanded)
+		panel.add_child(header)
 		var buttons := _grid_of(3)
+		buttons.visible = expanded
 		panel.add_child(buttons)
+		header.toggled.connect(_on_category_toggled.bind(category_name, header, buttons))
 		for id in PartLibrary.part_ids():
 			if PartLibrary.category(id) != category:
 				continue
@@ -204,6 +212,15 @@ func _build_place_panel() -> Control:
 	panel.add_child(_place_brush_label)
 	panel.add_child(_label("R / T / Y  turn 90° about X / Y / Z", 13))
 	return panel
+
+
+static func _category_title(category_name: String, expanded: bool) -> String:
+	return "%s  %s parts" % ["-" if expanded else "+", category_name]
+
+
+func _on_category_toggled(expanded: bool, category_name: String, header: Button, buttons: Control) -> void:
+	buttons.visible = expanded
+	header.text = _category_title(category_name, expanded)
 
 
 func _build_delete_panel() -> Control:
