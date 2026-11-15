@@ -31,7 +31,8 @@ static func has_model(part_id: String) -> bool:
 	return IDS.has(part_id)
 
 
-static func build(part_id: String) -> ArrayMesh:
+## `teeth` only matters for gears: it sets how many teeth the model shows.
+static func build(part_id: String, teeth: int = 12) -> ArrayMesh:
 	var body := Kit.new_surface()
 	var detail := Kit.new_surface()
 	var detail_look: Material = null   # null means the usual dark metal
@@ -58,11 +59,10 @@ static func build(part_id: String) -> ArrayMesh:
 			Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
 			Kit.add_cylinder(detail, Vector3.ZERO, X, 0.125, 0.9375)
 		"ball_joint":
-			# A socket, a ball, a stud and a mounting plate.
-			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(0.75, 0.375, 0.75))
-			Kit.add_sphere(detail, Vector3.ZERO, 0.22)
-			Kit.add_cylinder(detail, Vector3(0.0, 0.3125, 0.0), Y, 0.09, 0.25)
-			Kit.add_box(body, Vector3(0.0, 0.46875, 0.0), Vector3(0.5, 0.0625, 0.5))
+			# Two matching halves, like the hinge, with a ball held between them.
+			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+			Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+			Kit.add_sphere(detail, Vector3.ZERO, 0.27, 16, 8)
 		"bearing":
 			# Flat on four sides; the shaft passes through top to bottom.
 			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 0.875, 1.0))
@@ -87,11 +87,11 @@ static func build(part_id: String) -> ArrayMesh:
 				Kit.add_cylinder(detail, Vector3(0.0, -0.3125 + 0.125 * float(coil), 0.0), Y, 0.3, 0.0625)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.07, 0.875)
 		"gear":
-			Kit.add_gear(body, Vector3.ZERO, Y, 0.4, 0.5, 0.8, 12)
+			Kit.add_gear(body, Vector3.ZERO, Y, 0.4, 0.5, 0.8, teeth)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.15, 1.0)
 		"bevel_gear":
 			# A toothed base stepping in toward the shaft.
-			Kit.add_gear(body, Vector3(0.0, -0.3, 0.0), Y, 0.4, 0.5, 0.3, 12)
+			Kit.add_gear(body, Vector3(0.0, -0.3, 0.0), Y, 0.4, 0.5, 0.3, teeth)
 			Kit.add_cylinder(body, Vector3(0.0, -0.05, 0.0), Y, 0.33, 0.2)
 			Kit.add_cylinder(body, Vector3(0.0, 0.15, 0.0), Y, 0.22, 0.2)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.12, 1.0)

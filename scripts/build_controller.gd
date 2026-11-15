@@ -798,7 +798,7 @@ func _fit_marker(marker: MeshInstance3D, record: Dictionary, color: Color, infla
 	var pos: Vector3i = record["pos"]
 	var type: String = record["type"]
 	var shape_basis := Basis(rot.x * size_m.x, rot.y * size_m.y, rot.z * size_m.z)
-	marker.mesh = PartLibrary.get_mesh(type)
+	marker.mesh = PartLibrary.mesh_for_record(record)
 	marker.material_override = PartLibrary.overlay_material(color)
 	marker.global_transform = grid.global_transform * Transform3D(shape_basis, Vector3(pos) * Units.UNIT)
 	marker.visible = true

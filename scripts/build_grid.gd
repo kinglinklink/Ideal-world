@@ -415,7 +415,7 @@ func _rebuild_node(uid: int) -> void:
 	body.transform = Transform3D(record["rot"] as Basis, Vector3(record["pos"] as Vector3i) * Units.UNIT)
 
 	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.mesh = PartLibrary.get_mesh(type)
+	mesh_instance.mesh = PartLibrary.mesh_for_record(record)
 	mesh_instance.scale = size_m
 	# Surface 0 is the paintable body. A mechanical part's dark-metal detail
 	# is surface 1 and keeps its own look.

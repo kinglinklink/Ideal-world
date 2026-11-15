@@ -162,10 +162,27 @@ static func unit_centroid(part_id: String) -> Vector3:
 # --- Meshes ------------------------------------------------------------------
 
 ## The unit-size render mesh for a part. Scale it by the part's size in metres.
-static func get_mesh(part_id: String) -> Mesh:
-	if not _mesh_cache.has(part_id):
-		_mesh_cache[part_id] = _build_mesh(part_id)
-	return _mesh_cache[part_id]
+## `teeth` picks a gear model with that many teeth; 0 means the standard model.
+static func get_mesh(part_id: String, teeth: int = 0) -> Mesh:
+	var key := part_id
+	if teeth > 0:
+		key = "%s:%d" % [part_id, teeth]
+	if not _mesh_cache.has(key):
+		if teeth > 0:
+			_mesh_cache[key] = MechModels.build(part_id, teeth)
+		else:
+			_mesh_cache[key] = _build_mesh(part_id)
+	return _mesh_cache[key]
+
+
+## The model for one particular part. Gears show the tooth count from their settings.
+static func mesh_for_record(record: Dictionary) -> Mesh:
+	var type: String = record["type"]
+	if type == "gear" or type == "bevel_gear":
+		var props: Dictionary = record.get("props", {})
+		var teeth: int = clampi(int(props.get("teeth", 12)), 4, 120)
+		return get_mesh(type, teeth)
+	return get_mesh(type)
 
 
 static func _build_mesh(part_id: String) -> Mesh:
