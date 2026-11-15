@@ -17,7 +17,8 @@ const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Player = preload("res://scripts/player.gd")
 
-enum Tool { PLACE, DELETE, CONFIG, TRANSFORM, PAINT }
+## NONE means every tool is put away: nothing is aimed, placed or selected.
+enum Tool { NONE = -1, PLACE, DELETE, CONFIG, TRANSFORM, PAINT }
 
 const TOOL_NAMES := ["Place", "Delete", "Config", "Transform", "Paint"]
 const REACH := 400.0         # metres the tools can reach from the camera
@@ -43,7 +44,7 @@ var player: CharacterBody3D = null   # player.gd
 var spawner: Node3D = null           # spawner.gd
 var spawned := false                 # true while the build is spawned and the tools are put away
 
-var current_tool: int = Tool.PLACE
+var current_tool: int = Tool.NONE
 var part_type: String = "block"
 var place_rotation: Basis = Basis.IDENTITY
 var brush_material: String = MaterialLibrary.DEFAULT_ID
@@ -131,8 +132,17 @@ func _new_marker(marker_name: String) -> MeshInstance3D:
 
 # --- State changes -----------------------------------------------------------
 
+## Picks a tool, or puts it away again if it is already the one in hand.
+## This is what the number keys and the tool bar buttons do.
+func toggle_tool(tool_index: int) -> void:
+	if tool_index == current_tool:
+		set_tool(Tool.NONE)
+	else:
+		set_tool(tool_index)
+
+
 func set_tool(new_tool: int) -> void:
-	if new_tool < 0 or new_tool >= TOOL_NAMES.size() or new_tool == current_tool:
+	if new_tool < Tool.NONE or new_tool >= TOOL_NAMES.size() or new_tool == current_tool:
 		return
 	current_tool = new_tool
 	eyedropper = ""
@@ -247,15 +257,15 @@ func _on_key(key: InputEventKey) -> void:
 				select_all()
 		return
 	if code == KEY_1:
-		set_tool(Tool.PLACE)
+		toggle_tool(Tool.PLACE)
 	elif code == KEY_2:
-		set_tool(Tool.DELETE)
+		toggle_tool(Tool.DELETE)
 	elif code == KEY_3:
-		set_tool(Tool.CONFIG)
+		toggle_tool(Tool.CONFIG)
 	elif code == KEY_4:
-		set_tool(Tool.TRANSFORM)
+		toggle_tool(Tool.TRANSFORM)
 	elif code == KEY_5:
-		set_tool(Tool.PAINT)
+		toggle_tool(Tool.PAINT)
 	elif code == KEY_R:
 		_on_rotate_key(Vector3(1.0, 0.0, 0.0))
 	elif code == KEY_T:
@@ -969,7 +979,7 @@ func _update_cursor_markers() -> void:
 			var preview_color: Color = PREVIEW_OK if problem == "" else PREVIEW_BLOCKED
 			_fit_marker(_preview, record, preview_color, 1.0)
 			_fit_axes(record)
-	elif _hit_uid != 0:
+	elif _hit_uid != 0 and current_tool != Tool.NONE:
 		var hover_color: Color = HOVER_DELETE if current_tool == Tool.DELETE else HOVER_OTHER
 		var hovered: Dictionary = grid.get_part(_hit_uid)
 		_fit_marker(_hover, hovered, hover_color, 1.03)
