@@ -147,6 +147,13 @@ static func placement_color(part_id: String, brush_color: Color) -> Color:
 	return brush_color
 
 
+## True for parts that are placed in the middle of the cell under the cursor
+## instead of being pushed against the surface: the thin aero panels, whose
+## thickness then lies evenly either side of the cell's centre line.
+static func sits_mid_cell(part_id: String) -> bool:
+	return part_id == "aero_panel" or part_id == "aero_panel_triangle"
+
+
 static func default_size_cells(part_id: String) -> Vector3:
 	return _row(part_id)[2]
 
@@ -461,13 +468,15 @@ static func _unit_hull(part_id: String) -> PackedVector3Array:
 
 
 ## The collision shape for a part at a given size in metres.
-static func make_shape(part_id: String, size_m: Vector3) -> Shape3D:
+## `moving` is for spawned parts: a moving body cannot use a hollow (concave)
+## shape, so those parts get their convex outline instead, hollows filled in.
+static func make_shape(part_id: String, size_m: Vector3, moving: bool = false) -> Shape3D:
 	var kind: String = _row(part_id)[5]
 	if kind == "box":
 		var box := BoxShape3D.new()
 		box.size = size_m
 		return box
-	if kind == "concave":
+	if kind == "concave" and not moving:
 		var faces := get_mesh(part_id).get_faces()
 		for index in faces.size():
 			faces[index] = faces[index] * size_m

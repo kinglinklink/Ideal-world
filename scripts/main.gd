@@ -11,6 +11,8 @@ const BuildController = preload("res://scripts/build_controller.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Scenery = preload("res://scripts/scenery.gd")
 const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
+const GROUND_SHADER = preload("res://shaders/ground.gdshader")
+const Spawner = preload("res://scripts/spawner.gd")
 
 const GROUND_SIZE := 6000.0   # metres across
 
@@ -58,10 +60,14 @@ func _ready() -> void:
 	player.yaw = PI
 	add_child(player)
 
+	var spawner: Node3D = Spawner.new()
+	spawner.name = "Spawner"
+	add_child(spawner)
+
 	var controller: Node3D = BuildController.new()
 	controller.name = "BuildController"
 	add_child(controller)
-	controller.setup(grid, player)
+	controller.setup(grid, player, spawner)
 
 	var hud: CanvasLayer = Hud.new()
 	hud.name = "Hud"
@@ -118,9 +124,21 @@ func _make_ground() -> void:
 	collider.shape = shape
 	ground.add_child(collider)
 
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.36, 0.62, 0.30)
-	material.roughness = 1.0
+	# Grass: one seamless noise picture, mixed at three sizes by the shader.
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.seed = 7
+	noise.frequency = 0.012
+	noise.fractal_octaves = 5
+	var noise_map := NoiseTexture2D.new()
+	noise_map.width = 512
+	noise_map.height = 512
+	noise_map.seamless = true
+	noise_map.generate_mipmaps = true
+	noise_map.noise = noise
+	var material := ShaderMaterial.new()
+	material.shader = GROUND_SHADER
+	material.set_shader_parameter("noise_map", noise_map)
 	var mesh := BoxMesh.new()
 	mesh.size = slab
 	mesh.material = material

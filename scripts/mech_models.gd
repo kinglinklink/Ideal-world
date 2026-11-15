@@ -32,12 +32,14 @@ static func has_model(part_id: String) -> bool:
 
 
 ## `options` carries the settings that change a model's shape:
-##   "teeth" for gears, "blades" and "pitch" (degrees) for the propeller.
+##   "teeth" for gears, "blades" and "pitch" (degrees) for the propeller,
+##   "half" ("base" or "top") for one side of a hinge.
 static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 	var teeth: int = int(options.get("teeth", 12))
 	var body := Kit.new_surface()
 	var detail := Kit.new_surface()
 	var detail_look: Material = null   # null means the usual dark metal
+	var has_detail := true             # false for a model that is one plain colour
 	match part_id:
 		"motor":
 			# A housing with a collar and an output shaft on top.
@@ -56,10 +58,17 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_cylinder(detail, Vector3(0.0, -0.3125, -0.3125), X, 0.125, 0.9375)
 			Kit.add_box(detail, Vector3(0.3125, -0.25, 0.0), Vector3(0.25, 0.25, 0.375))
 		"hinge":
-			# Two leaves with a pin between them, running along X.
-			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
-			Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
-			Kit.add_cylinder(detail, Vector3.ZERO, X, 0.125, 0.9375)
+			# Two leaves with a pin between them, running along X. Once
+			# spawned the two sides move apart, so "half" asks for one side
+			# alone: "base" is the lower leaf with the pin, "top" the upper leaf.
+			var half: String = str(options.get("half", ""))
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+				Kit.add_cylinder(detail, Vector3.ZERO, X, 0.125, 0.9375)
+			if half != "base":
+				Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+			if half == "top":
+				has_detail = false
 		"ball_joint":
 			# Two matching halves, like the hinge, with a ball held between them.
 			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
@@ -255,14 +264,16 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_cylinder(detail, Vector3(0.0, 0.0, 0.1), Z, 0.42, 0.05, 24)
 		# --- Aero parts. The leading edge faces -Z. ---
 		"aero_panel":
-			Kit.add_box(body, Vector3(0.0, 0.0, 0.03), Vector3(1.0, 0.9, 0.94))
-			Kit.add_box(detail, Vector3(0.0, 0.0, -0.47), Vector3(1.0, 1.0, 0.06))
+			# A plain slab in one colour.
+			Kit.add_box(body, Vector3.ZERO, Vector3.ONE)
+			has_detail = false
 		"aero_panel_triangle":
-			# A right triangle: root along the +Z edge, tip at the (-X, -Z) corner.
+			# A right triangle in one colour: root along the +Z edge, tip at
+			# the (-X, -Z) corner.
 			Kit.add_extruded_polygon(body, [
-				Vector3(-0.5, -0.45, 0.44), Vector3(0.5, -0.45, 0.44), Vector3(-0.5, -0.45, -0.5),
-			], Vector3(0.0, 0.9, 0.0))
-			Kit.add_box(detail, Vector3(0.0, 0.0, 0.47), Vector3(1.0, 1.0, 0.06))
+				Vector3(-0.5, -0.5, 0.5), Vector3(0.5, -0.5, 0.5), Vector3(-0.5, -0.5, -0.5),
+			], Vector3(0.0, 1.0, 0.0))
+			has_detail = false
 		"propeller":
 			# Blades on a hub; the shaft runs along Y. Each blade is tilted about
 			# its own length by the pitch angle.
@@ -361,4 +372,6 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 		_:
 			Kit.add_box(body, Vector3.ZERO, Vector3.ONE)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.1, 1.0)
+	if not has_detail:
+		return Kit.commit_body(body)
 	return Kit.commit(body, detail, detail_look)
