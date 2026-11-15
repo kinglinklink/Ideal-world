@@ -1,0 +1,81 @@
+extends RefCounted
+## Building materials. Densities are real. Friction and strength are starting
+## values to tune in play. Health of a block = its mass x strength.
+
+const DEFAULT_ID := "plastic"
+
+## density in kg/m^3, friction as a coefficient, strength in HP per kg.
+const MATERIALS := {
+	"foam": {"name": "Foam", "density": 50.0, "friction": 0.5, "strength": 4.0,
+		"color": Color(0.93, 0.90, 0.78), "metallic": 0.0, "roughness": 0.95},
+	"balsa": {"name": "Balsa", "density": 150.0, "friction": 0.4, "strength": 8.0,
+		"color": Color(0.87, 0.76, 0.58), "metallic": 0.0, "roughness": 0.9},
+	"wood": {"name": "Wood", "density": 600.0, "friction": 0.4, "strength": 10.0,
+		"color": Color(0.62, 0.44, 0.27), "metallic": 0.0, "roughness": 0.85},
+	"ice": {"name": "Ice", "density": 917.0, "friction": 0.05, "strength": 1.0,
+		"color": Color(0.72, 0.88, 0.96), "metallic": 0.0, "roughness": 0.1},
+	"plastic": {"name": "Plastic", "density": 1050.0, "friction": 0.35, "strength": 6.0,
+		"color": Color(0.80, 0.82, 0.86), "metallic": 0.0, "roughness": 0.6},
+	"rubber": {"name": "Rubber", "density": 1100.0, "friction": 1.1, "strength": 8.0,
+		"color": Color(0.14, 0.14, 0.15), "metallic": 0.0, "roughness": 0.95},
+	"carbon_fiber": {"name": "Carbon fiber", "density": 1600.0, "friction": 0.3, "strength": 40.0,
+		"color": Color(0.22, 0.23, 0.26), "metallic": 0.2, "roughness": 0.45},
+	"concrete": {"name": "Concrete", "density": 2400.0, "friction": 0.8, "strength": 2.0,
+		"color": Color(0.62, 0.62, 0.60), "metallic": 0.0, "roughness": 1.0},
+	"glass": {"name": "Glass", "density": 2500.0, "friction": 0.4, "strength": 1.0,
+		"color": Color(0.70, 0.86, 0.90), "metallic": 0.0, "roughness": 0.05},
+	"aluminum": {"name": "Aluminum", "density": 2700.0, "friction": 0.6, "strength": 15.0,
+		"color": Color(0.80, 0.82, 0.84), "metallic": 0.8, "roughness": 0.35},
+	"titanium": {"name": "Titanium", "density": 4500.0, "friction": 0.5, "strength": 25.0,
+		"color": Color(0.60, 0.61, 0.64), "metallic": 0.8, "roughness": 0.4},
+	"steel": {"name": "Steel", "density": 7850.0, "friction": 0.6, "strength": 10.0,
+		"color": Color(0.48, 0.50, 0.54), "metallic": 0.85, "roughness": 0.4},
+	"lead": {"name": "Lead", "density": 11340.0, "friction": 0.5, "strength": 1.0,
+		"color": Color(0.36, 0.37, 0.42), "metallic": 0.7, "roughness": 0.6},
+}
+
+static var _surface_cache: Dictionary = {}
+
+
+static func ids() -> Array:
+	return MATERIALS.keys()
+
+
+static func info(material_id: String) -> Dictionary:
+	if MATERIALS.has(material_id):
+		return MATERIALS[material_id]
+	return MATERIALS[DEFAULT_ID]
+
+
+static func display_name(material_id: String) -> String:
+	return str(info(material_id)["name"])
+
+
+static func density(material_id: String) -> float:
+	return float(info(material_id)["density"])
+
+
+static func default_color(material_id: String) -> Color:
+	return info(material_id)["color"]
+
+
+## The text shown when hovering a material in the paint window.
+static func tooltip(material_id: String) -> String:
+	var data: Dictionary = info(material_id)
+	return "%s\nDensity: %d kg/m³\nFriction: %.2f\nStrength: %d HP per kg" % [
+		data["name"], int(data["density"]), float(data["friction"]), int(data["strength"]),
+	]
+
+
+## A render material for one building material in one color. Cached, so every
+## block that shares a look also shares a material.
+static func surface(material_id: String, color: Color) -> StandardMaterial3D:
+	var key := "%s#%s" % [material_id, color.to_html(true)]
+	if not _surface_cache.has(key):
+		var data: Dictionary = info(material_id)
+		var surface_material := StandardMaterial3D.new()
+		surface_material.albedo_color = color
+		surface_material.metallic = float(data["metallic"])
+		surface_material.roughness = float(data["roughness"])
+		_surface_cache[key] = surface_material
+	return _surface_cache[key]
