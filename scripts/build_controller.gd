@@ -7,6 +7,7 @@ signal brush_changed
 signal selection_changed
 signal snap_changed(units: int)
 signal message(text: String)
+signal spawn_changed(is_spawned: bool)
 
 const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
@@ -16,12 +17,15 @@ const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Player = preload("res://scripts/player.gd")
 
-enum Tool { PLACE, DELETE, TRANSFORM, CONFIG, PAINT }
+enum Tool { PLACE, DELETE, CONFIG, TRANSFORM, PAINT }
 
-const TOOL_NAMES := ["Place", "Delete", "Transform", "Config", "Paint"]
+const TOOL_NAMES := ["Place", "Delete", "Config", "Transform", "Paint"]
 const REACH := 400.0         # metres the tools can reach from the camera
 const AIM_EVERY_TICKS := 4   # the aim ray runs at 60 Hz, a quarter of the physics rate
 const PASTE_PREVIEW_LIMIT := 200   # most parts drawn in the paste preview
+const AXIS_WIDTH := 0.03       # metres; thickness of the axis lines on the placement ghost
+const AXIS_OVERHANG := 0.2     # metres the axis lines reach past the part
+const AXIS_COLORS := [Color(0.95, 0.2, 0.2), Color(0.3, 0.85, 0.3), Color(0.25, 0.45, 1.0)]   # X, Y, Z
 const SEAT_REACH := 2.5        # metres from the character to a seat it can sit in
 const SEAT_EVERY_TICKS := 16   # the search for a seat within reach runs at 15 Hz
 
@@ -36,6 +40,8 @@ const LINK_OUT := Color(0.35, 0.65, 1.0)  # lines to the parts that listen to th
 
 var grid: Node3D = null              # build_grid.gd
 var player: CharacterBody3D = null   # player.gd
+var spawner: Node3D = null           # spawner.gd
+var spawned := false                 # true while the build is spawned and the tools are put away
 
 var current_tool: int = Tool.PLACE
 var part_type: String = "block"
@@ -65,19 +71,31 @@ var _hover: MeshInstance3D
 var _mass_marker: MeshInstance3D
 var _selection_markers: Array = []
 var _paste_markers: Array = []
+var _axis_markers: Array = []  # three bars showing the placement ghost's own X, Y and Z
 var _link_lines: MeshInstance3D
 var _link_mesh: ImmediateMesh
 
 
-func setup(p_grid: Node3D, p_player: CharacterBody3D) -> void:
+func setup(p_grid: Node3D, p_player: CharacterBody3D, p_spawner: Node3D) -> void:
 	grid = p_grid
 	player = p_player
+	spawner = p_spawner
 	grid.connect("parts_changed", _on_parts_changed)
 
 
 func _ready() -> void:
 	_preview = _new_marker("Preview")
 	_hover = _new_marker("Hover")
+
+	# Three thin bars for the ghost's axes: red X, green Y, blue Z.
+	for axis in 3:
+		var bar := _new_marker("GhostAxis%d" % axis)
+		bar.mesh = BoxMesh.new()
+		var bar_material := StandardMaterial3D.new()
+		bar_material.albedo_color = AXIS_COLORS[axis]
+		bar_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bar.material_override = bar_material
+		_axis_markers.append(bar)
 
 	_mass_marker = _new_marker("CentreOfMass")
 	var ball := SphereMesh.new()
@@ -172,13 +190,14 @@ func _on_parts_changed() -> void:
 		link_input = ""
 		link_source_uid = 0
 		selection_changed.emit()
-	if seat_uid != 0:
-		if grid.has_part(seat_uid):
-			# The seat may have been moved, turned or resized: stay on it.
-			var place: Array = _seat_place(grid.get_part(seat_uid))
-			player.hold_seat(place[0], place[1])
-		else:
+	if seat_uid != 0 and not spawned:
+		var frame: Array = _seat_frame(seat_uid)
+		if frame.is_empty():
 			_leave_seat()
+		else:
+			# The seat may have been moved, turned or resized: stay on it.
+			var place: Array = _seat_place(frame)
+			player.hold_seat(place[0], place[1])
 	_refresh_markers()
 
 
@@ -189,7 +208,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo:
 			_on_key(key)
-		elif key.pressed and current_tool == Tool.TRANSFORM:
+		elif key.pressed and current_tool == Tool.TRANSFORM and not spawned:
 			_on_move_key(key.physical_keycode)   # held arrows keep nudging
 	elif event is InputEventMouseButton:
 		var button := event as InputEventMouseButton
@@ -200,6 +219,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_key(key: InputEventKey) -> void:
 	var code: int = key.physical_keycode
+	if spawned:
+		# The build tools are put away. Only sitting down still works.
+		if code == KEY_E and not key.ctrl_pressed:
+			_seat_request = true
+		return
 	if key.ctrl_pressed:
 		# Ctrl shortcuts. Undo and redo work in every tool.
 		if code == KEY_Z:
@@ -224,9 +248,9 @@ func _on_key(key: InputEventKey) -> void:
 	elif code == KEY_2:
 		set_tool(Tool.DELETE)
 	elif code == KEY_3:
-		set_tool(Tool.TRANSFORM)
-	elif code == KEY_4:
 		set_tool(Tool.CONFIG)
+	elif code == KEY_4:
+		set_tool(Tool.TRANSFORM)
 	elif code == KEY_5:
 		set_tool(Tool.PAINT)
 	elif code == KEY_R:
@@ -244,9 +268,18 @@ func _on_key(key: InputEventKey) -> void:
 			_on_move_key(code)
 
 
+## Turns things 90 degrees about world X (0), Y (1) or Z (2), like R, T and Y.
+func turn(axis_index: int) -> void:
+	var axis := Vector3.ZERO
+	axis[clampi(axis_index, 0, 2)] = 1.0
+	_on_rotate_key(axis)
+
+
 ## R, T and Y turn things 90 degrees about the world X, Y and Z axes:
 ## the armed part in the Place tool, the selection in the Transform tool.
 func _on_rotate_key(axis: Vector3) -> void:
+	if spawned:
+		return
 	if current_tool == Tool.PLACE:
 		place_rotation = _quarter_turn(axis) * place_rotation
 	elif current_tool == Tool.TRANSFORM:
@@ -295,7 +328,7 @@ static func _ground_axis(direction: Vector3) -> Vector3i:
 # --- Tool actions ------------------------------------------------------------
 
 func _use_tool() -> void:
-	if grid == null:
+	if grid == null or spawned:
 		return
 	if current_tool == Tool.PLACE:
 		_use_place()
@@ -367,6 +400,8 @@ func _placement_record() -> Dictionary:
 	var half: Vector3 = BuildGrid.half_extent_units(record)
 	for axis in 3:
 		if axis == _target_axis:
+			if PartLibrary.sits_mid_cell(part_type):
+				continue   # an aero panel stays on the cell's centre line
 			# Push the part up against the surface under the cursor.
 			var gap: int = Units.HALF_CELL_UNITS - int(round(half[axis]))
 			center[axis] -= _target_sign * gap
@@ -546,11 +581,15 @@ func arm_paste() -> void:
 
 
 func undo() -> void:
+	if spawned:
+		return
 	if grid != null and not grid.undo():
 		_say("Nothing to undo.")
 
 
 func redo() -> void:
+	if spawned:
+		return
 	if grid != null and not grid.redo():
 		_say("Nothing to redo.")
 
@@ -682,6 +721,48 @@ func set_config_setting(setting_id: String, value: Variant) -> bool:
 	return _apply(updates)
 
 
+# --- Spawn -------------------------------------------------------------------
+
+## Switches between building and the spawned world. Spawning welds the build
+## into moving bodies and puts the tools away; going back restores the build
+## exactly as it was.
+func toggle_spawn() -> void:
+	if grid == null or spawner == null:
+		return
+	if not spawned and grid.part_count() == 0:
+		_say("There is nothing to spawn. Place some parts first.")
+		return
+	if seat_uid != 0:
+		_leave_seat()
+	near_seat_uid = 0
+	if spawned:
+		spawner.despawn()
+		grid.set_active(true)
+		spawned = false
+		_say("Back to building.")
+	else:
+		eyedropper = ""
+		paste_armed = false
+		link_input = ""
+		link_source_uid = 0
+		selection = []
+		var report: Dictionary = spawner.spawn(grid)
+		grid.set_active(false)
+		spawned = true
+		var bodies: int = report["bodies"]
+		var mass: float = report["mass"]
+		_say("Spawned %d part(s) as %d welded %s, %.1f kg in all." % [
+			int(report["parts"]), bodies, "body" if bodies == 1 else "bodies", mass,
+		])
+	_preview.visible = false
+	_hover.visible = false
+	_hide_axes()
+	_update_paste_preview()
+	_refresh_markers()
+	selection_changed.emit()
+	spawn_changed.emit(spawned)
+
+
 # --- Seats -------------------------------------------------------------------
 
 ## The line the interface shows about sitting, or "" for nothing to say.
@@ -698,62 +779,100 @@ func _update_seat() -> void:
 	if grid == null or player == null:
 		return
 	if seat_uid != 0:
+		_seat_request = false   # E does nothing while seated; only Space stands up
 		var typing: bool = get_viewport().gui_get_focus_owner() != null
 		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
 			_leave_seat()
-		_seat_request = false   # E does nothing while seated; only Space stands up
+		elif spawned:
+			# A spawned seat moves, so the sitter is carried along every tick.
+			var frame: Array = _seat_frame(seat_uid)
+			if frame.is_empty():
+				_leave_seat()
+			else:
+				var riding: Array = _seat_place(frame)
+				player.hold_seat(riding[0], riding[1])
 		return
 	if _seat_request or _tick % SEAT_EVERY_TICKS == 0:
-		var chest: Vector3 = player.global_position + Vector3(0.0, Player.BODY_HEIGHT * 0.5, 0.0)
-		var local_chest: Vector3 = grid.global_transform.affine_inverse() * chest
-		near_seat_uid = grid.nearest_of_type("seat", local_chest, SEAT_REACH)
+		near_seat_uid = _nearest_seat()
 	if _seat_request:
 		_seat_request = false
-		if near_seat_uid == 0:
+		var frame: Array = _seat_frame(near_seat_uid)
+		if frame.is_empty():
+			near_seat_uid = 0
 			_say("There is no seat within reach.")
 			return
-		var place: Array = _seat_place(grid.get_part(near_seat_uid))
+		var place: Array = _seat_place(frame)
 		seat_uid = near_seat_uid
 		near_seat_uid = 0
 		player.sit(place[0], place[1])
 
 
-## Where a seat puts its sitter: [the world point on top of the cushion,
-## the heading the seat faces]. A seat faces along its own -Z.
-func _seat_place(record: Dictionary) -> Array:
+## The nearest seat the character can reach: a spawned one while spawned,
+## otherwise one on the build grid. Returns its uid, or 0 for none.
+func _nearest_seat() -> int:
+	var chest: Vector3 = player.global_position + Vector3(0.0, Player.BODY_HEIGHT * 0.5, 0.0)
+	if spawned:
+		return spawner.nearest_seat(chest, SEAT_REACH)
+	var local_chest: Vector3 = grid.global_transform.affine_inverse() * chest
+	return grid.nearest_of_type("seat", local_chest, SEAT_REACH)
+
+
+## A seat's place in the world: [its transform, its size in metres]. Empty if
+## the seat does not exist. Works for a seat on the grid and a spawned one.
+func _seat_frame(uid: int) -> Array:
+	if uid == 0:
+		return []
+	if spawned:
+		return spawner.seat_frame(uid)
+	if not grid.has_part(uid):
+		return []
+	var record: Dictionary = grid.get_part(uid)
 	var rot: Basis = record["rot"]
 	var size_units: Vector3i = record["size"]
-	var size_m: Vector3 = Units.to_metres(size_units)
 	var centre: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT
+	return [grid.global_transform * Transform3D(rot, centre), Units.to_metres(size_units)]
+
+
+## Where a seat puts its sitter: [the world point on top of the cushion,
+## the heading the seat faces]. A seat faces along its own -Z.
+func _seat_place(frame: Array) -> Array:
+	var seat: Transform3D = frame[0]
+	var size_m: Vector3 = frame[1]
 	# These match the seat model: the cushion top is 0.15 of the height below
 	# the middle, and the cushion sits a little forward of the backrest.
-	var cushion: Vector3 = centre + rot * Vector3(0.0, -0.15 * size_m.y, 0.05 * size_m.z)
-	var to_world: Transform3D = grid.global_transform
-	var forward: Vector3 = to_world.basis * (rot * Vector3(0.0, 0.0, -1.0))
+	var cushion: Vector3 = seat * Vector3(0.0, -0.15 * size_m.y, 0.05 * size_m.z)
+	var forward: Vector3 = -seat.basis.z
 	var heading: float = player.get_heading()   # kept if the seat faces straight up or down
 	if Vector2(forward.x, forward.z).length() > 0.5:
 		heading = atan2(-forward.x, -forward.z)
-	return [to_world * cushion, heading]
+	return [cushion, heading]
 
 
 func _leave_seat() -> void:
 	# If the seat is gone, simply stand where the character was sitting.
 	var exit_point: Vector3 = player.global_position + Vector3(0.0, Player.HIP_HEIGHT, 0.0)
-	if grid.has_part(seat_uid):
-		exit_point = _seat_exit(grid.get_part(seat_uid))
+	var frame: Array = _seat_frame(seat_uid)
+	if not frame.is_empty():
+		exit_point = _seat_exit(frame)
 	seat_uid = 0
 	player.stand_up(exit_point)
 
 
 ## Where the character's feet go on standing up: on top of the seat if there
 ## is head room, otherwise beside it, trying the front first.
-func _seat_exit(record: Dictionary) -> Vector3:
-	var bounds: AABB = BuildGrid.bounds_of(record)
-	var centre: Vector3 = bounds.get_center()
-	var half: Vector3 = bounds.size * 0.5
-	var forward: Vector3 = (record["rot"] as Basis) * Vector3(0.0, 0.0, -1.0)
-	if absf(forward.y) > 0.5:
+func _seat_exit(frame: Array) -> Vector3:
+	var seat: Transform3D = frame[0]
+	var size_m: Vector3 = frame[1]
+	var centre: Vector3 = seat.origin
+	# Half the size of the box that encloses the seat, however it is turned.
+	var half: Vector3 = (seat.basis.x * size_m.x).abs() + (seat.basis.y * size_m.y).abs() \
+			+ (seat.basis.z * size_m.z).abs()
+	half *= 0.5
+	var forward: Vector3 = -seat.basis.z
+	forward.y = 0.0
+	if forward.length() < 0.5:
 		forward = Vector3(0.0, 0.0, -1.0)
+	forward = forward.normalized()
 	var right: Vector3 = forward.cross(Vector3.UP)
 	var top: Vector3 = centre + Vector3(0.0, half.y, 0.0)
 	var spots: Array = [top]
@@ -761,13 +880,11 @@ func _seat_exit(record: Dictionary) -> Vector3:
 		var way: Vector3 = direction
 		var clearance: float = absf(way.x) * half.x + absf(way.z) * half.z + Player.BODY_RADIUS + 0.05
 		spots.append(centre + way * clearance - Vector3(0.0, half.y, 0.0))
-	var to_world: Transform3D = grid.global_transform
 	for spot in spots:
-		var local_spot: Vector3 = spot
-		var feet: Vector3 = to_world * local_spot
+		var feet: Vector3 = spot
 		if _has_standing_room(feet):
 			return feet
-	return to_world * top
+	return top
 
 
 ## True if the character's body fits with its feet at the given world point.
@@ -787,6 +904,8 @@ func _has_standing_room(feet: Vector3) -> bool:
 func _physics_process(_delta: float) -> void:
 	_tick += 1
 	_update_seat()
+	if spawned:
+		return
 	if _tick % AIM_EVERY_TICKS != 0:
 		return
 	_update_target()
@@ -832,21 +951,46 @@ func _update_target() -> void:
 func _update_cursor_markers() -> void:
 	_preview.visible = false
 	_hover.visible = false
+	_hide_axes()
 	if current_tool == Tool.PLACE:
 		if _has_target:
 			var record: Dictionary = _placement_record()
 			var problem: String = grid.check(record)
 			var preview_color: Color = PREVIEW_OK if problem == "" else PREVIEW_BLOCKED
 			_fit_marker(_preview, record, preview_color, 1.0)
+			_fit_axes(record)
 	elif _hit_uid != 0:
 		var hover_color: Color = HOVER_DELETE if current_tool == Tool.DELETE else HOVER_OTHER
 		var hovered: Dictionary = grid.get_part(_hit_uid)
 		_fit_marker(_hover, hovered, hover_color, 1.03)
 
 
+func _hide_axes() -> void:
+	for bar in _axis_markers:
+		(bar as MeshInstance3D).visible = false
+
+
+## Draws the ghost part's own X, Y and Z axes from its centre, in red, green
+## and blue. They turn with the part, so they show which way it is facing.
+func _fit_axes(record: Dictionary) -> void:
+	var rot: Basis = record["rot"]
+	var size_units: Vector3i = record["size"]
+	var half: Vector3 = Units.to_metres(size_units) * 0.5
+	var centre: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT
+	for axis in 3:
+		var length: float = half[axis] + AXIS_OVERHANG
+		var bar_size := Vector3(AXIS_WIDTH, AXIS_WIDTH, AXIS_WIDTH)
+		bar_size[axis] = length
+		var along: Vector3 = rot[axis]
+		var bar: MeshInstance3D = _axis_markers[axis]
+		var bar_basis := Basis(rot.x * bar_size.x, rot.y * bar_size.y, rot.z * bar_size.z)
+		bar.global_transform = grid.global_transform * Transform3D(bar_basis, centre + along * (length * 0.5))
+		bar.visible = true
+
+
 ## While a paste is armed, shows where the copied parts would land.
 func _update_paste_preview() -> void:
-	var active: bool = current_tool == Tool.TRANSFORM and paste_armed and _has_target and grid != null
+	var active: bool = current_tool == Tool.TRANSFORM and paste_armed and _has_target and grid != null and not spawned
 	var count: int = mini(_clipboard.size(), PASTE_PREVIEW_LIMIT) if active else 0
 	while _paste_markers.size() < count:
 		_paste_markers.append(_new_marker("PastePreview"))
@@ -936,7 +1080,7 @@ func _refresh_markers() -> void:
 
 	_draw_link_lines()
 
-	var show_mass: bool = current_tool == Tool.CONFIG and grid.part_count() > 0
+	var show_mass: bool = current_tool == Tool.CONFIG and grid.part_count() > 0 and not spawned
 	_mass_marker.visible = show_mass
 	if show_mass:
 		var center: Vector3 = grid.center_of_mass()

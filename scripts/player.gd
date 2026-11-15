@@ -14,6 +14,8 @@ const RUN_SPEED := 7.5        # m/s
 const JUMP_SPEED := 4.0       # m/s, about a 0.8 m jump
 const GRAVITY := 9.81         # m/s^2
 const AIR_CONTROL := 3.0      # m/s^2 of steering in mid-air; 0 would be a pure throw
+const MASS := 70.0            # kg; what the character weighs and pushes with
+const PUSH_TIME := 0.25       # seconds over which a push hands over the character's momentum
 const MOUSE_SENSITIVITY := 0.0025
 const ZOOM_MAX := 80.0        # metres behind the character
 const BODY_SCALE := 0.85      # the character model is built 1.8 m tall, then shrunk
@@ -32,6 +34,8 @@ var seated := false           # sitting in a seat: no walking until it stands up
 
 var _turning := false         # right mouse button held
 var _jump_locked := false     # Space was used to stand up; no jump until it is released
+var _floor_body: RigidBody3D = null   # the loose body being stood on, if any
+var _floor_point := Vector3.ZERO      # where the feet rest on it, in world space
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
@@ -173,6 +177,7 @@ func _physics_process(delta: float) -> void:
 	if seated:
 		# No walking while seated. The build tools hold the character on its seat.
 		velocity = Vector3.ZERO
+		_floor_body = null
 		return
 	if _jump_locked and not Input.is_physical_key_pressed(KEY_SPACE):
 		_jump_locked = false
@@ -202,6 +207,9 @@ func _physics_process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_SHIFT):
 		speed = RUN_SPEED
 	var grounded := is_on_floor()
+	_floor_body = null
+	if grounded:
+		_floor_body = _find_floor_body()
 	if grounded:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
@@ -219,6 +227,8 @@ func _physics_process(delta: float) -> void:
 			velocity.z = flying.y
 		velocity.y -= GRAVITY * delta
 
+	# The speed the character is trying to move at, before anything blocks it.
+	var wanted := Vector3(velocity.x, 0.0, velocity.z)
 	if grounded and _try_step_up(delta):
 		# The step already moved us forward. Settle onto the new floor.
 		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -227,6 +237,11 @@ func _physics_process(delta: float) -> void:
 		velocity = horizontal
 	else:
 		move_and_slide()
+		_push_bodies(wanted, delta)
+	if _floor_body != null:
+		# Whatever the character stands on carries its weight.
+		_floor_body.sleeping = false
+		_floor_body.apply_force(Vector3(0.0, -MASS * GRAVITY, 0.0), _floor_point - _floor_body.global_position)
 
 	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-14.0 * delta))
 
@@ -238,6 +253,67 @@ func _physics_process(delta: float) -> void:
 		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-12.0 * delta))
 
 
+## The loose (spawned, unanchored) body under the character's feet, or null.
+func _find_floor_body() -> RigidBody3D:
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, Vector3(0.0, -0.1, 0.0), hit):
+		return null
+	var body := hit.get_collider() as RigidBody3D
+	if body == null or body.freeze:
+		return null
+	_floor_point = hit.get_position()
+	return body
+
+
+## Pushes the loose bodies the character walked into this tick.
+##
+## The push comes from the character's momentum: its mass times the speed at
+## which it is closing on the body. Handing that over across PUSH_TIME gives
+## the force. Walking at 4 m/s into something standing still is
+## 70 kg x 4 m/s / 0.25 s = 1120 N; running is 2100 N. The physics engine
+## then weighs that against the body's friction with the ground, so a light
+## body slides away, a heavy one creeps, and one whose friction beats the push
+## stays put. The character is held back to the body's speed by the collision
+## itself, so heavier things are slower to push.
+func _push_bodies(wanted: Vector3, delta: float) -> void:
+	var pushed: Array = []
+	for index in get_slide_collision_count():
+		var collision := get_slide_collision(index)
+		var body := collision.get_collider() as RigidBody3D
+		if body == null or body.freeze or body == _floor_body or pushed.has(body):
+			continue
+		var normal := collision.get_normal()   # points from the body toward the character
+		if normal.y > 0.7:
+			continue   # standing on it, not pushing it
+		var into := Vector3(-normal.x, 0.0, -normal.z)
+		if into.length() < 0.2:
+			continue
+		into = into.normalized()
+		# Compare speeds at the point of contact, so a spinning body counts too.
+		var arm := collision.get_position() - body.global_position
+		var body_velocity := body.linear_velocity + body.angular_velocity.cross(arm)
+		var closing := (wanted - body_velocity).dot(into)
+		if closing <= 0.0:
+			continue   # it is already moving away as fast as the character walks
+		var force := MASS * closing / PUSH_TIME
+		# Never hand over more in one tick than a dead-stop collision would,
+		# or a light body would shoot off faster than the character walks.
+		var shared_mass := MASS * body.mass / (MASS + body.mass)
+		force = minf(force, 0.5 * shared_mass * closing / delta)
+		pushed.append(body)
+		body.sleeping = false
+		body.apply_force(into * force, arm)
+		if _floor_body != null:
+			# Pushing off something loose pushes it back the other way.
+			_floor_body.apply_force(-into * force, _floor_point - _floor_body.global_position)
+
+
+## True for a spawned body that can be pushed around.
+static func _is_loose(thing: Object) -> bool:
+	var body := thing as RigidBody3D
+	return body != null and not body.freeze
+
+
 ## Climbs a ledge up to _step_height tall when walking into it.
 ## Works by testing the move in three legs: up, forward, then back down.
 func _try_step_up(delta: float) -> bool:
@@ -245,8 +321,12 @@ func _try_step_up(delta: float) -> bool:
 	if forward.length() < 0.0005:
 		return false
 	var here := global_transform
-	if not test_move(here, forward):
+	var blocker := KinematicCollision3D.new()
+	if not test_move(here, forward, blocker):
 		return false   # nothing in the way
+	var blocking: Object = blocker.get_collider()
+	if _is_loose(blocking) and blocking != _floor_body:
+		return false   # a loose body is pushed, not climbed
 	var up := Vector3(0.0, _step_height, 0.0)
 	if test_move(here, up):
 		return false   # no head room

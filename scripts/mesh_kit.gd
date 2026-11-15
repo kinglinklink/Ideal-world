@@ -216,6 +216,12 @@ static func lens_material() -> StandardMaterial3D:
 	return _lens_material
 
 
+## Finishes a model that is all paintable body, with no detail surface.
+static func commit_body(body: SurfaceTool) -> ArrayMesh:
+	body.generate_normals()
+	return body.commit()
+
+
 ## Joins a paintable body and a fixed-colour detail into one mesh.
 ## Surface 0 is the body, which takes the part's material and colour.
 ## Surface 1 is the detail, which keeps its own look: dark metal unless

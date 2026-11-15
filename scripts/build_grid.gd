@@ -25,6 +25,7 @@ var _batch_dirty := false
 var _batch_before: Dictionary = {}   # the build as it was when the batch began
 var _undo_stack: Array = []          # earlier states of the whole build
 var _redo_stack: Array = []
+var _active := true                  # false while the build is spawned: parts hidden and untouchable
 
 
 # --- Records -----------------------------------------------------------------
@@ -102,6 +103,16 @@ func get_part(uid: int) -> Dictionary:
 	if not _parts.has(uid):
 		return {}
 	return (_parts[uid] as Dictionary).duplicate(true)
+
+
+## Shows or hides every part. While the build is spawned its parts are
+## hidden and take no part in collisions; the spawned bodies stand in for them.
+func set_active(active: bool) -> void:
+	_active = active
+	for uid in _nodes:
+		var body: StaticBody3D = _nodes[uid]
+		body.visible = active
+		body.collision_layer = 1 if active else 0
 
 
 func get_node_for(uid: int) -> Node3D:
@@ -442,5 +453,8 @@ func _rebuild_node(uid: int) -> void:
 	collider.shape = PartLibrary.make_shape(type, size_m)
 	body.add_child(collider)
 
+	if not _active:
+		body.visible = false
+		body.collision_layer = 0
 	add_child(body)
 	_nodes[uid] = body

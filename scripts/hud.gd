@@ -15,6 +15,15 @@ const Minimap = preload("res://scripts/minimap.gd")
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 const MESSAGE_SECONDS := 3.5
+const TURN_KEYS := ["R", "T", "Y"]
+const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
+## Short names for the category tabs. A category not listed uses its own name.
+const TAB_LABELS := {
+	"Structural": "Struct.",
+	"Advanced": "Adv.",
+	"Mechanical": "Mech",
+	"Fluid and Engine": "Fluids",
+}
 
 signal garage_button_pressed
 
@@ -23,10 +32,10 @@ var grid: Node = null                # build_grid.gd
 var player: CharacterBody3D = null   # player.gd
 
 var _tool_buttons: Array = []
-var _panels: Array = []              # one panel per tool, in Tool order
+var _panels: Array = []              # one panel per tool, in Tool order; null for Place, which uses the parts list
 var _part_buttons: Dictionary = {}   # part id -> Button
 var _category_buttons: Dictionary = {}   # category name -> its tab
-var _part_category := "Basic"        # the category whose parts are listed
+var _part_category := ""             # the category whose parts are listed; "" while the list is folded away
 var _parts_title: Label
 var _part_search: LineEdit
 var _material_buttons: Dictionary = {}
@@ -65,6 +74,12 @@ var _signals_scroll: ScrollContainer
 var _signals_box: VBoxContainer
 var _minimap: Control
 var _garage_button: Button
+var _spawn_button: Button
+var _tabs: Control                   # the category tabs up the left edge
+var _parts_panel: Control            # the parts list that opens beside the tabs
+var _tool_panel: Control             # holds the Delete, Config, Transform and Paint panels
+var _build_bar: Control              # search and rotation, beside the Spawn button
+var _build_only: Array = []          # controls that are hidden while the build is spawned
 var _seat_label: Label
 
 
@@ -79,6 +94,7 @@ func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
 	controller.connect("brush_changed", _on_changed)
 	controller.connect("selection_changed", _on_changed)
 	controller.connect("message", _on_message)
+	controller.connect("spawn_changed", _on_changed_with_value)
 	grid.connect("parts_changed", _on_changed)
 	_refresh()
 
@@ -160,8 +176,8 @@ func _build_interface() -> void:
 	var help := _outlined(_label(
 			"WASD walk   Shift run   Space jump   E sit in a seat   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)\n"
-			+ "1 Place   2 Delete   3 Transform   4 Config   5 Paint   Left click use tool\n"
-			+ "Saves button, bottom right, saves and loads builds", 14))
+			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint   Left click use tool\n"
+			+ "R / T / Y turn a part   Spawn, bottom left, sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(help)
@@ -200,6 +216,7 @@ func _build_interface() -> void:
 	toolbar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	toolbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom.add_child(toolbar)
+	_build_only.append(toolbar)
 	var tool_names: Array = BuildController.TOOL_NAMES
 	for index in tool_names.size():
 		var tool_button := _button("%d  %s" % [index + 1, tool_names[index]], 116.0, true)
@@ -208,27 +225,49 @@ func _build_interface() -> void:
 		toolbar.add_child(tool_button)
 		_tool_buttons.append(tool_button)
 
-	# Side panel, bottom left: one panel per tool, only the active one shown.
-	var side := PanelContainer.new()
-	side.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	side.size_flags_vertical = Control.SIZE_SHRINK_END
-	root.add_child(side)
+	# Bottom left: category tabs up the edge of the screen, with the parts
+	# list or the current tool's panel opening beside them, and under them a
+	# bar holding Spawn, the part search and the rotation buttons.
+	var left := _column()
+	left.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	left.size_flags_vertical = Control.SIZE_SHRINK_END
+	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(left)
+
+	var menu := _row()
+	menu.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_child(menu)
+	_tabs = _build_category_tabs()
+	_tabs.size_flags_vertical = Control.SIZE_SHRINK_END
+	menu.add_child(_tabs)
+	_build_only.append(_tabs)
+	_parts_panel = _build_parts_panel()
+	_parts_panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	menu.add_child(_parts_panel)
+
+	# One panel per tool, only the active one shown. Place has none of its own.
+	_tool_panel = PanelContainer.new()
+	_tool_panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	menu.add_child(_tool_panel)
 	var side_margin := MarginContainer.new()
 	for margin_name in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
 		side_margin.add_theme_constant_override(margin_name, 8)
-	side.add_child(side_margin)
+	_tool_panel.add_child(side_margin)
 	var stack := _column()
 	side_margin.add_child(stack)
-
 	_panels = [
-		_build_place_panel(),
+		null,
 		_build_delete_panel(),
-		_build_transform_panel(),
 		_build_config_panel(),
+		_build_transform_panel(),
 		_build_paint_panel(),
 	]
 	for panel in _panels:
-		stack.add_child(panel)
+		if panel != null:
+			stack.add_child(panel)
+
+	left.add_child(_build_bottom_bar())
+	_build_only.append(_build_bar)
 
 	# Readouts, bottom right.
 	var readouts := VBoxContainer.new()
@@ -248,11 +287,12 @@ func _build_interface() -> void:
 	redo_button.tooltip_text = "Ctrl+Y"
 	redo_button.pressed.connect(_on_redo_button)
 	history.add_child(redo_button)
+	_build_only.append(history)
 	var saves_button := _button("Saves", 110.0)
 	saves_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	saves_button.pressed.connect(_on_saves_button)
 	readouts.add_child(saves_button)
-	_count_label = _readout(readouts)
+	_build_only.append(saves_button)
 	_speed_label = _readout(readouts)
 	_fps_label = _readout(readouts)
 
@@ -275,66 +315,125 @@ func _readout(parent: Control) -> Label:
 	return label
 
 
-func _build_place_panel() -> Control:
-	var panel := _column()
-
-	# Category tabs down the left edge, the chosen category's parts beside them.
-	var body := _row()
-	panel.add_child(body)
-
+## The category tabs that run up the left edge of the screen.
+func _build_category_tabs() -> Control:
 	var tabs := _column()
-	body.add_child(tabs)
+	tabs.add_theme_constant_override("separation", 4)
+	tabs.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var categories: Array = PartLibrary.CATEGORIES.duplicate()
 	categories.reverse()   # Basic sits at the bottom, nearest the tool bar
 	for category in categories:
 		var category_name: String = category
-		var tab := _button(category_name, 150.0, true)
-		tab.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var tab := _button(str(TAB_LABELS.get(category_name, category_name)), 92.0, true)
+		tab.custom_minimum_size = Vector2(92, 42)
+		tab.tooltip_text = "%s parts" % category_name
 		tab.pressed.connect(_on_category_tab.bind(category_name))
 		tabs.add_child(tab)
 		_category_buttons[category_name] = tab
+	return tabs
 
+
+## The list of parts that opens beside the tabs. It is hidden until a tab is
+## opened or something is typed in the search box.
+func _build_parts_panel() -> Control:
+	var panel := PanelContainer.new()
+	var margin := MarginContainer.new()
+	for margin_name in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(margin_name, 8)
+	panel.add_child(margin)
 	var listing := _column()
-	body.add_child(listing)
-	_parts_title = _label("")
+	margin.add_child(listing)
+	_parts_title = _label("", 20)
 	listing.add_child(_parts_title)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(410, 300)
+	scroll.custom_minimum_size = Vector2(236, 340)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	listing.add_child(scroll)
-	var buttons := _grid_of(3)
+	var buttons := _column()
+	buttons.add_theme_constant_override("separation", 4)
 	scroll.add_child(buttons)
-	# Every part's button lives in the one grid; the filter shows the right ones.
+	# Every part's button lives in the one list; the filter shows the right ones.
 	for id in PartLibrary.part_ids():
-		var part_button := _button(PartLibrary.part_name(id), 124.0, true)
+		var part_button := _button(PartLibrary.part_name(id), 220.0, true)
 		part_button.pressed.connect(_on_part_button.bind(id))
 		buttons.add_child(part_button)
 		_part_buttons[id] = part_button
-
-	# Search across every category.
-	var search_row := _row()
-	panel.add_child(search_row)
-	search_row.add_child(_label("Search"))
-	_part_search = LineEdit.new()
-	_part_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_part_search.placeholder_text = "Type part of a name"
-	_part_search.text_changed.connect(_on_part_search_changed)
-	_part_search.text_submitted.connect(_on_part_search_submitted)
-	search_row.add_child(_part_search)
-	var clear_search := _button("Clear", 70.0)
-	clear_search.pressed.connect(_on_part_search_cleared)
-	search_row.add_child(clear_search)
-
 	_place_brush_label = _label("", 13)
-	panel.add_child(_place_brush_label)
-	panel.add_child(_label("R / T / Y  turn 90° about X / Y / Z", 13))
-	_apply_part_filter()
+	listing.add_child(_place_brush_label)
 	return panel
 
 
-## Shows the parts of the chosen category, or every part matching the search.
+## The bar along the bottom left: Spawn, the part search and the rotation buttons.
+func _build_bottom_bar() -> Control:
+	var bar := _row()
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	_spawn_button = _button("Spawn", 92.0)
+	_spawn_button.custom_minimum_size = Vector2(92, 56)
+	_spawn_button.add_theme_font_size_override("font_size", 18)
+	_spawn_button.pressed.connect(_on_spawn_button)
+	bar.add_child(_spawn_button)
+
+	# Everything else in the bar belongs to building and hides while spawned.
+	_build_bar = _row()
+	_build_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(_build_bar)
+
+	var search_box := _column()
+	search_box.add_theme_constant_override("separation", 2)
+	search_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_build_bar.add_child(search_box)
+	_part_search = LineEdit.new()
+	_part_search.custom_minimum_size = Vector2(190, 30)
+	_part_search.placeholder_text = "Search parts"
+	_part_search.clear_button_enabled = true
+	_part_search.text_changed.connect(_on_part_search_changed)
+	_part_search.text_submitted.connect(_on_part_search_submitted)
+	search_box.add_child(_part_search)
+	_count_label = _outlined(_label(""))
+	search_box.add_child(_count_label)
+
+	var turn_box := _column()
+	turn_box.add_theme_constant_override("separation", 2)
+	turn_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_build_bar.add_child(turn_box)
+	var turn_row := _row()
+	turn_row.add_theme_constant_override("separation", 0)
+	turn_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	turn_box.add_child(turn_row)
+	for axis in 3:
+		var turn_button := _button(AXIS_NAMES[axis], 40.0)
+		turn_button.tooltip_text = "Turn 90° about %s (key %s)" % [AXIS_NAMES[axis], TURN_KEYS[axis]]
+		_tint_button(turn_button, AXIS_COLORS[axis])
+		turn_button.pressed.connect(_on_rotation_button.bind(axis))
+		turn_row.add_child(turn_button)
+	var turn_caption := _outlined(_label("Rotation", 13))
+	turn_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	turn_box.add_child(turn_caption)
+	return bar
+
+
+## Gives a button a flat background in one colour, with black lettering.
+func _tint_button(button: Button, color: Color) -> void:
+	var looks := {"normal": color, "hover": color.lightened(0.25), "pressed": color.darkened(0.25)}
+	for state in looks:
+		var state_name: String = state
+		var shade: Color = looks[state_name]
+		var box := StyleBoxFlat.new()
+		box.bg_color = shade
+		box.set_corner_radius_all(4)
+		button.add_theme_stylebox_override(state_name, box)
+	for font_state in ["font_color", "font_hover_color", "font_pressed_color"]:
+		var font_name: String = font_state
+		button.add_theme_color_override(font_name, Color.BLACK)
+	button.add_theme_font_size_override("font_size", 18)
+
+
+## Shows the parts of the open category, or every part matching the search,
+## and opens or folds away the list to suit.
 func _apply_part_filter() -> void:
 	var query := _part_search.text.strip_edges().to_lower()
+	var placing: bool = controller.current_tool == BuildController.Tool.PLACE
 	for id in _part_buttons:
 		var part_id: String = id
 		var part_button: Button = _part_buttons[id]
@@ -348,17 +447,33 @@ func _apply_part_filter() -> void:
 		_parts_title.text = "%s parts" % _part_category
 	for category_name in _category_buttons:
 		var tab: Button = _category_buttons[category_name]
-		tab.set_pressed_no_signal(query == "" and category_name == _part_category)
+		tab.set_pressed_no_signal(placing and query == "" and category_name == _part_category)
+
+	# The list is out of the way unless a tab is open or a search is typed.
+	# The other tools show their own panel in the same spot.
+	var is_spawned: bool = controller.spawned
+	_parts_panel.visible = placing and not is_spawned and (query != "" or _part_category != "")
+	_tool_panel.visible = not placing and not is_spawned
 
 
+## Opens a category. Clicking the open category's tab folds the list away.
 func _on_category_tab(category_name: String) -> void:
-	_part_category = category_name
 	_part_search.text = ""
 	_part_search.release_focus()
+	var placing: bool = controller.current_tool == BuildController.Tool.PLACE
+	if placing and _part_category == category_name:
+		_part_category = ""
+	else:
+		_part_category = category_name
+		if not placing:
+			controller.set_tool(BuildController.Tool.PLACE)
 	_apply_part_filter()
 
 
-func _on_part_search_changed(_text: String) -> void:
+func _on_part_search_changed(text: String) -> void:
+	# Searching is part of placing, so it brings the Place tool out.
+	if text.strip_edges() != "" and controller.current_tool != BuildController.Tool.PLACE:
+		controller.set_tool(BuildController.Tool.PLACE)
 	_apply_part_filter()
 
 
@@ -366,10 +481,13 @@ func _on_part_search_submitted(_text: String) -> void:
 	_part_search.release_focus()
 
 
-func _on_part_search_cleared() -> void:
-	_part_search.text = ""
+func _on_rotation_button(axis: int) -> void:
+	controller.turn(axis)
+
+
+func _on_spawn_button() -> void:
 	_part_search.release_focus()
-	_apply_part_filter()
+	controller.toggle_spawn()
 
 
 func _build_delete_panel() -> Control:
@@ -1108,7 +1226,20 @@ func _refresh() -> void:
 		tool_button.set_pressed_no_signal(index == active_tool)
 	for index in _panels.size():
 		var panel: Control = _panels[index]
-		panel.visible = index == active_tool
+		if panel != null:
+			panel.visible = index == active_tool
+
+	# Spawned or building: the build controls are put away while spawned.
+	var is_spawned: bool = controller.spawned
+	_spawn_button.text = "Build" if is_spawned else "Spawn"
+	_spawn_button.tooltip_text = "Put the build back on the pad as it was" if is_spawned \
+			else "Weld the build into moving bodies and let physics take over"
+	for item in _build_only:
+		var build_control: Control = item
+		build_control.visible = not is_spawned
+	if is_spawned:
+		_saves_panel.visible = false
+	_apply_part_filter()
 
 	# Place.
 	var active_part: String = controller.part_type
