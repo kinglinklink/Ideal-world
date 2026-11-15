@@ -16,6 +16,8 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 const MESSAGE_SECONDS := 3.5
 
+signal garage_button_pressed
+
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
 var player: CharacterBody3D = null   # player.gd
@@ -62,6 +64,8 @@ var _signals_title: Label
 var _signals_scroll: ScrollContainer
 var _signals_box: VBoxContainer
 var _minimap: Control
+var _garage_button: Button
+var _seat_label: Label
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -82,6 +86,12 @@ func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
 ## The buildings and areas the mini map should draw.
 func set_map_features(features: Array) -> void:
 	_minimap.features = features
+
+
+## Tells the interface whether the garage door is open, so the button at the
+## top of the screen offers the opposite.
+func set_garage_open(open: bool) -> void:
+	_garage_button.text = "Close garage" if open else "Open garage"
 
 
 ## Where the trees stand, as (x, z) points, for the mini map to dot in.
@@ -148,7 +158,7 @@ func _build_interface() -> void:
 
 	# Help text, top left.
 	var help := _outlined(_label(
-			"WASD walk   Shift run   Space jump   Scroll zoom\n"
+			"WASD walk   Shift run   Space jump   E sit in a seat   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)\n"
 			+ "1 Place   2 Delete   3 Transform   4 Config   5 Paint   Left click use tool\n"
 			+ "Saves button, bottom right, saves and loads builds", 14))
@@ -156,12 +166,20 @@ func _build_interface() -> void:
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(help)
 
-	# Messages from the tools, top centre.
+	# Top centre: the garage button, with messages from the tools under it.
+	var top := _column()
+	top.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	top.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(top)
+	_garage_button = _button("Open garage", 150.0)
+	_garage_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_garage_button.pressed.connect(_on_garage_button)
+	top.add_child(_garage_button)
 	_message_label = _outlined(_label("", 18))
-	_message_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_message_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
-	root.add_child(_message_label)
+	top.add_child(_message_label)
 
 	# Crosshair, screen centre, shown while the mouse is captured.
 	_crosshair = _label("+", 22)
@@ -169,12 +187,19 @@ func _build_interface() -> void:
 	_crosshair.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	root.add_child(_crosshair)
 
-	# Tool bar, bottom centre.
+	# Bottom centre: the tool bar, with a line above it for the seat prompt.
+	var bottom := _column()
+	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bottom.size_flags_vertical = Control.SIZE_SHRINK_END
+	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bottom)
+	_seat_label = _outlined(_label("", 18))
+	_seat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bottom.add_child(_seat_label)
 	var toolbar := _row()
 	toolbar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	toolbar.size_flags_vertical = Control.SIZE_SHRINK_END
 	toolbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(toolbar)
+	bottom.add_child(toolbar)
 	var tool_names: Array = BuildController.TOOL_NAMES
 	for index in tool_names.size():
 		var tool_button := _button("%d  %s" % [index + 1, tool_names[index]], 116.0, true)
@@ -937,6 +962,7 @@ func _process(delta: float) -> void:
 	_fps_label.text = "FPS  %d" % int(Engine.get_frames_per_second())
 	_speed_label.text = "Speed  %.1f m/s" % player.velocity.length()
 	_crosshair.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	_seat_label.text = controller.seat_prompt()
 	if _message_time > 0.0:
 		_message_time -= delta
 		if _message_time <= 0.0:
@@ -1025,6 +1051,10 @@ func _on_config_size(value: float, axis: int) -> void:
 	var accepted: bool = controller.set_config_size(axis, value)
 	if not accepted:
 		_refresh()   # put the old number back
+
+
+func _on_garage_button() -> void:
+	garage_button_pressed.emit()
 
 
 func _on_message(text: String) -> void:

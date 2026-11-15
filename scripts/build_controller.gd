@@ -14,6 +14,7 @@ const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
+const Player = preload("res://scripts/player.gd")
 
 enum Tool { PLACE, DELETE, TRANSFORM, CONFIG, PAINT }
 
@@ -21,6 +22,8 @@ const TOOL_NAMES := ["Place", "Delete", "Transform", "Config", "Paint"]
 const REACH := 400.0         # metres the tools can reach from the camera
 const AIM_EVERY_TICKS := 4   # the aim ray runs at 60 Hz, a quarter of the physics rate
 const PASTE_PREVIEW_LIMIT := 200   # most parts drawn in the paste preview
+const SEAT_REACH := 2.5        # metres from the character to a seat it can sit in
+const SEAT_EVERY_TICKS := 16   # the search for a seat within reach runs at 15 Hz
 
 const PREVIEW_OK := Color(0.35, 0.75, 1.0, 0.45)
 const PREVIEW_BLOCKED := Color(1.0, 0.25, 0.2, 0.45)
@@ -45,9 +48,12 @@ var eyedropper: String = ""    # "", "material" or "color"
 var paste_armed := false       # the next click in the Transform tool pastes the clipboard
 var link_input: String = ""    # Config: the input waiting for the user to click a source part
 var link_source_uid := 0       # Config: the source part clicked, waiting for an output choice
+var seat_uid := 0              # the seat the character is sitting in, 0 for none
+var near_seat_uid := 0         # the nearest seat within reach, 0 for none
 
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
+var _seat_request := false     # E was pressed; acted on in the next physics tick
 var _hit_uid := 0              # part under the cursor, 0 for none
 var _has_target := false       # the cursor is on some surface
 var _target_cell := Vector3i.ZERO
@@ -166,6 +172,13 @@ func _on_parts_changed() -> void:
 		link_input = ""
 		link_source_uid = 0
 		selection_changed.emit()
+	if seat_uid != 0:
+		if grid.has_part(seat_uid):
+			# The seat may have been moved, turned or resized: stay on it.
+			var place: Array = _seat_place(grid.get_part(seat_uid))
+			player.hold_seat(place[0], place[1])
+		else:
+			_leave_seat()
 	_refresh_markers()
 
 
@@ -222,6 +235,8 @@ func _on_key(key: InputEventKey) -> void:
 		_on_rotate_key(Vector3(0.0, 1.0, 0.0))
 	elif code == KEY_Y:
 		_on_rotate_key(Vector3(0.0, 0.0, 1.0))
+	elif code == KEY_E:
+		_seat_request = true
 	elif current_tool == Tool.TRANSFORM:
 		if code == KEY_DELETE or code == KEY_BACKSPACE:
 			delete_selection()
@@ -667,10 +682,111 @@ func set_config_setting(setting_id: String, value: Variant) -> bool:
 	return _apply(updates)
 
 
+# --- Seats -------------------------------------------------------------------
+
+## The line the interface shows about sitting, or "" for nothing to say.
+func seat_prompt() -> String:
+	if seat_uid != 0:
+		return "Space to stand up"
+	if near_seat_uid != 0:
+		return "E to sit"
+	return ""
+
+
+## Sits down and stands up when asked, and keeps track of the seat in reach.
+func _update_seat() -> void:
+	if grid == null or player == null:
+		return
+	if seat_uid != 0:
+		var typing: bool = get_viewport().gui_get_focus_owner() != null
+		if _seat_request or (Input.is_physical_key_pressed(KEY_SPACE) and not typing):
+			_leave_seat()
+		_seat_request = false
+		return
+	if _seat_request or _tick % SEAT_EVERY_TICKS == 0:
+		var chest: Vector3 = player.global_position + Vector3(0.0, Player.BODY_HEIGHT * 0.5, 0.0)
+		var local_chest: Vector3 = grid.global_transform.affine_inverse() * chest
+		near_seat_uid = grid.nearest_of_type("seat", local_chest, SEAT_REACH)
+	if _seat_request:
+		_seat_request = false
+		if near_seat_uid == 0:
+			_say("There is no seat within reach.")
+			return
+		var place: Array = _seat_place(grid.get_part(near_seat_uid))
+		seat_uid = near_seat_uid
+		near_seat_uid = 0
+		player.sit(place[0], place[1])
+
+
+## Where a seat puts its sitter: [the world point on top of the cushion,
+## the heading the seat faces]. A seat faces along its own -Z.
+func _seat_place(record: Dictionary) -> Array:
+	var rot: Basis = record["rot"]
+	var size_units: Vector3i = record["size"]
+	var size_m: Vector3 = Units.to_metres(size_units)
+	var centre: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT
+	# These match the seat model: the cushion top is 0.15 of the height below
+	# the middle, and the cushion sits a little forward of the backrest.
+	var cushion: Vector3 = centre + rot * Vector3(0.0, -0.15 * size_m.y, 0.05 * size_m.z)
+	var to_world: Transform3D = grid.global_transform
+	var forward: Vector3 = to_world.basis * (rot * Vector3(0.0, 0.0, -1.0))
+	var heading: float = player.get_heading()   # kept if the seat faces straight up or down
+	if Vector2(forward.x, forward.z).length() > 0.5:
+		heading = atan2(-forward.x, -forward.z)
+	return [to_world * cushion, heading]
+
+
+func _leave_seat() -> void:
+	# If the seat is gone, simply stand where the character was sitting.
+	var exit_point: Vector3 = player.global_position + Vector3(0.0, Player.HIP_HEIGHT, 0.0)
+	if grid.has_part(seat_uid):
+		exit_point = _seat_exit(grid.get_part(seat_uid))
+	seat_uid = 0
+	player.stand_up(exit_point)
+
+
+## Where the character's feet go on standing up: on top of the seat if there
+## is head room, otherwise beside it, trying the front first.
+func _seat_exit(record: Dictionary) -> Vector3:
+	var bounds: AABB = BuildGrid.bounds_of(record)
+	var centre: Vector3 = bounds.get_center()
+	var half: Vector3 = bounds.size * 0.5
+	var forward: Vector3 = (record["rot"] as Basis) * Vector3(0.0, 0.0, -1.0)
+	if absf(forward.y) > 0.5:
+		forward = Vector3(0.0, 0.0, -1.0)
+	var right: Vector3 = forward.cross(Vector3.UP)
+	var top: Vector3 = centre + Vector3(0.0, half.y, 0.0)
+	var spots: Array = [top]
+	for direction in [forward, right, -right, -forward]:
+		var way: Vector3 = direction
+		var clearance: float = absf(way.x) * half.x + absf(way.z) * half.z + Player.BODY_RADIUS + 0.05
+		spots.append(centre + way * clearance - Vector3(0.0, half.y, 0.0))
+	var to_world: Transform3D = grid.global_transform
+	for spot in spots:
+		var local_spot: Vector3 = spot
+		var feet: Vector3 = to_world * local_spot
+		if _has_standing_room(feet):
+			return feet
+	return to_world * top
+
+
+## True if the character's body fits with its feet at the given world point.
+func _has_standing_room(feet: Vector3) -> bool:
+	var body := CylinderShape3D.new()
+	body.radius = Player.BODY_RADIUS * 0.95
+	body.height = Player.BODY_HEIGHT - 0.06
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = body
+	query.transform = Transform3D(Basis.IDENTITY, feet + Vector3(0.0, Player.BODY_HEIGHT * 0.5 + 0.03, 0.0))
+	query.exclude = [player.get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+
 # --- Aiming and markers ------------------------------------------------------
 
 func _physics_process(_delta: float) -> void:
 	_tick += 1
+	_update_seat()
 	if _tick % AIM_EVERY_TICKS != 0:
 		return
 	_update_target()

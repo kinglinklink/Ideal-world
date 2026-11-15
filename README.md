@@ -10,7 +10,8 @@ Working now:
 
 - A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
-- A garage behind the start point, shut for now, with its door facing the build pad
+- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
+- Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - A mini map in the top-right corner showing the garage, the pad, nearby trees and where you are
 - Grass and groves of trees, starting well back from the pad and garage
 - All five tools: Place, Delete, Transform, Config and Paint
@@ -40,7 +41,8 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 | --- | --- |
 | W A S D | Walk |
 | Shift | Run |
-| Space | Jump |
+| Space | Jump, or stand up from a seat |
+| E | Sit in the nearest seat within reach (press again to stand up) |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |

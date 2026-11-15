@@ -108,6 +108,22 @@ func get_node_for(uid: int) -> Node3D:
 	return _nodes.get(uid, null)
 
 
+## The nearest part of one kind whose centre lies within `reach` metres of a
+## point given in this node's local space. Returns its uid, or 0 for none.
+func nearest_of_type(type: String, local_point: Vector3, reach: float) -> int:
+	var best := 0
+	var best_distance := reach
+	for uid in _parts:
+		var record: Dictionary = _parts[uid]
+		if record["type"] != type:
+			continue
+		var distance := bounds_of(record).get_center().distance_to(local_point)
+		if distance < best_distance:
+			best = uid
+			best_distance = distance
+	return best
+
+
 ## Every link that reads from the given part, as [consumer uid, input id, output id].
 func consumers_of(uid: int) -> Array:
 	var found: Array = []

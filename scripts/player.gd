@@ -1,7 +1,8 @@
 extends CharacterBody3D
 ## The blocky player character and its camera.
 ##
-## Controls: WASD walk, Shift run, Space jump.
+## Controls: WASD walk, Shift run, Space jump. The build tools sit the
+## character in a seat (E) and stand it up again (Space or E).
 ## Scroll wheel zooms from first person out to a wide third-person view.
 ## In third person, hold the right mouse button to turn the camera.
 ## In first person the mouse always turns the camera; Esc frees the cursor.
@@ -20,18 +21,23 @@ const EYE_HEIGHT := 1.6 * BODY_SCALE    # metres
 const PITCH_LIMIT := 1.5      # radians
 const BODY_RADIUS := 0.3 * BODY_SCALE
 const BODY_HEIGHT := 1.8 * BODY_SCALE
+const HIP_HEIGHT := 0.75 * BODY_SCALE    # from the feet up to the hip joint
+const THIGH_HALF := 0.11 * BODY_SCALE    # half the thickness of a leg
 
 var yaw := 0.0
 var pitch := -0.35
 var zoom := 8.0               # 0 means first person
 var cursor_free := false      # Esc toggles this in first person
+var seated := false           # sitting in a seat: no walking until it stands up
 
 var _turning := false         # right mouse button held
+var _jump_locked := false     # Space was used to stand up; no jump until it is released
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
 var _camera: Camera3D
 var _model: Node3D
+var _collider: CollisionShape3D
 var _leg_left: Node3D         # each limb hangs from a pivot at its hip or shoulder
 var _leg_right: Node3D
 var _arm_left: Node3D
@@ -53,6 +59,7 @@ func _ready() -> void:
 	collider.shape = cylinder
 	collider.position = Vector3(0.0, BODY_HEIGHT * 0.5, 0.0)
 	add_child(collider)
+	_collider = collider
 
 	_model = _build_model()
 	_model.scale = Vector3(BODY_SCALE, BODY_SCALE, BODY_SCALE)
@@ -81,6 +88,34 @@ func is_mouse_captured() -> bool:
 ## The direction the character's body faces, as a turn about Y in radians.
 func get_heading() -> float:
 	return _model.rotation.y
+
+
+## Sits the character down. `cushion` is the world point on top of the seat
+## cushion, and `heading` is the way the seat faces, as a turn about Y.
+func sit(cushion: Vector3, heading: float) -> void:
+	seated = true
+	velocity = Vector3.ZERO
+	_step_offset = 0.0
+	_collider.set_deferred("disabled", true)   # the seat is solid; the sitter is not
+	hold_seat(cushion, heading)
+
+
+## Keeps a seated character on its seat, wherever the seat is.
+func hold_seat(cushion: Vector3, heading: float) -> void:
+	# The feet are the character's origin; the hips rest on the cushion.
+	global_position = cushion - Vector3(0.0, HIP_HEIGHT - THIGH_HALF, 0.0)
+	_model.rotation.y = heading
+
+
+## Gets up. `exit_point` is where the feet go, in world space.
+func stand_up(exit_point: Vector3) -> void:
+	if not seated:
+		return
+	seated = false
+	_collider.set_deferred("disabled", false)
+	global_position = exit_point
+	velocity = Vector3.ZERO
+	_jump_locked = true   # the Space press that stood us up is not also a jump
 
 
 ## The camera's orientation: -Z is where it looks, +X is to its right.
@@ -135,6 +170,13 @@ func _zoom_out() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if seated:
+		# No walking while seated. The build tools hold the character on its seat.
+		velocity = Vector3.ZERO
+		return
+	if _jump_locked and not Input.is_physical_key_pressed(KEY_SPACE):
+		_jump_locked = false
+
 	var input := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_W):
 		input.y -= 1.0
@@ -163,7 +205,7 @@ func _physics_process(delta: float) -> void:
 	if grounded:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
-		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
+		if Input.is_physical_key_pressed(KEY_SPACE) and not typing and not _jump_locked:
 			velocity.y = JUMP_SPEED
 			grounded = false
 	else:
@@ -229,6 +271,15 @@ func _try_step_up(delta: float) -> bool:
 ## Swings the legs and arms in time with the distance covered, so the feet
 ## keep pace at any speed, and holds a spread pose in the air.
 func _animate(delta: float) -> float:
+	if seated:
+		# Thighs forward and level, hands resting forward.
+		_leg_left.rotation.x = 1.45
+		_leg_right.rotation.x = 1.45
+		_arm_left.rotation.x = 0.5
+		_arm_right.rotation.x = 0.5
+		_walk_blend = 0.0
+		_air_blend = 0.0
+		return 0.0
 	var ground_speed := Vector2(velocity.x, velocity.z).length()
 	var grounded := is_on_floor()
 	var walking := grounded and ground_speed > 0.2
