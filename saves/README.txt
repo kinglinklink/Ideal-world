@@ -64,6 +64,15 @@ required and everything else is optional.
 
   color     A web color such as "#ff8800". Left out: the material's own color.
 
+  settings  The part's own settings, for parts that have any: a motor's
+            torque, a piston's lengths and speed, a light's color and so on.
+            Written as a group of named values, for example on a piston:
+            "settings": {"target_length": 2, "speed": 0.5,
+                         "when_idle": "Return to starting length"}
+            Any setting left out keeps its normal value, and names the game
+            does not know are ignored. The easiest way to see a part's
+            setting names is to place it in the game, save, and read the file.
+
 Parts that do not fit are skipped when the file loads: an unknown type, a
 position outside the pad, or a part overlapping one of a different material.
 Parts of the same material are allowed to overlap.

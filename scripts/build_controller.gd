@@ -12,12 +12,14 @@ const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
+const PartSettings = preload("res://scripts/part_settings.gd")
 
 enum Tool { PLACE, DELETE, TRANSFORM, CONFIG, PAINT }
 
 const TOOL_NAMES := ["Place", "Delete", "Transform", "Config", "Paint"]
 const REACH := 400.0         # metres the tools can reach from the camera
 const AIM_EVERY_TICKS := 4   # the aim ray runs at 60 Hz, a quarter of the physics rate
+const PASTE_PREVIEW_LIMIT := 200   # most parts drawn in the paste preview
 
 const PREVIEW_OK := Color(0.35, 0.75, 1.0, 0.45)
 const PREVIEW_BLOCKED := Color(1.0, 0.25, 0.2, 0.45)
@@ -37,6 +39,7 @@ var brush_color: Color = MaterialLibrary.default_color(MaterialLibrary.DEFAULT_I
 var snap_units: int = Units.UNITS_PER_CELL
 var selection: Array = []      # part uids. Transform: any number. Config: at most one.
 var eyedropper: String = ""    # "", "material" or "color"
+var paste_armed := false       # the next click in the Transform tool pastes the clipboard
 
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
@@ -50,6 +53,7 @@ var _preview: MeshInstance3D
 var _hover: MeshInstance3D
 var _mass_marker: MeshInstance3D
 var _selection_markers: Array = []
+var _paste_markers: Array = []
 
 
 func setup(p_grid: Node3D, p_player: CharacterBody3D) -> void:
@@ -91,6 +95,7 @@ func set_tool(new_tool: int) -> void:
 		return
 	current_tool = new_tool
 	eyedropper = ""
+	paste_armed = false
 	selection = []
 	tool_changed.emit(current_tool)
 	selection_changed.emit()
@@ -159,6 +164,25 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_key(key: InputEventKey) -> void:
 	var code: int = key.physical_keycode
+	if key.ctrl_pressed:
+		# Ctrl shortcuts. Undo and redo work in every tool.
+		if code == KEY_Z:
+			if key.shift_pressed:
+				redo()
+			else:
+				undo()
+		elif code == KEY_Y:
+			redo()
+		elif current_tool == Tool.TRANSFORM:
+			if code == KEY_C:
+				copy_selection()
+			elif code == KEY_X:
+				cut_selection()
+			elif code == KEY_V:
+				paste()
+			elif code == KEY_A:
+				select_all()
+		return
 	if code == KEY_1:
 		set_tool(Tool.PLACE)
 	elif code == KEY_2:
@@ -176,16 +200,7 @@ func _on_key(key: InputEventKey) -> void:
 	elif code == KEY_Y:
 		_on_rotate_key(Vector3(0.0, 0.0, 1.0))
 	elif current_tool == Tool.TRANSFORM:
-		if key.ctrl_pressed:
-			if code == KEY_C:
-				copy_selection()
-			elif code == KEY_X:
-				cut_selection()
-			elif code == KEY_V:
-				paste()
-			elif code == KEY_A:
-				select_all()
-		elif code == KEY_DELETE or code == KEY_BACKSPACE:
+		if code == KEY_DELETE or code == KEY_BACKSPACE:
 			delete_selection()
 		else:
 			_on_move_key(code)
@@ -251,6 +266,9 @@ func _use_tool() -> void:
 			grid.remove_part(_hit_uid)
 			_hit_uid = 0
 	elif current_tool == Tool.TRANSFORM:
+		if paste_armed:
+			paste()
+			return
 		if _hit_uid == 0:
 			selection = []
 		elif Input.is_physical_key_pressed(KEY_SHIFT):
@@ -413,7 +431,7 @@ func copy_selection() -> void:
 		var pos: Vector3i = record["pos"]
 		record["pos"] = pos - anchor
 		_clipboard.append(record)
-	_say("Copied %d part(s). Point somewhere and press Ctrl+V." % _clipboard.size())
+	_say("Copied %d part(s). Press Paste or Ctrl+V, pointing where it should go." % _clipboard.size())
 
 
 func cut_selection() -> void:
@@ -434,7 +452,7 @@ func paste() -> void:
 	var base: Vector3i = grid.cell_center_units(_target_cell)
 	var records: Array = []
 	for stored in _clipboard:
-		var record: Dictionary = (stored as Dictionary).duplicate()
+		var record: Dictionary = (stored as Dictionary).duplicate(true)
 		var offset: Vector3i = record["pos"]
 		record["pos"] = base + offset
 		var problem: String = grid.check(record)
@@ -443,13 +461,36 @@ func paste() -> void:
 			return
 		records.append(record)
 	var pasted: Array = []
+	grid.begin_batch()   # the whole paste is one step for Undo
 	for record in records:
 		var uid: int = grid.add_part(record)
 		if uid != 0:
 			pasted.append(uid)
+	grid.end_batch()
+	paste_armed = false
 	selection = pasted
 	selection_changed.emit()
 	_refresh_markers()
+
+
+## Used by the Paste button: the next click in the world pastes there.
+func arm_paste() -> void:
+	if _clipboard.is_empty():
+		_say("Nothing copied yet.")
+		return
+	paste_armed = true
+	selection_changed.emit()
+	_say("Click where the copy should go.")
+
+
+func undo() -> void:
+	if grid != null and not grid.undo():
+		_say("Nothing to undo.")
+
+
+func redo() -> void:
+	if grid != null and not grid.redo():
+		_say("Nothing to redo.")
 
 
 ## Config tool: the part being configured, or an empty dictionary.
@@ -480,6 +521,22 @@ func set_config_size(axis: int, cells: float) -> bool:
 	return _apply(updates)
 
 
+## Config tool: changes one of the selected part's settings.
+func set_config_setting(setting_id: String, value: Variant) -> bool:
+	var record: Dictionary = config_record()
+	if record.is_empty():
+		return false
+	var type: String = record["type"]
+	var props: Dictionary = record.get("props", {})
+	if props.has(setting_id) and typeof(props[setting_id]) == typeof(value) and props[setting_id] == value:
+		return true   # nothing to change, so no Undo step either
+	props[setting_id] = value
+	record["props"] = PartSettings.sanitize(type, props)
+	var updates: Dictionary = {}
+	updates[selection[0]] = record
+	return _apply(updates)
+
+
 # --- Aiming and markers ------------------------------------------------------
 
 func _physics_process(_delta: float) -> void:
@@ -488,6 +545,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	_update_target()
 	_update_cursor_markers()
+	_update_paste_preview()
 
 
 ## Casts the aim ray and works out which part and which cell it points at.
@@ -538,6 +596,26 @@ func _update_cursor_markers() -> void:
 		var hover_color: Color = HOVER_DELETE if current_tool == Tool.DELETE else HOVER_OTHER
 		var hovered: Dictionary = grid.get_part(_hit_uid)
 		_fit_marker(_hover, hovered, hover_color, 1.03)
+
+
+## While a paste is armed, shows where the copied parts would land.
+func _update_paste_preview() -> void:
+	var active: bool = current_tool == Tool.TRANSFORM and paste_armed and _has_target and grid != null
+	var count: int = mini(_clipboard.size(), PASTE_PREVIEW_LIMIT) if active else 0
+	while _paste_markers.size() < count:
+		_paste_markers.append(_new_marker("PastePreview"))
+	var base := Vector3i.ZERO
+	if active:
+		base = grid.cell_center_units(_target_cell)
+	for index in _paste_markers.size():
+		var marker: MeshInstance3D = _paste_markers[index]
+		if index < count:
+			var record: Dictionary = (_clipboard[index] as Dictionary).duplicate(true)
+			var offset: Vector3i = record["pos"]
+			record["pos"] = base + offset
+			_fit_marker(marker, record, PREVIEW_OK, 1.0)
+		else:
+			marker.visible = false
 
 
 ## Lays a see-through copy of a part's shape over where the record puts it.

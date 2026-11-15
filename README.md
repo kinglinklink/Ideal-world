@@ -18,6 +18,8 @@ Working now:
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
 - Saving and loading builds as shareable text files
+- Undo and redo for every change, up to 100 steps back
+- Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
 Not built yet: Spawn, physics, and the behavior of the mechanical, logic and combat parts.
 
@@ -39,6 +41,7 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |
 | 1 to 5 | Place, Delete, Transform, Config, Paint |
+| Ctrl+Z / Ctrl+Y | Undo / redo (also the Undo and Redo buttons, bottom right) |
 | Left click | Use the current tool |
 | R / T / Y | Turn 90° about X / Y / Z: the part you are about to place, or the Transform selection |
 
@@ -46,8 +49,8 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 
 - **Place.** Pick a part from the menu and click to place it against whatever you point at. Click a category heading to fold it open or shut. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
 - **Delete.** Click a part to remove it.
-- **Transform.** Click to select a part; Shift+click adds to the selection. Arrow keys move the selection along the ground and Page Up / Page Down move it vertically, by the step chosen in the panel. Ctrl+C copies, Ctrl+X cuts, Ctrl+V pastes where you point, Ctrl+A selects everything, and Delete removes the selection.
-- **Config.** Click a part to see its volume, mass and health and to change its dimensions. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.
+- **Transform.** Click to select a part; Shift+click adds to the selection. Arrow keys move the selection along the ground and Page Up / Page Down move it vertically, by the step chosen in the panel. Ctrl+C copies and Ctrl+X cuts. To paste, press the Paste button and click where the copy should go (a preview follows the cursor), or point and press Ctrl+V. Ctrl+A selects everything, and Delete removes the selection.
+- **Config.** Click a part to see its volume, mass and health, to change its dimensions, and to edit its settings if it has any. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.
 - **Paint.** Choose a material and a color, then click parts to paint them. Hover a material to see its density, friction and strength. The two Pick buttons copy the material or the color from a part you click.
 
 Parts of the same material may overlap. Parts of different materials may not.
@@ -81,6 +84,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/mech_models.gd` | Display models for the mechanical parts |
 | `scripts/mesh_kit.gd` | Helpers that build meshes from boxes, cylinders and gear discs |
 | `scripts/material_library.gd` | Materials: density, friction, strength, look |
+| `scripts/part_settings.gd` | The settings each kind of part has, with defaults and limits |
 | `scripts/save_manager.gd` | Saving and loading builds |
 | `scripts/hud.gd` | The on-screen interface |
 | `saves/` | Saved builds, the format guide and an example |

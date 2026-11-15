@@ -7,6 +7,7 @@ const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
+const PartSettings = preload("res://scripts/part_settings.gd")
 
 const FORMAT := "ideal-world-build"
 const VERSION := 1
@@ -81,7 +82,7 @@ static func _record_to_entry(record: Dictionary) -> Dictionary:
 	var size: Vector3i = record["size"]
 	var rot: Basis = record["rot"]
 	var color: Color = record["color"]
-	return {
+	var entry := {
 		"type": record["type"],
 		"pos": _in_blocks(pos),
 		"size": _in_blocks(size),
@@ -91,6 +92,10 @@ static func _record_to_entry(record: Dictionary) -> Dictionary:
 		"material": record["material"],
 		"color": "#" + color.to_html(false),
 	}
+	var props: Dictionary = record.get("props", {})
+	if not props.is_empty():
+		entry["settings"] = PartSettings.to_plain(props)
+	return entry
 
 
 ## Writes the whole build to a file. Returns "" on success or the reason it failed.
@@ -193,7 +198,9 @@ static func _entry_to_record(entry: Dictionary) -> Dictionary:
 	if color_text != "" and Color.html_is_valid(color_text):
 		color = Color.html(color_text)
 
-	return BuildGrid.make_record(type, pos, _read_rotation(entry), size, material, color)
+	var record: Dictionary = BuildGrid.make_record(type, pos, _read_rotation(entry), size, material, color)
+	record["props"] = PartSettings.sanitize(type, entry.get("settings"))
+	return record
 
 
 ## Replaces the current build with a saved one.
