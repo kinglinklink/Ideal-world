@@ -46,17 +46,20 @@ Not built yet: the behavior of the mechanical, logic and combat parts, apart fro
 | Shift | Run |
 | Space | Jump, or stand up from a seat |
 | E | Sit in the nearest seat within reach |
+| Enter | Spawn the build, or go back to building |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |
-| 1 to 5 | Place, Delete, Config, Transform, Paint |
+| 1 to 5 | Place, Delete, Config, Transform, Paint. Press the same key again to put the tool away. |
 | Ctrl+Z / Ctrl+Y | Undo / redo (also the Undo and Redo buttons, bottom right) |
 | Left click | Use the current tool |
 | R / T / Y | Turn 90° about X / Y / Z: the part you are about to place, or the Transform selection. The red, green and blue buttons at the bottom left do the same. |
 
 ### Tools
 
-- **Place.** Pick a part from the menu and click to place it against whatever you point at. Category tabs run up the left edge of the screen. Click one to open its list of parts, and click it again to fold the list away. The search box at the bottom left finds a part by name across every category. The ghost part under the cursor shows its X, Y and Z axes as red, green and blue lines. Aero panels are placed in the middle of the cell, with their thickness even either side of its center line. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
+The game starts with no tool in hand and nothing but the tabs and the tool bar on screen. Pick a tool with its number key or its button; pick the same one again to put it away and close its menu.
+
+- **Place.** Pick a part from the menu and click to place it against whatever you point at. Category tabs run up the left edge of the screen. Picking the Place tool opens the narrow list of parts for the category you last used. Click another tab to switch category, or the open tab to fold the list away. The search box at the bottom left finds a part by name across every category. The ghost part under the cursor shows its X, Y and Z axes as red, green and blue lines. Aero panels are placed in the middle of the cell, with their thickness even either side of its center line. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
 - **Delete.** Click a part to remove it.
 - **Config.** Click a part to see its volume, mass and health, to change its dimensions, and to edit its settings if it has any. To link a signal, press Link beside one of the part's inputs, then click the part the signal should come from; if that part has several outputs, pick one from the list that appears. Clear removes a link. Green lines show where the selected part's inputs come from and blue lines show where its outputs go. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.
 - **Transform.** Click to select a part; Shift+click adds to the selection. Arrow keys move the selection along the ground and Page Up / Page Down move it vertically, by the step chosen in the panel. Ctrl+C copies and Ctrl+X cuts. To paste, press the Paste button and click where the copy should go (a preview follows the cursor), or point and press Ctrl+V. Ctrl+A selects everything, and Delete removes the selection.
@@ -66,7 +69,9 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 ## Spawn
 
-Press **Spawn** at the bottom left to set the build loose. Press the same button, now labeled **Build**, to put everything back on the pad exactly as it was.
+Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
+
+The bottom-right corner shows which build of the game is running (for example "Build 9"), which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 

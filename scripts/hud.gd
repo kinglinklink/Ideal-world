@@ -14,6 +14,9 @@ const Minimap = preload("res://scripts/minimap.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
+## Shown in the bottom-right corner, so it is easy to tell which copy of the
+## game is running. Raised with every pushed change.
+const VERSION := "Build 9"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -36,6 +39,8 @@ var _panels: Array = []              # one panel per tool, in Tool order; null f
 var _part_buttons: Dictionary = {}   # part id -> Button
 var _category_buttons: Dictionary = {}   # category name -> its tab
 var _part_category := ""             # the category whose parts are listed; "" while the list is folded away
+var _last_category := "Basic"        # the category that opens when the Place tool is picked up
+var _shown_tool: int = BuildController.Tool.NONE   # the tool the interface last showed
 var _parts_title: Label
 var _part_search: LineEdit
 var _material_buttons: Dictionary = {}
@@ -176,8 +181,8 @@ func _build_interface() -> void:
 	var help := _outlined(_label(
 			"WASD walk   Shift run   Space jump   E sit in a seat   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)\n"
-			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint   Left click use tool\n"
-			+ "R / T / Y turn a part   Spawn, bottom left, sets the build loose", 14))
+			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint (press again to put away)   Left click use tool\n"
+			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(help)
@@ -266,8 +271,17 @@ func _build_interface() -> void:
 		if panel != null:
 			stack.add_child(panel)
 
-	left.add_child(_build_bottom_bar())
+	# The bar is pinned to the corner on its own, so that nothing in the
+	# column above it can move or hide it. A spacer keeps the column clear of it.
+	var bar := _build_bottom_bar()
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	bar.size_flags_vertical = Control.SIZE_SHRINK_END
+	root.add_child(bar)
 	_build_only.append(_build_bar)
+	var bar_space := Control.new()
+	bar_space.custom_minimum_size = Vector2(0, 58)
+	bar_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_child(bar_space)
 
 	# Readouts, bottom right.
 	var readouts := VBoxContainer.new()
@@ -295,6 +309,7 @@ func _build_interface() -> void:
 	_build_only.append(saves_button)
 	_speed_label = _readout(readouts)
 	_fps_label = _readout(readouts)
+	_readout(readouts).text = "Ideal World  %s" % VERSION
 
 	# Mini map, top right.
 	_minimap = Minimap.new()
@@ -343,10 +358,10 @@ func _build_parts_panel() -> Control:
 	panel.add_child(margin)
 	var listing := _column()
 	margin.add_child(listing)
-	_parts_title = _label("", 20)
+	_parts_title = _label("", 18)
 	listing.add_child(_parts_title)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(236, 340)
+	scroll.custom_minimum_size = Vector2(196, 340)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	listing.add_child(scroll)
 	var buttons := _column()
@@ -354,7 +369,7 @@ func _build_parts_panel() -> Control:
 	scroll.add_child(buttons)
 	# Every part's button lives in the one list; the filter shows the right ones.
 	for id in PartLibrary.part_ids():
-		var part_button := _button(PartLibrary.part_name(id), 220.0, true)
+		var part_button := _button(PartLibrary.part_name(id), 180.0, true)
 		part_button.pressed.connect(_on_part_button.bind(id))
 		buttons.add_child(part_button)
 		_part_buttons[id] = part_button
@@ -368,9 +383,9 @@ func _build_bottom_bar() -> Control:
 	var bar := _row()
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	_spawn_button = _button("Spawn", 92.0)
-	_spawn_button.custom_minimum_size = Vector2(92, 56)
-	_spawn_button.add_theme_font_size_override("font_size", 18)
+	_spawn_button = _button("Spawn", 110.0)
+	_spawn_button.custom_minimum_size = Vector2(110, 56)
+	_tint_button(_spawn_button, Color(0.35, 0.85, 0.4))   # bright green, hard to miss
 	_spawn_button.pressed.connect(_on_spawn_button)
 	bar.add_child(_spawn_button)
 
@@ -453,7 +468,9 @@ func _apply_part_filter() -> void:
 	# The other tools show their own panel in the same spot.
 	var is_spawned: bool = controller.spawned
 	_parts_panel.visible = placing and not is_spawned and (query != "" or _part_category != "")
-	_tool_panel.visible = not placing and not is_spawned
+	var active_tool: int = controller.current_tool
+	var has_panel: bool = active_tool >= 0 and active_tool < _panels.size() and _panels[active_tool] != null
+	_tool_panel.visible = has_panel and not is_spawned
 
 
 ## Opens a category. Clicking the open category's tab folds the list away.
@@ -465,6 +482,7 @@ func _on_category_tab(category_name: String) -> void:
 		_part_category = ""
 	else:
 		_part_category = category_name
+		_last_category = category_name
 		if not placing:
 			controller.set_tool(BuildController.Tool.PLACE)
 	_apply_part_filter()
@@ -1090,7 +1108,7 @@ func _process(delta: float) -> void:
 # --- Button handlers ---------------------------------------------------------
 
 func _on_tool_button(index: int) -> void:
-	controller.set_tool(index)
+	controller.toggle_tool(index)   # pressing the tool in hand puts it away
 	_refresh()
 
 
@@ -1229,6 +1247,11 @@ func _refresh() -> void:
 		var panel: Control = _panels[index]
 		if panel != null:
 			panel.visible = index == active_tool
+	# Picking up the Place tool brings its menu out, on the category last used.
+	if active_tool != _shown_tool:
+		if active_tool == BuildController.Tool.PLACE and _part_category == "":
+			_part_category = _last_category
+		_shown_tool = active_tool
 
 	# Spawned or building: the build controls are put away while spawned.
 	var is_spawned: bool = controller.spawned
@@ -1252,7 +1275,7 @@ func _refresh() -> void:
 	var brush_material: String = controller.brush_material
 	var brush_color: Color = controller.brush_color
 	var brush_text := "Brush: %s" % MaterialLibrary.display_name(brush_material)
-	_place_brush_label.text = brush_text + "  (change it with Paint)"
+	_place_brush_label.text = brush_text
 	_paint_brush_label.text = brush_text
 	for id in _material_buttons:
 		var material_button: Button = _material_buttons[id]
