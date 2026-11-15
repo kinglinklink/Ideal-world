@@ -8,16 +8,18 @@ extends CharacterBody3D
 
 const Units = preload("res://scripts/units.gd")
 
-const WALK_SPEED := 5.0       # m/s
-const RUN_SPEED := 10.0       # m/s
-const JUMP_SPEED := 5.2       # m/s, about a 1.4 m jump
+const WALK_SPEED := 4.0       # m/s
+const RUN_SPEED := 7.5        # m/s
+const JUMP_SPEED := 4.0       # m/s, about a 0.8 m jump
 const GRAVITY := 9.81         # m/s^2
+const AIR_CONTROL := 3.0      # m/s^2 of steering in mid-air; 0 would be a pure throw
 const MOUSE_SENSITIVITY := 0.0025
 const ZOOM_MAX := 80.0        # metres behind the character
-const EYE_HEIGHT := 1.6       # metres
+const BODY_SCALE := 0.85      # the character model is built 1.8 m tall, then shrunk
+const EYE_HEIGHT := 1.6 * BODY_SCALE    # metres
 const PITCH_LIMIT := 1.5      # radians
-const BODY_RADIUS := 0.3
-const BODY_HEIGHT := 1.8
+const BODY_RADIUS := 0.3 * BODY_SCALE
+const BODY_HEIGHT := 1.8 * BODY_SCALE
 
 var yaw := 0.0
 var pitch := -0.35
@@ -53,6 +55,7 @@ func _ready() -> void:
 	add_child(collider)
 
 	_model = _build_model()
+	_model.scale = Vector3(BODY_SCALE, BODY_SCALE, BODY_SCALE)
 	add_child(_model)
 
 	_pivot = Node3D.new()
@@ -156,15 +159,22 @@ func _physics_process(delta: float) -> void:
 	var speed := WALK_SPEED
 	if Input.is_physical_key_pressed(KEY_SHIFT):
 		speed = RUN_SPEED
-	velocity.x = direction.x * speed
-	velocity.z = direction.z * speed
-
 	var grounded := is_on_floor()
 	if grounded:
+		velocity.x = direction.x * speed
+		velocity.z = direction.z * speed
 		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
 			velocity.y = JUMP_SPEED
 			grounded = false
 	else:
+		# In the air the character keeps the speed it left the ground with.
+		# Holding a direction only nudges it, so a standing jump stays in place.
+		if direction.length() > 0.1:
+			var flying := Vector2(velocity.x, velocity.z)
+			var wanted := Vector2(direction.x, direction.z) * speed
+			flying = flying.move_toward(wanted, AIR_CONTROL * delta)
+			velocity.x = flying.x
+			velocity.z = flying.y
 		velocity.y -= GRAVITY * delta
 
 	if grounded and _try_step_up(delta):

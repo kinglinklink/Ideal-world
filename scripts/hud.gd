@@ -33,6 +33,7 @@ var _transform_info: Label
 var _snap_option: OptionButton
 var _config_title: Label
 var _config_spins: Array = []
+var _config_captions: Array = []     # the three dimension labels beside the spin boxes
 var _config_info: Label
 var _build_info: Label
 var _color_button: ColorPickerButton
@@ -424,8 +425,9 @@ func _build_config_panel() -> Control:
 	for axis in 3:
 		var size_row := _row()
 		var caption := _label("Size %s (blocks)" % AXIS_NAMES[axis])
-		caption.custom_minimum_size = Vector2(120, 0)
+		caption.custom_minimum_size = Vector2(170, 0)
 		size_row.add_child(caption)
+		_config_captions.append(caption)
 		var spin := SpinBox.new()
 		spin.min_value = 1.0 / Units.UNITS_PER_CELL
 		spin.max_value = 64.0
@@ -1046,6 +1048,28 @@ static func _mass_text(kilograms: float) -> String:
 	return "%.2f kg" % kilograms
 
 
+## What a cannon of this size would do, by the design's ballistics: the bore
+## is a fifth of the cannon's smaller cross dimension, the projectile is three
+## bores long, and propellant pushes it down the barrel at an average 100 MPa.
+static func _cannon_text(record: Dictionary) -> String:
+	var size_m: Vector3 = Units.to_metres(record["size"])
+	var bore: float = 0.2 * minf(size_m.x, size_m.y)
+	var barrel: float = size_m.z
+	var props: Dictionary = record.get("props", {})
+	var projectile_name := str(props.get("projectile_material", "Steel"))
+	var density: float = MaterialLibrary.density(MaterialLibrary.id_for_name(projectile_name))
+	var bore_area := PI * bore * bore * 0.25
+	var projectile_mass := density * bore_area * bore * 3.0
+	var energy := 100000000.0 * bore_area * barrel   # joules
+	var velocity := 0.0
+	if projectile_mass > 0.0:
+		velocity = sqrt(2.0 * energy / projectile_mass)
+	return "\nBore: %.0f mm\nBarrel: %.2f m\nProjectile: %s of %s\nMuzzle velocity: %.0f m/s\nMuzzle energy: %.0f kJ (%.0f HP per hit)\nFastest fire: one shot per %.2f s" % [
+		bore * 1000.0, barrel, _mass_text(projectile_mass), projectile_name,
+		velocity, energy / 1000.0, energy / 1000.0, barrel * 0.5,
+	]
+
+
 ## Brings every button and label in line with the controller's state.
 func _refresh() -> void:
 	var active_tool: int = controller.current_tool
@@ -1095,18 +1119,24 @@ func _refresh() -> void:
 	if record.is_empty():
 		_config_title.text = "Config: click a part"
 		_config_info.text = ""
+		var plain_captions: Array = PartLibrary.size_captions("")
 		for spin_index in _config_spins.size():
 			var idle_spin: SpinBox = _config_spins[spin_index]
 			idle_spin.editable = false
+			var idle_caption: Label = _config_captions[spin_index]
+			idle_caption.text = plain_captions[spin_index]
 	else:
 		var type: String = record["type"]
 		var size: Vector3i = record["size"]
 		var material: String = record["material"]
 		_config_title.text = "Config: %s" % PartLibrary.part_name(type)
+		var captions: Array = PartLibrary.size_captions(type)
 		for spin_index in _config_spins.size():
 			var spin: SpinBox = _config_spins[spin_index]
 			spin.editable = true
 			spin.set_value_no_signal(float(size[spin_index]) / Units.UNITS_PER_CELL)
+			var caption: Label = _config_captions[spin_index]
+			caption.text = captions[spin_index]
 		var mass: float = BuildGrid.mass_of(record)
 		var strength: float = MaterialLibrary.info(material)["strength"]
 		var size_m: Vector3 = Units.to_metres(size)
@@ -1117,6 +1147,8 @@ func _refresh() -> void:
 			_mass_text(mass),
 			int(round(mass * strength)),
 		]
+		if type == "large_cannon":
+			_config_info.text += _cannon_text(record)
 
 	_sync_settings(record)
 	_sync_signals(record)

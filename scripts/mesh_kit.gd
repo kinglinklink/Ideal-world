@@ -52,6 +52,24 @@ static func add_box(surface: SurfaceTool, center: Vector3, size: Vector3) -> voi
 			add_triangle(surface, face - u - v, face + u + v, face - u + v, out)
 
 
+## A box of the given size, centred on the origin, then moved, turned or
+## stretched by `placement`. Used for parts that sit at an angle.
+static func add_box_placed(surface: SurfaceTool, placement: Transform3D, size: Vector3) -> void:
+	var half := size * 0.5
+	for axis in 3:
+		var normal := axis_vector(axis)
+		var u := axis_vector((axis + 1) % 3) * half[(axis + 1) % 3]
+		var v := axis_vector((axis + 2) % 3) * half[(axis + 2) % 3]
+		for facing in [-1.0, 1.0]:
+			var side: float = facing
+			var face := normal * side * half[axis]
+			var outward := placement.basis * (normal * side)
+			add_triangle(surface, placement * (face - u - v), placement * (face + u - v),
+					placement * (face + u + v), outward)
+			add_triangle(surface, placement * (face - u - v), placement * (face + u + v),
+					placement * (face - u + v), outward)
+
+
 ## A solid cylinder whose length runs along the given axis.
 static func add_cylinder(surface: SurfaceTool, center: Vector3, axis: int, radius: float,
 		length: float, segments: int = 16) -> void:

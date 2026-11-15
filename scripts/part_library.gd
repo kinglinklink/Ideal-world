@@ -84,7 +84,7 @@ const PARTS := {
 	"altitude_sensor": ["Altitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"attitude_sensor": ["Attitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"distance_sensor": ["Distance sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
-	"seat": ["Seat", "Misc", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"seat": ["Seat", "Misc", Vector3(3, 3, 3), 0.4, Vector3(0, 0, 0), "box"],
 	"anchor_block": ["Anchor block", "Misc", Vector3(1, 1, 1), 0.9, Vector3(0, 0, 0), "box"],
 	"dynamic_offsetter": ["Dynamic offsetter", "Misc", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
 }
@@ -162,27 +162,41 @@ static func unit_centroid(part_id: String) -> Vector3:
 # --- Meshes ------------------------------------------------------------------
 
 ## The unit-size render mesh for a part. Scale it by the part's size in metres.
-## `teeth` picks a gear model with that many teeth; 0 means the standard model.
-static func get_mesh(part_id: String, teeth: int = 0) -> Mesh:
+## `options` picks a variant of a model whose shape depends on its settings
+## (see mech_models.gd). Empty means the standard model.
+static func get_mesh(part_id: String, options: Dictionary = {}) -> Mesh:
 	var key := part_id
-	if teeth > 0:
-		key = "%s:%d" % [part_id, teeth]
+	if not options.is_empty():
+		key = part_id + str(options)
 	if not _mesh_cache.has(key):
-		if teeth > 0:
-			_mesh_cache[key] = MechModels.build(part_id, teeth)
-		else:
+		if options.is_empty():
 			_mesh_cache[key] = _build_mesh(part_id)
+		else:
+			_mesh_cache[key] = MechModels.build(part_id, options)
 	return _mesh_cache[key]
 
 
-## The model for one particular part. Gears show the tooth count from their settings.
+## The model for one particular part. Gears show their tooth count and the
+## propeller its blade count and pitch, taken from the part's settings.
 static func mesh_for_record(record: Dictionary) -> Mesh:
 	var type: String = record["type"]
+	var props: Dictionary = record.get("props", {})
 	if type == "gear" or type == "bevel_gear":
-		var props: Dictionary = record.get("props", {})
-		var teeth: int = clampi(int(props.get("teeth", 12)), 4, 120)
-		return get_mesh(type, teeth)
+		return get_mesh(type, {"teeth": clampi(int(props.get("teeth", 12)), 4, 120)})
+	if type == "propeller":
+		return get_mesh(type, {
+			"blades": clampi(int(props.get("blades", 4)), 2, 12),
+			"pitch": int(round(float(props.get("pitch", 20.0)))),
+		})
 	return get_mesh(type)
+
+
+## The captions for a part's three dimensions in the Config tool. Most parts
+## are plain X, Y, Z; the cannon's dimensions are its bore and barrel.
+static func size_captions(part_id: String) -> Array:
+	if part_id == "large_cannon":
+		return ["Bore size X (blocks)", "Bore size Y (blocks)", "Barrel length (blocks)"]
+	return ["Size X (blocks)", "Size Y (blocks)", "Size Z (blocks)"]
 
 
 static func _build_mesh(part_id: String) -> Mesh:
