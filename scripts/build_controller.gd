@@ -751,9 +751,16 @@ func toggle_spawn() -> void:
 		spawned = true
 		var bodies: int = report["bodies"]
 		var mass: float = report["mass"]
-		_say("Spawned %d part(s) as %d welded %s, %.1f kg in all." % [
+		var note: String = "Spawned %d part(s) as %d welded %s, %.1f kg in all." % [
 			int(report["parts"]), bodies, "body" if bodies == 1 else "bodies", mass,
-		])
+		]
+		var hinges: int = report["hinges"]
+		var locked: int = report["locked"]
+		if hinges > 0:
+			note += "\n%d hinge(s) free to turn." % hinges
+		if locked > 0:
+			note += "\n%d hinge(s) locked: both sides are welded to the same body." % locked
+		_say(note)
 	_preview.visible = false
 	_hover.visible = false
 	_hide_axes()

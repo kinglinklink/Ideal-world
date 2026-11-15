@@ -17,7 +17,7 @@ Working now:
 - All five tools: Place, Delete, Config, Transform and Paint
 - A parts menu that stays out of the way: category tabs up the left edge, with the parts list opening beside them only while a tab is open
 - A placement ghost that shows the part's own X, Y and Z axes in red, green and blue, so you can see which way it faces as you turn it
-- **Basic Spawn:** the build is welded into rigid bodies that fall under gravity, collide, and can be pushed around by the character
+- **Basic Spawn:** the build is welded into rigid bodies that fall under gravity, collide, and can be pushed around by the character. Hinges turn.
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
 - Display models for eighteen mechanical parts: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake. They are models only and do nothing until Spawn is built.
 - Display models for every other planned part: 13 fluid and engine parts, 4 aero parts, 11 logic blocks and sensors, 4 combat parts, and the seat, anchor block and dynamic offsetter. Also models only for now. That makes 75 parts in nine categories.
@@ -29,7 +29,7 @@ Working now:
 - Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
-Not built yet: the behavior of the mechanical, logic and combat parts. Once spawned, every part is simply welded solid.
+Not built yet: the behavior of the mechanical, logic and combat parts, apart from the hinge. Once spawned, every other part is simply welded solid.
 
 ## How to run it
 
@@ -76,9 +76,10 @@ This is the basic version. What it does so far:
 - **Pushing.** The character has a mass of 70 kg. Walking into a body pushes it with a force equal to the character's momentum toward it (mass × closing speed) handed over across a quarter of a second: 1,120 N at a walk, 2,100 N at a run. Friction with the ground decides the rest. A light body slides away, a heavier one moves slowly and holds you back to its speed, and one whose friction is greater than the push does not move at all.
 - **Weight.** A body you stand on carries your weight.
 - **Seats** work the same as on the pad: E to sit, Space to stand up.
+- **Hinges** work. A hinge splits across its middle into a base half and a top half, joined by the pin along its own X axis. Each half welds to whatever touches it, so what is attached to the top swings relative to what is attached to the base. Something that touches both halves, such as a block standing beside the hinge, welds to the base only. The hinge's settings apply: angle limits (off by default, so it turns freely) and friction torque. The two bodies a hinge joins do not collide with each other, so use the angle limits to stop it where it should stop. If both sides of a hinge end up welded to the same body through other parts, it cannot turn, and the spawn message says how many hinges are locked that way.
 - A body that contains an **anchor block** is fixed in place. A **dynamic offsetter** is invisible and has no collision once spawned, but still welds.
 
-Not yet: every joint, motor, wheel, engine and logic block is welded solid and does nothing. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
+Not yet: apart from the hinge, every joint, motor, wheel, engine and logic block is welded solid and does nothing. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
 
 ## Saves
 

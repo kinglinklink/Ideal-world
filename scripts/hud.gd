@@ -1177,7 +1177,8 @@ func _on_garage_button() -> void:
 
 func _on_message(text: String) -> void:
 	_message_label.text = text
-	_message_time = MESSAGE_SECONDS
+	# A longer message stays up longer.
+	_message_time = MESSAGE_SECONDS + 2.0 * text.count("\n")
 
 
 func _on_changed() -> void:
