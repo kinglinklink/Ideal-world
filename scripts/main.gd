@@ -27,7 +27,7 @@ func _ready() -> void:
 	player.name = "Player"
 	# Start just outside the pad, looking along +Z across it.
 	var pad_size: Vector3 = grid.size_metres()
-	player.position = Vector3(pad_size.x * 0.5, 0.1, -8.0)
+	player.position = Vector3(pad_size.x * 0.5, 0.1, -5.0)
 	player.yaw = PI
 	add_child(player)
 
@@ -68,7 +68,7 @@ func _make_sky_and_sun() -> void:
 	sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
 	sun.light_energy = 1.2
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 300.0
+	sun.directional_shadow_max_distance = 150.0
 	add_child(sun)
 
 

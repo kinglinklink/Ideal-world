@@ -8,12 +8,12 @@ Early development, partway through **Milestone 1: Build mode**.
 
 Working now:
 
-- A 128 m × 256 m build pad with a 1 m grid (128 × 256 cells, 128 cells high)
-- A blocky character who steps up one-block ledges, with a camera that scrolls from first person out to a wide third-person view
+- A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
+- A blocky character who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - All five tools: Place, Delete, Transform, Config and Paint
-- Twelve shapes: block, wedge, triangle wedge, cylinder, sphere, corner wedge, pyramid, cone, hemisphere, convex curve, concave curve and ring
-- Thirteen materials with real densities, plus free choice of color
-- Resizing any part in 5 mm steps, with live volume, mass and health
+- Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
+- Twenty-nine materials with real densities, from foam to gold, plus free choice of color
+- Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
 
 Not built yet: saving and loading, mechanical and logic parts, and everything to do with Spawn and physics.
@@ -51,7 +51,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 ## Units
 
-One grid cell is a 1 meter cube. Sizes and positions are stored as whole multiples of 5 mm. The simulation works in SI units at true size: meters, kilograms, newtons. Y is up; X and Z are the ground plane.
+One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole multiples of 0.005 block (1.25 mm). The scale is one number, `CELL`, in `scripts/units.gd`. The simulation works in SI units at true size: meters, kilograms, newtons. Y is up; X and Z are the ground plane.
 
 ## Project layout
 

@@ -12,9 +12,8 @@ const WALK_SPEED := 5.0       # m/s
 const RUN_SPEED := 10.0       # m/s
 const JUMP_SPEED := 5.2       # m/s, about a 1.4 m jump
 const GRAVITY := 9.81         # m/s^2
-const STEP_HEIGHT := Units.CELL * 1.05   # walks straight up ledges one cell high
 const MOUSE_SENSITIVITY := 0.0025
-const ZOOM_MAX := 150.0       # metres behind the character
+const ZOOM_MAX := 80.0        # metres behind the character
 const EYE_HEIGHT := 1.6       # metres
 const PITCH_LIMIT := 1.5      # radians
 const BODY_RADIUS := 0.3
@@ -27,12 +26,16 @@ var cursor_free := false      # Esc toggles this in first person
 
 var _turning := false         # right mouse button held
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
+var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
 var _camera: Camera3D
 var _model: Node3D
 
 
 func _ready() -> void:
+	# Always at least one grid cell, and never less than a tall stair.
+	_step_height = maxf(Units.CELL * 1.05, 0.55)
+
 	# A flat-bottomed cylinder stands on block edges more predictably than a capsule.
 	var collider := CollisionShape3D.new()
 	var cylinder := CylinderShape3D.new()
@@ -167,7 +170,7 @@ func _physics_process(delta: float) -> void:
 		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-12.0 * delta))
 
 
-## Climbs a ledge up to STEP_HEIGHT tall when walking into it.
+## Climbs a ledge up to _step_height tall when walking into it.
 ## Works by testing the move in three legs: up, forward, then back down.
 func _try_step_up(delta: float) -> bool:
 	var forward := Vector3(velocity.x, 0.0, velocity.z) * delta
@@ -176,7 +179,7 @@ func _try_step_up(delta: float) -> bool:
 	var here := global_transform
 	if not test_move(here, forward):
 		return false   # nothing in the way
-	var up := Vector3(0.0, STEP_HEIGHT, 0.0)
+	var up := Vector3(0.0, _step_height, 0.0)
 	if test_move(here, up):
 		return false   # no head room
 	var raised := here.translated(up)

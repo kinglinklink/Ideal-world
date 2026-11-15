@@ -5,7 +5,7 @@ extends RefCounted
 ## smallest increment the build tools allow: 0.005 of a grid cell. Whole numbers
 ## never pick up rounding error, however often a part is moved or resized.
 
-const CELL := 1.0                 # metres per grid cell
+const CELL := 0.25                # metres per grid cell
 const UNITS_PER_CELL := 200       # so one unit is 0.005 of a cell
 const HALF_CELL_UNITS := 100
 const UNIT := CELL / 200.0        # metres per unit

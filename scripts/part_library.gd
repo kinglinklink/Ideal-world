@@ -13,17 +13,29 @@ const PARTS := {
 	"triangle_wedge": ["Triangle wedge", "Basic", Vector3(1, 1, 1), 0.5, Vector3(0, -0.16667, 0), "convex"],
 	"cylinder": ["Cylinder", "Basic", Vector3(1, 1, 1), 0.785398, Vector3(0, 0, 0), "convex"],
 	"sphere": ["Sphere", "Basic", Vector3(1, 1, 1), 0.523599, Vector3(0, 0, 0), "convex"],
+	"slab": ["Half block", "Structural", Vector3(1, 0.5, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"plate": ["Plate", "Structural", Vector3(1, 0.25, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"post": ["Post", "Structural", Vector3(0.5, 1, 0.5), 1.0, Vector3(0, 0, 0), "box"],
+	"rod": ["Rod", "Structural", Vector3(0.25, 1, 0.25), 0.785398, Vector3(0, 0, 0), "convex"],
 	"corner_wedge": ["Corner wedge", "Advanced", Vector3(1, 1, 1), 0.166667, Vector3(-0.25, -0.25, -0.25), "convex"],
+	"inverse_corner": ["Inverse corner", "Advanced", Vector3(1, 1, 1), 0.833333, Vector3(-0.05, -0.05, -0.05), "convex"],
 	"pyramid": ["Pyramid", "Advanced", Vector3(1, 1, 1), 0.333333, Vector3(0, -0.25, 0), "convex"],
 	"cone": ["Cone", "Advanced", Vector3(1, 1, 1), 0.261799, Vector3(0, -0.25, 0), "convex"],
+	"frustum": ["Tapered cylinder", "Advanced", Vector3(1, 1, 1), 0.458149, Vector3(0, -0.10714, 0), "convex"],
 	"hemisphere": ["Hemisphere", "Advanced", Vector3(1, 0.5, 1), 0.523599, Vector3(0, -0.125, 0), "convex"],
+	"half_cylinder": ["Half cylinder", "Advanced", Vector3(1, 0.5, 1), 0.785398, Vector3(0, -0.07559, 0), "convex"],
 	"convex_curve": ["Convex curve", "Advanced", Vector3(1, 1, 1), 0.785398, Vector3(-0.07559, -0.07559, 0), "convex"],
 	"concave_curve": ["Concave curve", "Advanced", Vector3(1, 1, 1), 0.214602, Vector3(-0.27665, -0.27665, 0), "concave"],
+	"arch": ["Arch", "Advanced", Vector3(1, 1, 1), 0.748673, Vector3(0, 0.11086, 0), "concave"],
 	"ring": ["Ring", "Advanced", Vector3(1, 1, 1), 0.502655, Vector3(0, 0, 0), "concave"],
+	"pipe": ["Pipe", "Advanced", Vector3(1, 1, 1), 0.282743, Vector3(0, 0, 0), "concave"],
+	"torus": ["Torus", "Advanced", Vector3(1, 0.25, 1), 0.462637, Vector3(0, 0, 0), "concave"],
 }
 
-const CATEGORIES := ["Basic", "Advanced"]
+const CATEGORIES := ["Basic", "Structural", "Advanced"]
 const RING_INNER_RADIUS := 0.3   # of a unit ring whose outer radius is 0.5
+const PIPE_INNER_RADIUS := 0.4   # a thinner wall than the ring
+const ARCH_RADIUS := 0.4         # of the opening cut into a unit arch
 const CURVE_STEPS := 10
 
 static var _mesh_cache: Dictionary = {}
@@ -82,7 +94,7 @@ static func _build_mesh(part_id: String) -> Mesh:
 			triangle.size = Vector3.ONE
 			triangle.left_to_right = 0.5
 			return triangle
-		"cylinder":
+		"cylinder", "rod":
 			var cylinder := CylinderMesh.new()
 			cylinder.top_radius = 0.5
 			cylinder.bottom_radius = 0.5
@@ -130,6 +142,60 @@ static func _build_mesh(part_id: String) -> Mesh:
 				var angle := float(step) / float(CURVE_STEPS) * PI * 0.5
 				fillet.append(Vector2(0.5 - sin(angle), 0.5 - cos(angle)))
 			return _extrude(fillet)
+		"frustum":
+			var taper := CylinderMesh.new()
+			taper.top_radius = 0.25
+			taper.bottom_radius = 0.5
+			taper.height = 1.0
+			taper.radial_segments = 32
+			taper.rings = 1
+			return taper
+		"pipe":
+			return _lathe(PackedVector2Array([
+				Vector2(PIPE_INNER_RADIUS, -0.5), Vector2(0.5, -0.5),
+				Vector2(0.5, 0.5), Vector2(PIPE_INNER_RADIUS, 0.5),
+			]), 32)
+		"torus":
+			# An oval outline that becomes a true circle at the default 1 x 0.25 x 1 size.
+			var tube := PackedVector2Array()
+			for step in 16:
+				var angle := float(step) / 16.0 * TAU
+				tube.append(Vector2(0.375 + 0.125 * cos(angle), 0.5 * sin(angle)))
+			return _lathe(tube, 32)
+		"half_cylinder":
+			# Round side up, flat side down, running along Z.
+			var half_disc := PackedVector2Array()
+			for step in CURVE_STEPS * 2 + 1:
+				var angle := float(step) / float(CURVE_STEPS * 2) * PI
+				half_disc.append(Vector2(0.5 * cos(angle), -0.5 + sin(angle)))
+			return _extrude(half_disc)
+		"arch":
+			# A block with a half-round opening cut up into its underside.
+			var arch_outline := PackedVector2Array([Vector2(-0.5, -0.5), Vector2(-ARCH_RADIUS, -0.5)])
+			for step in range(1, CURVE_STEPS * 2):
+				var angle := PI - float(step) / float(CURVE_STEPS * 2) * PI
+				arch_outline.append(Vector2(ARCH_RADIUS * cos(angle), -0.5 + ARCH_RADIUS * sin(angle)))
+			arch_outline.append(Vector2(ARCH_RADIUS, -0.5))
+			arch_outline.append(Vector2(0.5, -0.5))
+			arch_outline.append(Vector2(0.5, 0.5))
+			arch_outline.append(Vector2(-0.5, 0.5))
+			return _extrude(arch_outline)
+		"inverse_corner":
+			# A block with its (+X, +Y, +Z) corner sliced off.
+			var c000 := Vector3(-0.5, -0.5, -0.5)
+			var c100 := Vector3(0.5, -0.5, -0.5)
+			var c010 := Vector3(-0.5, 0.5, -0.5)
+			var c001 := Vector3(-0.5, -0.5, 0.5)
+			var c110 := Vector3(0.5, 0.5, -0.5)
+			var c101 := Vector3(0.5, -0.5, 0.5)
+			var c011 := Vector3(-0.5, 0.5, 0.5)
+			return _from_triangles([
+				c000, c010, c011, c000, c011, c001,
+				c000, c100, c101, c000, c101, c001,
+				c000, c100, c110, c000, c110, c010,
+				c100, c110, c101, c010, c110, c011, c001, c101, c011,
+				c110, c101, c011,
+			])
 		"corner_wedge":
 			var a := Vector3(-0.5, -0.5, -0.5)
 			var b := Vector3(0.5, -0.5, -0.5)

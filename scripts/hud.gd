@@ -191,12 +191,12 @@ func _build_place_panel() -> Control:
 	var panel := _column()
 	for category in PartLibrary.CATEGORIES:
 		panel.add_child(_label("%s parts" % category))
-		var buttons := _grid_of(2)
+		var buttons := _grid_of(3)
 		panel.add_child(buttons)
 		for id in PartLibrary.part_ids():
 			if PartLibrary.category(id) != category:
 				continue
-			var part_button := _button(PartLibrary.part_name(id), 132.0, true)
+			var part_button := _button(PartLibrary.part_name(id), 124.0, true)
 			part_button.pressed.connect(_on_part_button.bind(id))
 			buttons.add_child(part_button)
 			_part_buttons[id] = part_button
@@ -225,7 +225,7 @@ func _build_transform_panel() -> Control:
 	_snap_option.focus_mode = Control.FOCUS_NONE
 	for stop in SNAP_STOPS:
 		var stop_cells: float = stop
-		_snap_option.add_item("%s m" % str(stop_cells * Units.CELL))
+		_snap_option.add_item("%s block" % str(stop_cells))
 	_snap_option.item_selected.connect(_on_snap_selected)
 	snap_row.add_child(_snap_option)
 	panel.add_child(snap_row)
@@ -278,13 +278,13 @@ func _build_config_panel() -> Control:
 
 	for axis in 3:
 		var size_row := _row()
-		var caption := _label("Size %s (m)" % AXIS_NAMES[axis])
-		caption.custom_minimum_size = Vector2(96, 0)
+		var caption := _label("Size %s (blocks)" % AXIS_NAMES[axis])
+		caption.custom_minimum_size = Vector2(120, 0)
 		size_row.add_child(caption)
 		var spin := SpinBox.new()
-		spin.min_value = Units.UNIT
-		spin.max_value = 64.0 * Units.CELL
-		spin.step = Units.UNIT
+		spin.min_value = 1.0 / Units.UNITS_PER_CELL
+		spin.max_value = 64.0
+		spin.step = 1.0 / Units.UNITS_PER_CELL
 		spin.custom_minimum_size = Vector2(130, 0)
 		spin.select_all_on_focus = true
 		spin.value_changed.connect(_on_config_size.bind(axis))
@@ -304,10 +304,10 @@ func _build_config_panel() -> Control:
 func _build_paint_panel() -> Control:
 	var panel := _column()
 	panel.add_child(_label("Materials"))
-	var materials := _grid_of(2)
+	var materials := _grid_of(3)
 	panel.add_child(materials)
 	for id in MaterialLibrary.ids():
-		var material_button := _button(MaterialLibrary.display_name(id), 132.0, true)
+		var material_button := _button(MaterialLibrary.display_name(id), 104.0, true)
 		material_button.tooltip_text = MaterialLibrary.tooltip(id)
 		material_button.pressed.connect(_on_material_button.bind(id))
 		materials.add_child(material_button)
@@ -414,7 +414,7 @@ func _on_select_all_button() -> void:
 
 
 func _on_config_size(value: float, axis: int) -> void:
-	var accepted: bool = controller.set_config_size(axis, value / Units.CELL)
+	var accepted: bool = controller.set_config_size(axis, value)
 	if not accepted:
 		_refresh()   # put the old number back
 
@@ -437,7 +437,7 @@ func _on_changed_with_value(_value: Variant) -> void:
 static func _mass_text(kilograms: float) -> String:
 	if kilograms >= 1000.0:
 		return "%.2f t" % (kilograms / 1000.0)
-	return "%.1f kg" % kilograms
+	return "%.2f kg" % kilograms
 
 
 ## Brings every button and label in line with the controller's state.
@@ -498,10 +498,12 @@ func _refresh() -> void:
 		for spin_index in _config_spins.size():
 			var spin: SpinBox = _config_spins[spin_index]
 			spin.editable = true
-			spin.set_value_no_signal(size[spin_index] * Units.UNIT)
+			spin.set_value_no_signal(float(size[spin_index]) / Units.UNITS_PER_CELL)
 		var mass: float = BuildGrid.mass_of(record)
 		var strength: float = MaterialLibrary.info(material)["strength"]
-		_config_info.text = "Material: %s\nVolume: %.4f m³\nMass: %s\nHealth: %d HP" % [
+		var size_m: Vector3 = Units.to_metres(size)
+		_config_info.text = "Size: %.3f x %.3f x %.3f m\nMaterial: %s\nVolume: %.5f m³\nMass: %s\nHealth: %d HP" % [
+			size_m.x, size_m.y, size_m.z,
 			MaterialLibrary.display_name(material),
 			BuildGrid.volume_of(record),
 			_mass_text(mass),

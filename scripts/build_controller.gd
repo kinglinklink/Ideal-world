@@ -64,8 +64,8 @@ func _ready() -> void:
 
 	_mass_marker = _new_marker("CentreOfMass")
 	var ball := SphereMesh.new()
-	ball.radius = 0.2 * Units.CELL
-	ball.height = 0.4 * Units.CELL
+	ball.radius = 0.4 * Units.CELL
+	ball.height = 0.8 * Units.CELL
 	_mass_marker.mesh = ball
 	var ball_material := StandardMaterial3D.new()
 	ball_material.albedo_color = MASS_MARKER
