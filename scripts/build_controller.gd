@@ -219,6 +219,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_key(key: InputEventKey) -> void:
 	var code: int = key.physical_keycode
+	if (code == KEY_ENTER or code == KEY_KP_ENTER) and not key.ctrl_pressed:
+		toggle_spawn()   # Enter does the same as the Spawn button
+		return
 	if spawned:
 		# The build tools are put away. Only sitting down still works.
 		if code == KEY_E and not key.ctrl_pressed:

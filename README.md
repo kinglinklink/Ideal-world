@@ -46,6 +46,7 @@ Not built yet: the behavior of the mechanical, logic and combat parts, apart fro
 | Shift | Run |
 | Space | Jump, or stand up from a seat |
 | E | Sit in the nearest seat within reach |
+| Enter | Spawn the build, or go back to building |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |
@@ -66,7 +67,9 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 ## Spawn
 
-Press **Spawn** at the bottom left to set the build loose. Press the same button, now labeled **Build**, to put everything back on the pad exactly as it was.
+Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
+
+The bottom-right corner shows which build of the game is running (for example "Build 8"), which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 

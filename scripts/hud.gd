@@ -14,6 +14,9 @@ const Minimap = preload("res://scripts/minimap.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
+## Shown in the bottom-right corner, so it is easy to tell which copy of the
+## game is running. Raised with every pushed change.
+const VERSION := "Build 8"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -177,7 +180,7 @@ func _build_interface() -> void:
 			"WASD walk   Shift run   Space jump   E sit in a seat   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)\n"
 			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint   Left click use tool\n"
-			+ "R / T / Y turn a part   Spawn, bottom left, sets the build loose", 14))
+			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(help)
@@ -266,8 +269,17 @@ func _build_interface() -> void:
 		if panel != null:
 			stack.add_child(panel)
 
-	left.add_child(_build_bottom_bar())
+	# The bar is pinned to the corner on its own, so that nothing in the
+	# column above it can move or hide it. A spacer keeps the column clear of it.
+	var bar := _build_bottom_bar()
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	bar.size_flags_vertical = Control.SIZE_SHRINK_END
+	root.add_child(bar)
 	_build_only.append(_build_bar)
+	var bar_space := Control.new()
+	bar_space.custom_minimum_size = Vector2(0, 58)
+	bar_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_child(bar_space)
 
 	# Readouts, bottom right.
 	var readouts := VBoxContainer.new()
@@ -295,6 +307,7 @@ func _build_interface() -> void:
 	_build_only.append(saves_button)
 	_speed_label = _readout(readouts)
 	_fps_label = _readout(readouts)
+	_readout(readouts).text = "Ideal World  %s" % VERSION
 
 	# Mini map, top right.
 	_minimap = Minimap.new()
@@ -368,9 +381,9 @@ func _build_bottom_bar() -> Control:
 	var bar := _row()
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	_spawn_button = _button("Spawn", 92.0)
-	_spawn_button.custom_minimum_size = Vector2(92, 56)
-	_spawn_button.add_theme_font_size_override("font_size", 18)
+	_spawn_button = _button("Spawn", 110.0)
+	_spawn_button.custom_minimum_size = Vector2(110, 56)
+	_tint_button(_spawn_button, Color(0.35, 0.85, 0.4))   # bright green, hard to miss
 	_spawn_button.pressed.connect(_on_spawn_button)
 	bar.add_child(_spawn_button)
 
