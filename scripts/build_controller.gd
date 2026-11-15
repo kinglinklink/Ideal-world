@@ -302,12 +302,25 @@ func _use_paint() -> void:
 func _placement_record() -> Dictionary:
 	var size: Vector3i = BuildGrid.default_size_units(part_type)
 	var center: Vector3i = grid.cell_center_units(_target_cell)
-	var record: Dictionary = BuildGrid.make_record(part_type, center, place_rotation, size, brush_material, brush_color)
+	var color: Color = PartLibrary.placement_color(part_type, brush_color)
+	var record: Dictionary = BuildGrid.make_record(part_type, center, place_rotation, size, brush_material, color)
 	var half: Vector3 = BuildGrid.half_extent_units(record)
-	var gap: int = Units.HALF_CELL_UNITS - int(round(half[_target_axis]))
-	if gap != 0:
-		center[_target_axis] -= _target_sign * gap
-		record["pos"] = center
+	for axis in 3:
+		if axis == _target_axis:
+			# Push the part up against the surface under the cursor.
+			var gap: int = Units.HALF_CELL_UNITS - int(round(half[axis]))
+			center[axis] -= _target_sign * gap
+			continue
+		# A part a whole number of cells wide lines its edges up with the grid.
+		# Odd widths already do; even widths need a half-cell nudge.
+		var extent: int = int(round(half[axis] * 2.0))
+		if extent % Units.UNITS_PER_CELL != 0:
+			continue
+		var low: int = center[axis] - int(round(half[axis]))
+		var offset: int = posmod(low, Units.UNITS_PER_CELL)
+		if offset != 0:
+			center[axis] += Units.UNITS_PER_CELL - offset
+	record["pos"] = center
 	return record
 
 

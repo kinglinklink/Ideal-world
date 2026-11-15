@@ -52,9 +52,26 @@ const PARTS := {
 	"linkage_bar": ["Linkage bar", "Mechanical", Vector3(1, 0.25, 0.25), 0.5, Vector3(0, 0, 0), "box"],
 	"clutch": ["Clutch", "Mechanical", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"brake": ["Brake", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"light_panel": ["Light panel", "Logic", Vector3(1, 0.125, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"vanish_block": ["Vanishing block", "Logic", Vector3(1, 1, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"explosive_block": ["Explosive block", "Combat", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
+	"machine_gun": ["Machine gun", "Combat", Vector3(1, 1, 2), 0.3, Vector3(0, 0, 0), "box"],
+	"large_cannon": ["Large cannon", "Combat", Vector3(1, 1, 4), 0.3, Vector3(0, 0, 0), "box"],
+	"ammo_generator": ["Ammo generator", "Combat", Vector3(2, 2, 2), 0.7, Vector3(0, 0, 0), "box"],
 }
 
-const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical"]
+## Parts that start in their own colour instead of the brush colour.
+## They can still be repainted afterwards.
+const DEFAULT_COLORS := {
+	"vanish_block": Color(1.0, 1.0, 1.0),
+	"light_panel": Color(0.20, 0.21, 0.23),
+	"explosive_block": Color(0.78, 0.12, 0.10),
+	"machine_gun": Color(0.30, 0.33, 0.27),
+	"large_cannon": Color(0.30, 0.33, 0.27),
+	"ammo_generator": Color(0.30, 0.33, 0.27),
+}
+
+const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical", "Logic", "Combat"]
 const RING_INNER_RADIUS := 0.3   # of a unit ring whose outer radius is 0.5
 const PIPE_INNER_RADIUS := 0.4   # a thinner wall than the ring
 const ARCH_RADIUS := 0.4         # of the opening cut into a unit arch
@@ -81,6 +98,13 @@ static func part_name(part_id: String) -> String:
 
 static func category(part_id: String) -> String:
 	return _row(part_id)[1]
+
+
+## The colour a newly placed part gets: its own default, or the brush colour.
+static func placement_color(part_id: String, brush_color: Color) -> Color:
+	if DEFAULT_COLORS.has(part_id):
+		return DEFAULT_COLORS[part_id]
+	return brush_color
 
 
 static func default_size_cells(part_id: String) -> Vector3:

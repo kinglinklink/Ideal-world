@@ -1,5 +1,5 @@
 extends RefCounted
-## Display models for the mechanical parts. Looks only: none of these parts
+## Display models for the mechanical, logic and combat parts. Looks only: none of these parts
 ## does anything until the Spawn milestone gives them behaviour.
 ##
 ## Every model is drawn inside a 1 x 1 x 1 box centred on the origin, with
@@ -17,6 +17,7 @@ const IDS := [
 	"motor", "servo", "door_hinge_servo", "hinge", "ball_joint", "bearing",
 	"piston", "solenoid", "spring", "gear", "bevel_gear", "rack", "pulley",
 	"crankshaft", "wheel", "linkage_bar", "clutch", "brake",
+	"light_panel", "explosive_block", "machine_gun", "large_cannon", "ammo_generator",
 ]
 
 
@@ -27,6 +28,7 @@ static func has_model(part_id: String) -> bool:
 static func build(part_id: String) -> ArrayMesh:
 	var body := Kit.new_surface()
 	var detail := Kit.new_surface()
+	var detail_look: Material = null   # null means the usual dark metal
 	match part_id:
 		"motor":
 			# A housing with a collar and an output shaft on top.
@@ -125,7 +127,40 @@ static func build(part_id: String) -> ArrayMesh:
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.5, 0.3, 24)
 			Kit.add_box(body, Vector3(0.3, 0.0, 0.0), Vector3(0.4, 0.9, 0.45))
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.14, 1.0)
+		"light_panel":
+			# A thin frame holding a lens that is black while the light is off.
+			Kit.add_box(body, Vector3(0.0, -0.2, 0.0), Vector3(1.0, 0.6, 1.0))
+			Kit.add_box(detail, Vector3(0.0, 0.3, 0.0), Vector3(0.875, 0.4, 0.875))
+			detail_look = Kit.lens_material()
+		"explosive_block":
+			# A charge wrapped in two bands, with a detonator cap on top.
+			Kit.add_box(body, Vector3.ZERO, Vector3(0.9375, 0.9375, 0.9375))
+			Kit.add_box(detail, Vector3(0.0, 0.25, 0.0), Vector3(1.0, 0.125, 1.0))
+			Kit.add_box(detail, Vector3(0.0, -0.25, 0.0), Vector3(1.0, 0.125, 1.0))
+			Kit.add_cylinder(detail, Vector3(0.0, 0.484375, 0.0), Y, 0.15, 0.03125)
+		"machine_gun":
+			# Fires along -Z: receiver, barrel, muzzle, mount and ammo feed.
+			Kit.add_box(body, Vector3(0.0, 0.0, 0.2), Vector3(0.45, 0.45, 0.6))
+			Kit.add_cylinder(detail, Vector3(0.0, 0.05, -0.275), Z, 0.07, 0.35)
+			Kit.add_cylinder(detail, Vector3(0.0, 0.05, -0.475), Z, 0.1, 0.05)
+			Kit.add_box(detail, Vector3(0.0, -0.3625, 0.2), Vector3(0.3, 0.275, 0.3))
+			Kit.add_box(detail, Vector3(0.3125, 0.0, 0.3), Vector3(0.175, 0.35, 0.25))
+		"large_cannon":
+			# Fires along -Z, styled on a tank gun: breech block, breech ring,
+			# a plain barrel with a fume extractor, and a muzzle collar.
+			Kit.add_box(body, Vector3(0.0, 0.0, 0.35), Vector3(0.8, 0.8, 0.3))
+			Kit.add_cylinder(detail, Vector3(0.0, 0.0, 0.17), Z, 0.24, 0.06, 20)
+			Kit.add_cylinder(detail, Vector3(0.0, 0.0, -0.145), Z, 0.15, 0.69, 20)
+			Kit.add_cylinder(detail, Vector3(0.0, 0.0, -0.1), Z, 0.21, 0.12, 20)
+			Kit.add_cylinder(detail, Vector3(0.0, 0.0, -0.48), Z, 0.18, 0.04, 20)
+		"ammo_generator":
+			# A strapped crate with a lid and a feed chute on top.
+			Kit.add_box(body, Vector3(0.0, -0.09, 0.0), Vector3(0.9375, 0.78, 0.9375))
+			Kit.add_box(detail, Vector3(-0.25, -0.1, 0.0), Vector3(0.125, 0.8, 1.0))
+			Kit.add_box(detail, Vector3(0.25, -0.1, 0.0), Vector3(0.125, 0.8, 1.0))
+			Kit.add_box(detail, Vector3(0.0, 0.35, 0.0), Vector3(1.0, 0.1, 1.0))
+			Kit.add_box(detail, Vector3(0.0, 0.45, 0.0), Vector3(0.3, 0.1, 0.3))
 		_:
 			Kit.add_box(body, Vector3.ZERO, Vector3.ONE)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.1, 1.0)
-	return Kit.commit(body, detail)
+	return Kit.commit(body, detail, detail_look)

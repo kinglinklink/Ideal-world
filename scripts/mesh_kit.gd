@@ -6,6 +6,7 @@ const TOOTH_STEPS := [0.0, 0.25, 0.5, 0.75]       # where a tooth's four corners
 const TOOTH_AT_TIP := [false, true, true, false]  # which of those corners are on the tip circle
 
 static var _detail_material: StandardMaterial3D = null
+static var _lens_material: StandardMaterial3D = null
 
 
 static func new_surface() -> SurfaceTool:
@@ -129,13 +130,27 @@ static func detail_material() -> StandardMaterial3D:
 	return _detail_material
 
 
+## The glossy black look of a light panel that is switched off.
+static func lens_material() -> StandardMaterial3D:
+	if _lens_material == null:
+		_lens_material = StandardMaterial3D.new()
+		_lens_material.albedo_color = Color(0.02, 0.02, 0.03)
+		_lens_material.metallic = 0.0
+		_lens_material.roughness = 0.12
+	return _lens_material
+
+
 ## Joins a paintable body and a fixed-colour detail into one mesh.
 ## Surface 0 is the body, which takes the part's material and colour.
-## Surface 1 is the detail, which keeps its dark-metal look.
-static func commit(body: SurfaceTool, detail: SurfaceTool) -> ArrayMesh:
+## Surface 1 is the detail, which keeps its own look: dark metal unless
+## another material is given.
+static func commit(body: SurfaceTool, detail: SurfaceTool, detail_look: Material = null) -> ArrayMesh:
 	body.generate_normals()
 	var mesh: ArrayMesh = body.commit()
 	detail.generate_normals()
-	detail.set_material(detail_material())
+	if detail_look == null:
+		detail.set_material(detail_material())
+	else:
+		detail.set_material(detail_look)
 	detail.commit(mesh)
 	return mesh
