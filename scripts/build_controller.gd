@@ -12,12 +12,15 @@ const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
+const PartSettings = preload("res://scripts/part_settings.gd")
+const PartPorts = preload("res://scripts/part_ports.gd")
 
 enum Tool { PLACE, DELETE, TRANSFORM, CONFIG, PAINT }
 
 const TOOL_NAMES := ["Place", "Delete", "Transform", "Config", "Paint"]
 const REACH := 400.0         # metres the tools can reach from the camera
 const AIM_EVERY_TICKS := 4   # the aim ray runs at 60 Hz, a quarter of the physics rate
+const PASTE_PREVIEW_LIMIT := 200   # most parts drawn in the paste preview
 
 const PREVIEW_OK := Color(0.35, 0.75, 1.0, 0.45)
 const PREVIEW_BLOCKED := Color(1.0, 0.25, 0.2, 0.45)
@@ -25,6 +28,8 @@ const HOVER_DELETE := Color(1.0, 0.25, 0.2, 0.5)
 const HOVER_OTHER := Color(1.0, 0.95, 0.5, 0.3)
 const SELECTED := Color(0.3, 1.0, 0.55, 0.4)
 const MASS_MARKER := Color(1.0, 0.85, 0.1, 0.95)
+const LINK_IN := Color(0.3, 1.0, 0.4)     # lines from the parts this one listens to
+const LINK_OUT := Color(0.35, 0.65, 1.0)  # lines to the parts that listen to this one
 
 var grid: Node3D = null              # build_grid.gd
 var player: CharacterBody3D = null   # player.gd
@@ -37,6 +42,9 @@ var brush_color: Color = MaterialLibrary.default_color(MaterialLibrary.DEFAULT_I
 var snap_units: int = Units.UNITS_PER_CELL
 var selection: Array = []      # part uids. Transform: any number. Config: at most one.
 var eyedropper: String = ""    # "", "material" or "color"
+var paste_armed := false       # the next click in the Transform tool pastes the clipboard
+var link_input: String = ""    # Config: the input waiting for the user to click a source part
+var link_source_uid := 0       # Config: the source part clicked, waiting for an output choice
 
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
@@ -50,6 +58,9 @@ var _preview: MeshInstance3D
 var _hover: MeshInstance3D
 var _mass_marker: MeshInstance3D
 var _selection_markers: Array = []
+var _paste_markers: Array = []
+var _link_lines: MeshInstance3D
+var _link_mesh: ImmediateMesh
 
 
 func setup(p_grid: Node3D, p_player: CharacterBody3D) -> void:
@@ -74,6 +85,16 @@ func _ready() -> void:
 	ball_material.no_depth_test = true   # visible through the build
 	_mass_marker.material_override = ball_material
 
+	# Thin lines that show the selected part's signal links.
+	_link_lines = _new_marker("SignalLinks")
+	_link_mesh = ImmediateMesh.new()
+	_link_lines.mesh = _link_mesh
+	var line_material := StandardMaterial3D.new()
+	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_material.vertex_color_use_as_albedo = true
+	line_material.no_depth_test = true
+	_link_lines.material_override = line_material
+
 
 func _new_marker(marker_name: String) -> MeshInstance3D:
 	var marker := MeshInstance3D.new()
@@ -91,6 +112,9 @@ func set_tool(new_tool: int) -> void:
 		return
 	current_tool = new_tool
 	eyedropper = ""
+	paste_armed = false
+	link_input = ""
+	link_source_uid = 0
 	selection = []
 	tool_changed.emit(current_tool)
 	selection_changed.emit()
@@ -135,8 +159,12 @@ func _on_parts_changed() -> void:
 	for uid in selection:
 		if grid.has_part(uid):
 			kept.append(uid)
+	if link_source_uid != 0 and not grid.has_part(link_source_uid):
+		link_source_uid = 0
 	if kept.size() != selection.size():
 		selection = kept
+		link_input = ""
+		link_source_uid = 0
 		selection_changed.emit()
 	_refresh_markers()
 
@@ -159,6 +187,25 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_key(key: InputEventKey) -> void:
 	var code: int = key.physical_keycode
+	if key.ctrl_pressed:
+		# Ctrl shortcuts. Undo and redo work in every tool.
+		if code == KEY_Z:
+			if key.shift_pressed:
+				redo()
+			else:
+				undo()
+		elif code == KEY_Y:
+			redo()
+		elif current_tool == Tool.TRANSFORM:
+			if code == KEY_C:
+				copy_selection()
+			elif code == KEY_X:
+				cut_selection()
+			elif code == KEY_V:
+				paste()
+			elif code == KEY_A:
+				select_all()
+		return
 	if code == KEY_1:
 		set_tool(Tool.PLACE)
 	elif code == KEY_2:
@@ -176,16 +223,7 @@ func _on_key(key: InputEventKey) -> void:
 	elif code == KEY_Y:
 		_on_rotate_key(Vector3(0.0, 0.0, 1.0))
 	elif current_tool == Tool.TRANSFORM:
-		if key.ctrl_pressed:
-			if code == KEY_C:
-				copy_selection()
-			elif code == KEY_X:
-				cut_selection()
-			elif code == KEY_V:
-				paste()
-			elif code == KEY_A:
-				select_all()
-		elif code == KEY_DELETE or code == KEY_BACKSPACE:
+		if code == KEY_DELETE or code == KEY_BACKSPACE:
 			delete_selection()
 		else:
 			_on_move_key(code)
@@ -251,6 +289,9 @@ func _use_tool() -> void:
 			grid.remove_part(_hit_uid)
 			_hit_uid = 0
 	elif current_tool == Tool.TRANSFORM:
+		if paste_armed:
+			paste()
+			return
 		if _hit_uid == 0:
 			selection = []
 		elif Input.is_physical_key_pressed(KEY_SHIFT):
@@ -263,6 +304,10 @@ func _use_tool() -> void:
 		selection_changed.emit()
 		_refresh_markers()
 	elif current_tool == Tool.CONFIG:
+		if link_input != "":
+			_pick_link_source()
+			return
+		link_source_uid = 0
 		selection = [] if _hit_uid == 0 else [_hit_uid]
 		selection_changed.emit()
 		_refresh_markers()
@@ -302,12 +347,25 @@ func _use_paint() -> void:
 func _placement_record() -> Dictionary:
 	var size: Vector3i = BuildGrid.default_size_units(part_type)
 	var center: Vector3i = grid.cell_center_units(_target_cell)
-	var record: Dictionary = BuildGrid.make_record(part_type, center, place_rotation, size, brush_material, brush_color)
+	var color: Color = PartLibrary.placement_color(part_type, brush_color)
+	var record: Dictionary = BuildGrid.make_record(part_type, center, place_rotation, size, brush_material, color)
 	var half: Vector3 = BuildGrid.half_extent_units(record)
-	var gap: int = Units.HALF_CELL_UNITS - int(round(half[_target_axis]))
-	if gap != 0:
-		center[_target_axis] -= _target_sign * gap
-		record["pos"] = center
+	for axis in 3:
+		if axis == _target_axis:
+			# Push the part up against the surface under the cursor.
+			var gap: int = Units.HALF_CELL_UNITS - int(round(half[axis]))
+			center[axis] -= _target_sign * gap
+			continue
+		# A part a whole number of cells wide lines its edges up with the grid.
+		# Odd widths already do; even widths need a half-cell nudge.
+		var extent: int = int(round(half[axis] * 2.0))
+		if extent % Units.UNITS_PER_CELL != 0:
+			continue
+		var low: int = center[axis] - int(round(half[axis]))
+		var offset: int = posmod(low, Units.UNITS_PER_CELL)
+		if offset != 0:
+			center[axis] += Units.UNITS_PER_CELL - offset
+	record["pos"] = center
 	return record
 
 
@@ -399,8 +457,9 @@ func copy_selection() -> void:
 		var record: Dictionary = grid.get_part(uid)
 		var pos: Vector3i = record["pos"]
 		record["pos"] = pos - anchor
+		record["copied_from"] = uid   # lets a paste re-point links between the copies
 		_clipboard.append(record)
-	_say("Copied %d part(s). Point somewhere and press Ctrl+V." % _clipboard.size())
+	_say("Copied %d part(s). Press Paste or Ctrl+V, pointing where it should go." % _clipboard.size())
 
 
 func cut_selection() -> void:
@@ -421,7 +480,7 @@ func paste() -> void:
 	var base: Vector3i = grid.cell_center_units(_target_cell)
 	var records: Array = []
 	for stored in _clipboard:
-		var record: Dictionary = (stored as Dictionary).duplicate()
+		var record: Dictionary = (stored as Dictionary).duplicate(true)
 		var offset: Vector3i = record["pos"]
 		record["pos"] = base + offset
 		var problem: String = grid.check(record)
@@ -430,13 +489,55 @@ func paste() -> void:
 			return
 		records.append(record)
 	var pasted: Array = []
+	var new_uid_of: Dictionary = {}   # original uid -> the uid of its pasted copy
+	grid.begin_batch()   # the whole paste is one step for Undo
 	for record in records:
+		var original: int = record.get("copied_from", 0)
+		record.erase("copied_from")
 		var uid: int = grid.add_part(record)
 		if uid != 0:
 			pasted.append(uid)
+			new_uid_of[original] = uid
+	# Links between copied parts follow the copies. Links to parts that were
+	# not copied keep pointing at the originals, if those still exist.
+	for uid in pasted:
+		var copy: Dictionary = grid.get_part(uid)
+		var links: Dictionary = copy.get("links", {})
+		if links.is_empty():
+			continue
+		for input_id in links.keys():
+			var link: Dictionary = links[input_id]
+			var source: int = int(link.get("uid", 0))
+			if new_uid_of.has(source):
+				link["uid"] = new_uid_of[source]
+			elif not grid.has_part(source):
+				links.erase(input_id)
+		grid.set_links(uid, links)
+	grid.end_batch()
+	paste_armed = false
 	selection = pasted
 	selection_changed.emit()
 	_refresh_markers()
+
+
+## Used by the Paste button: the next click in the world pastes there.
+func arm_paste() -> void:
+	if _clipboard.is_empty():
+		_say("Nothing copied yet.")
+		return
+	paste_armed = true
+	selection_changed.emit()
+	_say("Click where the copy should go.")
+
+
+func undo() -> void:
+	if grid != null and not grid.undo():
+		_say("Nothing to undo.")
+
+
+func redo() -> void:
+	if grid != null and not grid.redo():
+		_say("Nothing to redo.")
 
 
 ## Config tool: the part being configured, or an empty dictionary.
@@ -467,6 +568,105 @@ func set_config_size(axis: int, cells: float) -> bool:
 	return _apply(updates)
 
 
+# --- Signal links (Config tool) -----------------------------------------------
+
+## Starts linking one of the selected part's inputs: the next click in the
+## world picks the part the signal comes from.
+func begin_link(input_id: String) -> void:
+	if config_record().is_empty():
+		return
+	link_input = input_id
+	link_source_uid = 0
+	selection_changed.emit()
+	_say("Click the part this signal should come from.")
+
+
+func cancel_link() -> void:
+	link_input = ""
+	link_source_uid = 0
+	selection_changed.emit()
+
+
+## The input currently being linked, as a port, or an empty list.
+func _linking_port() -> Array:
+	var record: Dictionary = config_record()
+	if record.is_empty() or link_input == "":
+		return []
+	return PartPorts.find_port(PartPorts.inputs_of(record["type"]), link_input)
+
+
+## The outputs of the clicked source part that fit the input being linked.
+func link_choices() -> Array:
+	var input_port: Array = _linking_port()
+	if input_port.is_empty() or link_source_uid == 0 or not grid.has_part(link_source_uid):
+		return []
+	var source: Dictionary = grid.get_part(link_source_uid)
+	return PartPorts.outputs_for(input_port, source["type"])
+
+
+## A click in the world while an input is waiting for its source.
+func _pick_link_source() -> void:
+	var input_port: Array = _linking_port()
+	if input_port.is_empty() or _hit_uid == 0:
+		cancel_link()
+		return
+	var source: Dictionary = grid.get_part(_hit_uid)
+	var source_type: String = source["type"]
+	var choices: Array = PartPorts.outputs_for(input_port, source_type)
+	if choices.is_empty():
+		_say("%s has no output that fits this input." % PartLibrary.part_name(source_type))
+		return
+	link_source_uid = _hit_uid
+	if choices.size() == 1:
+		var only_port: Array = choices[0]
+		choose_link_output(only_port[0])
+	else:
+		selection_changed.emit()
+		_say("Pick which output to use in the Config panel.")
+
+
+## Finishes a link: the waiting input now reads the given output of the source part.
+func choose_link_output(output_id: String) -> void:
+	var record: Dictionary = config_record()
+	if record.is_empty() or link_input == "" or link_source_uid == 0:
+		cancel_link()
+		return
+	var links: Dictionary = record.get("links", {})
+	links[link_input] = {"uid": link_source_uid, "output": output_id}
+	grid.set_links(selection[0], links)
+	link_input = ""
+	link_source_uid = 0
+	selection_changed.emit()
+	_refresh_markers()
+
+
+func clear_link(input_id: String) -> void:
+	var record: Dictionary = config_record()
+	if record.is_empty():
+		return
+	var links: Dictionary = record.get("links", {})
+	if links.has(input_id):
+		links.erase(input_id)
+		grid.set_links(selection[0], links)
+	_refresh_markers()
+
+
+## Config tool: changes one of the selected part's settings.
+func set_config_setting(setting_id: String, value: Variant) -> bool:
+	var record: Dictionary = config_record()
+	if record.is_empty():
+		return false
+	var type: String = record["type"]
+	var props: Dictionary = record.get("props", {})
+	if props.has(setting_id) and typeof(props[setting_id]) == typeof(value) and props[setting_id] == value:
+		return true   # nothing to change, so no Undo step either
+	props[setting_id] = value
+	record["props"] = PartSettings.sanitize(type, props)
+	var updates: Dictionary = {}
+	updates[selection[0]] = record
+	return _apply(updates)
+
+
 # --- Aiming and markers ------------------------------------------------------
 
 func _physics_process(_delta: float) -> void:
@@ -475,6 +675,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	_update_target()
 	_update_cursor_markers()
+	_update_paste_preview()
 
 
 ## Casts the aim ray and works out which part and which cell it points at.
@@ -527,6 +728,65 @@ func _update_cursor_markers() -> void:
 		_fit_marker(_hover, hovered, hover_color, 1.03)
 
 
+## While a paste is armed, shows where the copied parts would land.
+func _update_paste_preview() -> void:
+	var active: bool = current_tool == Tool.TRANSFORM and paste_armed and _has_target and grid != null
+	var count: int = mini(_clipboard.size(), PASTE_PREVIEW_LIMIT) if active else 0
+	while _paste_markers.size() < count:
+		_paste_markers.append(_new_marker("PastePreview"))
+	var base := Vector3i.ZERO
+	if active:
+		base = grid.cell_center_units(_target_cell)
+	for index in _paste_markers.size():
+		var marker: MeshInstance3D = _paste_markers[index]
+		if index < count:
+			var record: Dictionary = (_clipboard[index] as Dictionary).duplicate(true)
+			var offset: Vector3i = record["pos"]
+			record["pos"] = base + offset
+			_fit_marker(marker, record, PREVIEW_OK, 1.0)
+		else:
+			marker.visible = false
+
+
+## In the Config tool, draws a line for every signal link of the selected
+## part: green from the parts it listens to, blue to the parts listening to it.
+func _draw_link_lines() -> void:
+	_link_mesh.clear_surfaces()
+	_link_lines.visible = false
+	if current_tool != Tool.CONFIG or selection.is_empty() or not grid.has_part(selection[0]):
+		return
+	var uid: int = selection[0]
+	var record: Dictionary = grid.get_part(uid)
+	var here: Vector3 = BuildGrid.bounds_of(record).get_center()
+	var segments: Array = []   # [from, to, colour]
+	var links: Dictionary = record.get("links", {})
+	for input_id in links:
+		var link: Dictionary = links[input_id]
+		var source_uid: int = int(link.get("uid", 0))
+		if grid.has_part(source_uid) and source_uid != uid:
+			var source: Dictionary = grid.get_part(source_uid)
+			segments.append([BuildGrid.bounds_of(source).get_center(), here, LINK_IN])
+	for consumer in grid.consumers_of(uid):
+		var consumer_uid: int = consumer[0]
+		if consumer_uid != uid:
+			var listener: Dictionary = grid.get_part(consumer_uid)
+			segments.append([here, BuildGrid.bounds_of(listener).get_center(), LINK_OUT])
+	if segments.is_empty():
+		return
+	var to_world: Transform3D = grid.global_transform
+	_link_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	for segment in segments:
+		var from: Vector3 = segment[0]
+		var to: Vector3 = segment[1]
+		var color: Color = segment[2]
+		_link_mesh.surface_set_color(color)
+		_link_mesh.surface_add_vertex(to_world * from)
+		_link_mesh.surface_set_color(color)
+		_link_mesh.surface_add_vertex(to_world * to)
+	_link_mesh.surface_end()
+	_link_lines.visible = true
+
+
 ## Lays a see-through copy of a part's shape over where the record puts it.
 func _fit_marker(marker: MeshInstance3D, record: Dictionary, color: Color, inflate: float) -> void:
 	if record.is_empty():
@@ -557,6 +817,8 @@ func _refresh_markers() -> void:
 			_fit_marker(marker, record, SELECTED, 1.05)
 		else:
 			marker.visible = false
+
+	_draw_link_lines()
 
 	var show_mass: bool = current_tool == Tool.CONFIG and grid.part_count() > 0
 	_mass_marker.visible = show_mass

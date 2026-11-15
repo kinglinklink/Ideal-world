@@ -10,14 +10,21 @@ signal parts_changed
 const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
+const PartSettings = preload("res://scripts/part_settings.gd")
 
 const SIZE := Vector3i(128, 128, 256)   # cells: X width, Y height, Z length
 const MAX_SIZE_UNITS := 64 * 200        # largest single part: 64 cells per side
 const EPSILON := 0.0001                 # metres; keeps touching parts from counting as overlapping
+const HISTORY_LIMIT := 100              # how many steps Undo can go back
 
 var _parts: Dictionary = {}   # uid -> record (see make_record)
 var _nodes: Dictionary = {}   # uid -> StaticBody3D
 var _next_uid := 1
+var _batching := false
+var _batch_dirty := false
+var _batch_before: Dictionary = {}   # the build as it was when the batch began
+var _undo_stack: Array = []          # earlier states of the whole build
+var _redo_stack: Array = []
 
 
 # --- Records -----------------------------------------------------------------
@@ -32,6 +39,8 @@ static func make_record(type: String, pos: Vector3i, rot: Basis, size: Vector3i,
 		"size": size,       # units, along the part's own axes
 		"material": material,
 		"color": color,
+		"props": PartSettings.defaults(type),   # the part's settings, by setting id
+		"links": {},        # input id -> {"uid": source part, "output": output id}
 	}
 
 
@@ -92,11 +101,23 @@ func all_uids() -> Array:
 func get_part(uid: int) -> Dictionary:
 	if not _parts.has(uid):
 		return {}
-	return (_parts[uid] as Dictionary).duplicate()
+	return (_parts[uid] as Dictionary).duplicate(true)
 
 
 func get_node_for(uid: int) -> Node3D:
 	return _nodes.get(uid, null)
+
+
+## Every link that reads from the given part, as [consumer uid, input id, output id].
+func consumers_of(uid: int) -> Array:
+	var found: Array = []
+	for other_uid in _parts:
+		var links: Dictionary = (_parts[other_uid] as Dictionary).get("links", {})
+		for input_id in links:
+			var link: Dictionary = links[input_id]
+			if int(link.get("uid", 0)) == uid:
+				found.append([other_uid, input_id, str(link.get("output", ""))])
+	return found
 
 
 ## Returns "" when a part may sit where the record says, or the reason it may not.
@@ -186,33 +207,156 @@ func center_of_mass() -> Vector3:
 
 # --- Changes -----------------------------------------------------------------
 
+## Announces a change, unless a batch of changes is still in progress.
+func _changed() -> void:
+	if _batching:
+		_batch_dirty = true
+	else:
+		parts_changed.emit()
+
+
+## Between begin_batch() and end_batch(), any number of changes are announced
+## once at the end instead of one by one, and count as one step for Undo.
+## Used when loading a build and when pasting a group.
+func begin_batch() -> void:
+	_batch_before = _snapshot()
+	_batching = true
+	_batch_dirty = false
+
+
+func end_batch() -> void:
+	_batching = false
+	if _batch_dirty:
+		_batch_dirty = false
+		_push_undo(_batch_before)
+		parts_changed.emit()
+	_batch_before = {}
+
+
+# --- Undo and redo -----------------------------------------------------------
+
+## A full copy of every part's record.
+func _snapshot() -> Dictionary:
+	var copy: Dictionary = {}
+	for uid in _parts:
+		copy[uid] = (_parts[uid] as Dictionary).duplicate(true)
+	return copy
+
+
+func _push_undo(state: Dictionary) -> void:
+	_undo_stack.append(state)
+	if _undo_stack.size() > HISTORY_LIMIT:
+		_undo_stack.pop_front()
+	_redo_stack.clear()
+
+
+## Called just before any change, so Undo can come back to this state.
+func _remember() -> void:
+	if not _batching:
+		_push_undo(_snapshot())
+
+
+func can_undo() -> bool:
+	return not _undo_stack.is_empty()
+
+
+func can_redo() -> bool:
+	return not _redo_stack.is_empty()
+
+
+func undo() -> bool:
+	if _undo_stack.is_empty():
+		return false
+	_redo_stack.append(_snapshot())
+	_restore(_undo_stack.pop_back())
+	return true
+
+
+func redo() -> bool:
+	if _redo_stack.is_empty():
+		return false
+	_undo_stack.append(_snapshot())
+	_restore(_redo_stack.pop_back())
+	return true
+
+
+## Makes the build match a saved state, rebuilding only the parts that differ.
+func _restore(state: Dictionary) -> void:
+	for uid in _parts.keys():
+		if not state.has(uid):
+			_parts.erase(uid)
+			_free_node(uid)
+	for uid in state:
+		var record: Dictionary = state[uid]
+		if not _parts.has(uid) or _parts[uid] != record:
+			_parts[uid] = record.duplicate(true)
+			_rebuild_node(uid)
+	parts_changed.emit()
+
+
+## Replaces a part's signal links. Links never change a part's shape, so
+## nothing needs rebuilding.
+func set_links(uid: int, links: Dictionary) -> void:
+	if not _parts.has(uid):
+		return
+	_remember()
+	(_parts[uid] as Dictionary)["links"] = links.duplicate(true)
+	_changed()
+
+
+## Drops every link whose source part no longer exists.
+func _prune_links() -> void:
+	for uid in _parts:
+		var record: Dictionary = _parts[uid]
+		var links: Dictionary = record.get("links", {})
+		for input_id in links.keys():
+			var link: Dictionary = links[input_id]
+			if not _parts.has(int(link.get("uid", 0))):
+				links.erase(input_id)
+
+
+## Removes every part.
+func clear() -> void:
+	_remember()
+	for uid in _nodes.keys():
+		_free_node(uid)
+	_parts.clear()
+	_nodes.clear()
+	_changed()
+
+
 ## Adds a part. Returns its uid, or 0 with nothing changed if it does not fit.
 func add_part(record: Dictionary) -> int:
 	if check(record) != "":
 		return 0
+	_remember()
 	var uid := _next_uid
 	_next_uid += 1
-	_parts[uid] = record.duplicate()
+	_parts[uid] = record.duplicate(true)
 	_rebuild_node(uid)
-	parts_changed.emit()
+	_changed()
 	return uid
 
 
 func remove_part(uid: int) -> bool:
 	if not _parts.has(uid):
 		return false
+	_remember()
 	_parts.erase(uid)
 	_free_node(uid)
-	parts_changed.emit()
+	_prune_links()
+	_changed()
 	return true
 
 
 func remove_parts(uids: Array) -> void:
+	_remember()
 	for uid in uids:
 		if _parts.has(uid):
 			_parts.erase(uid)
 			_free_node(uid)
-	parts_changed.emit()
+	_prune_links()
+	_changed()
 
 
 ## Replaces several parts' records at once. `updates` maps uid -> new record.
@@ -227,10 +371,11 @@ func update_parts(updates: Dictionary) -> String:
 		var problem := check(updates[uid], ignore)
 		if problem != "":
 			return problem
+	_remember()
 	for uid in updates:
-		_parts[uid] = (updates[uid] as Dictionary).duplicate()
+		_parts[uid] = (updates[uid] as Dictionary).duplicate(true)
 		_rebuild_node(uid)
-	parts_changed.emit()
+	_changed()
 	return ""
 
 
@@ -239,12 +384,13 @@ func update_parts(updates: Dictionary) -> String:
 func paint(uid: int, material: String, color: Color) -> void:
 	if not _parts.has(uid):
 		return
+	_remember()
 	for member in overlap_group(uid):
 		var record: Dictionary = _parts[member]
 		record["material"] = material
 		record["color"] = color
 		_rebuild_node(member)
-	parts_changed.emit()
+	_changed()
 
 
 # --- Nodes -------------------------------------------------------------------
@@ -271,7 +417,9 @@ func _rebuild_node(uid: int) -> void:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = PartLibrary.get_mesh(type)
 	mesh_instance.scale = size_m
-	mesh_instance.material_override = MaterialLibrary.surface(record["material"], record["color"])
+	# Surface 0 is the paintable body. A mechanical part's dark-metal detail
+	# is surface 1 and keeps its own look.
+	mesh_instance.set_surface_override_material(0, MaterialLibrary.surface(record["material"], record["color"]))
 	body.add_child(mesh_instance)
 
 	var collider := CollisionShape3D.new()

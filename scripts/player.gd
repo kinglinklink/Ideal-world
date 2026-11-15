@@ -30,6 +30,13 @@ var _step_height := 0.55      # tallest ledge the character walks straight up, i
 var _pivot: Node3D
 var _camera: Camera3D
 var _model: Node3D
+var _leg_left: Node3D         # each limb hangs from a pivot at its hip or shoulder
+var _leg_right: Node3D
+var _arm_left: Node3D
+var _arm_right: Node3D
+var _walk_phase := 0.0        # where the character is in its stride, in radians
+var _walk_blend := 0.0        # 0 standing still, 1 walking
+var _air_blend := 0.0         # 0 on the ground, 1 in the air
 
 
 func _ready() -> void:
@@ -66,6 +73,11 @@ func is_first_person() -> bool:
 
 func is_mouse_captured() -> bool:
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+## The direction the character's body faces, as a turn about Y in radians.
+func get_heading() -> float:
+	return _model.rotation.y
 
 
 ## The camera's orientation: -Z is where it looks, +X is to its right.
@@ -132,6 +144,10 @@ func _physics_process(delta: float) -> void:
 	# Ctrl+A, Ctrl+C and friends are tool shortcuts, not walking.
 	if Input.is_physical_key_pressed(KEY_CTRL):
 		input = Vector2.ZERO
+	# While a text box has the keyboard, typing must not walk the character.
+	var typing := get_viewport().gui_get_focus_owner() != null
+	if typing:
+		input = Vector2.ZERO
 
 	var direction := Basis(Vector3.UP, yaw) * Vector3(input.x, 0.0, input.y)
 	if direction.length() > 1.0:
@@ -145,7 +161,7 @@ func _physics_process(delta: float) -> void:
 
 	var grounded := is_on_floor()
 	if grounded:
-		if Input.is_physical_key_pressed(KEY_SPACE):
+		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
 			velocity.y = JUMP_SPEED
 			grounded = false
 	else:
@@ -200,8 +216,34 @@ func _try_step_up(delta: float) -> bool:
 	return true
 
 
-func _process(_delta: float) -> void:
-	_model.position.y = _step_offset
+## Swings the legs and arms in time with the distance covered, so the feet
+## keep pace at any speed, and holds a spread pose in the air.
+func _animate(delta: float) -> float:
+	var ground_speed := Vector2(velocity.x, velocity.z).length()
+	var grounded := is_on_floor()
+	var walking := grounded and ground_speed > 0.2
+	_walk_blend = lerpf(_walk_blend, 1.0 if walking else 0.0, 1.0 - exp(-10.0 * delta))
+	_air_blend = lerpf(_air_blend, 0.0 if grounded else 1.0, 1.0 - exp(-8.0 * delta))
+
+	# One full stride covers more ground the faster the character moves.
+	var stride_length := 1.6 + 0.25 * ground_speed
+	_walk_phase = fmod(_walk_phase + ground_speed * delta / stride_length * TAU, TAU)
+	var reach := minf(0.35 + 0.05 * ground_speed, 0.9)
+	var swing := sin(_walk_phase) * reach * _walk_blend
+
+	# A positive turn about X swings a hanging limb forward.
+	_leg_left.rotation.x = lerpf(swing, 0.45, _air_blend)
+	_leg_right.rotation.x = lerpf(-swing, -0.3, _air_blend)
+	_arm_left.rotation.x = lerpf(-swing * 0.8, -0.5, _air_blend)
+	_arm_right.rotation.x = lerpf(swing * 0.8, 0.5, _air_blend)
+
+	# The body dips slightly twice per stride.
+	return -absf(sin(_walk_phase)) * 0.04 * _walk_blend
+
+
+func _process(delta: float) -> void:
+	var bob := _animate(delta)
+	_model.position.y = _step_offset + bob
 	_pivot.position.y = EYE_HEIGHT + _step_offset
 	_pivot.rotation = Vector3(pitch, yaw, 0.0)
 	_camera.position = Vector3(0.0, 0.0, zoom)
@@ -232,14 +274,23 @@ func _build_model() -> Node3D:
 	var head := Color(0.86, 0.88, 0.92)
 	var visor := Color(0.10, 0.13, 0.18)
 
-	model.add_child(_box(Vector3(0.22, 0.75, 0.22), Vector3(-0.13, 0.375, 0.0), trousers))
-	model.add_child(_box(Vector3(0.22, 0.75, 0.22), Vector3(0.13, 0.375, 0.0), trousers))
+	_leg_left = _limb(model, Vector3(-0.13, 0.75, 0.0), Vector3(0.22, 0.75, 0.22), trousers)
+	_leg_right = _limb(model, Vector3(0.13, 0.75, 0.0), Vector3(0.22, 0.75, 0.22), trousers)
 	model.add_child(_box(Vector3(0.52, 0.65, 0.28), Vector3(0.0, 1.075, 0.0), jacket))
-	model.add_child(_box(Vector3(0.17, 0.62, 0.20), Vector3(-0.36, 1.09, 0.0), jacket))
-	model.add_child(_box(Vector3(0.17, 0.62, 0.20), Vector3(0.36, 1.09, 0.0), jacket))
+	_arm_left = _limb(model, Vector3(-0.36, 1.40, 0.0), Vector3(0.17, 0.62, 0.20), jacket)
+	_arm_right = _limb(model, Vector3(0.36, 1.40, 0.0), Vector3(0.17, 0.62, 0.20), jacket)
 	model.add_child(_box(Vector3(0.36, 0.36, 0.36), Vector3(0.0, 1.60, 0.0), head))
 	model.add_child(_box(Vector3(0.30, 0.10, 0.04), Vector3(0.0, 1.63, -0.19), visor))
 	return model
+
+
+## A limb that hangs from a joint and swings about it.
+func _limb(model: Node3D, joint: Vector3, size: Vector3, color: Color) -> Node3D:
+	var pivot := Node3D.new()
+	pivot.position = joint
+	pivot.add_child(_box(size, Vector3(0.0, -size.y * 0.5, 0.0), color))
+	model.add_child(pivot)
+	return pivot
 
 
 func _box(size: Vector3, at: Vector3, color: Color) -> MeshInstance3D:

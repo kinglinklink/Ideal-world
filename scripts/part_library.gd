@@ -5,6 +5,8 @@ extends RefCounted
 ## part's real shape is that unit shape stretched to its size, so the volume
 ## and centre of mass below are given as fractions of the bounding box.
 
+const MechModels = preload("res://scripts/mech_models.gd")
+
 ## id -> [name, category, default size in cells, volume fraction,
 ##        centre of mass in unit-box coordinates, collision kind]
 const PARTS := {
@@ -30,9 +32,86 @@ const PARTS := {
 	"ring": ["Ring", "Advanced", Vector3(1, 1, 1), 0.502655, Vector3(0, 0, 0), "concave"],
 	"pipe": ["Pipe", "Advanced", Vector3(1, 1, 1), 0.282743, Vector3(0, 0, 0), "concave"],
 	"torus": ["Torus", "Advanced", Vector3(1, 0.25, 1), 0.462637, Vector3(0, 0, 0), "concave"],
+	# Mechanical parts are models only for now. Their volume share (0.5) and
+	# centre of mass are placeholders until the Spawn milestone defines them.
+	"motor": ["Motor", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"servo": ["Servo", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"door_hinge_servo": ["Door hinge servo", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"hinge": ["Hinge", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"ball_joint": ["Ball joint", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"bearing": ["Bearing block", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"piston": ["Piston", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"solenoid": ["Solenoid", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"spring": ["Spring", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"gear": ["Gear", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"bevel_gear": ["Bevel gear", "Mechanical", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"rack": ["Rack", "Mechanical", Vector3(1, 0.5, 0.5), 0.5, Vector3(0, 0, 0), "box"],
+	"pulley": ["Belt pulley", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"crankshaft": ["Crankshaft", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"wheel": ["Wheel", "Mechanical", Vector3(0.5, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"linkage_bar": ["Linkage bar", "Mechanical", Vector3(1, 0.25, 0.25), 0.5, Vector3(0, 0, 0), "box"],
+	"clutch": ["Clutch", "Mechanical", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"brake": ["Brake", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"light_panel": ["Light panel", "Logic", Vector3(1, 0.125, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"vanish_block": ["Vanishing block", "Logic", Vector3(1, 1, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"impact_detector": ["Impact detector", "Logic", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"explosive_block": ["Explosive block", "Combat", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
+	"machine_gun": ["Machine gun", "Combat", Vector3(1, 1, 2), 0.3, Vector3(0, 0, 0), "box"],
+	"large_cannon": ["Large cannon", "Combat", Vector3(1, 1, 4), 0.3, Vector3(0, 0, 0), "box"],
+	"ammo_generator": ["Ammo generator", "Combat", Vector3(2, 2, 2), 0.7, Vector3(0, 0, 0), "box"],
+	"fluid_cylinder": ["Fluid cylinder", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"pump": ["Pump", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"valve": ["Valve", "Fluid and Engine", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"fluid_pipe": ["Fluid pipe", "Fluid and Engine", Vector3(1, 1, 1), 0.1, Vector3(0, 0, 0), "box"],
+	"fuel_tank": ["Fuel tank", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"pressure_tank": ["Pressure tank", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"combustion_cylinder": ["Combustion cylinder", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"compressor": ["Compressor", "Fluid and Engine", Vector3(1, 1, 1), 0.6, Vector3(0, 0, 0), "box"],
+	"combustor": ["Combustor", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"turbine": ["Turbine", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"nozzle": ["Nozzle", "Fluid and Engine", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"thruster": ["Thruster", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"solid_rocket": ["Solid rocket", "Fluid and Engine", Vector3(1, 1, 2), 0.5, Vector3(0, 0, 0), "box"],
+	"aero_panel": ["Square aero panel", "Aero", Vector3(1, 0.125, 1), 0.9, Vector3(0, 0, 0), "box"],
+	"aero_panel_triangle": ["Triangle aero panel", "Aero", Vector3(1, 0.125, 1), 0.45, Vector3(0, 0, 0), "box"],
+	"propeller": ["Propeller", "Aero", Vector3(1, 0.25, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"lift_gas_tank": ["Lift-gas tank", "Aero", Vector3(1, 1, 1), 0.1, Vector3(0, 0, 0), "box"],
+	"input_block": ["Input", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"boolean_gate": ["Boolean gate", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"number_gate": ["Number logic", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"pid_controller": ["PID controller", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"speed_sensor": ["Speed sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"altitude_sensor": ["Altitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"attitude_sensor": ["Attitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"distance_sensor": ["Distance sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"seat": ["Seat", "Misc", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
+	"anchor_block": ["Anchor block", "Misc", Vector3(1, 1, 1), 0.9, Vector3(0, 0, 0), "box"],
+	"dynamic_offsetter": ["Dynamic offsetter", "Misc", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
 }
 
-const CATEGORIES := ["Basic", "Structural", "Advanced"]
+## Parts that start in their own colour instead of the brush colour.
+## They can still be repainted afterwards.
+const DEFAULT_COLORS := {
+	"vanish_block": Color(1.0, 1.0, 1.0),
+	"light_panel": Color(0.20, 0.21, 0.23),
+	"impact_detector": Color(0.95, 0.75, 0.15),
+	"explosive_block": Color(0.78, 0.12, 0.10),
+	"machine_gun": Color(0.30, 0.33, 0.27),
+	"large_cannon": Color(0.30, 0.33, 0.27),
+	"ammo_generator": Color(0.30, 0.33, 0.27),
+	"lift_gas_tank": Color(0.88, 0.92, 0.96),
+	"anchor_block": Color(0.55, 0.57, 0.60),
+	"input_block": Color(0.20, 0.21, 0.23),
+	"boolean_gate": Color(0.20, 0.21, 0.23),
+	"number_gate": Color(0.20, 0.21, 0.23),
+	"pid_controller": Color(0.20, 0.21, 0.23),
+	"speed_sensor": Color(0.20, 0.21, 0.23),
+	"altitude_sensor": Color(0.20, 0.21, 0.23),
+	"attitude_sensor": Color(0.20, 0.21, 0.23),
+	"distance_sensor": Color(0.20, 0.21, 0.23),
+}
+
+const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical", "Fluid and Engine", "Aero", "Logic", "Combat", "Misc"]
 const RING_INNER_RADIUS := 0.3   # of a unit ring whose outer radius is 0.5
 const PIPE_INNER_RADIUS := 0.4   # a thinner wall than the ring
 const ARCH_RADIUS := 0.4         # of the opening cut into a unit arch
@@ -61,6 +140,13 @@ static func category(part_id: String) -> String:
 	return _row(part_id)[1]
 
 
+## The colour a newly placed part gets: its own default, or the brush colour.
+static func placement_color(part_id: String, brush_color: Color) -> Color:
+	if DEFAULT_COLORS.has(part_id):
+		return DEFAULT_COLORS[part_id]
+	return brush_color
+
+
 static func default_size_cells(part_id: String) -> Vector3:
 	return _row(part_id)[2]
 
@@ -83,6 +169,8 @@ static func get_mesh(part_id: String) -> Mesh:
 
 
 static func _build_mesh(part_id: String) -> Mesh:
+	if MechModels.has_model(part_id):
+		return MechModels.build(part_id)
 	match part_id:
 		"wedge":
 			var wedge := PrismMesh.new()
