@@ -53,7 +53,7 @@ var near_seat_uid := 0         # the nearest seat within reach, 0 for none
 
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
-var _seat_request := false     # E was pressed; acted on in the next physics tick
+var _seat_request := false     # E was pressed to sit; acted on in the next physics tick
 var _hit_uid := 0              # part under the cursor, 0 for none
 var _has_target := false       # the cursor is on some surface
 var _target_cell := Vector3i.ZERO
@@ -699,9 +699,9 @@ func _update_seat() -> void:
 		return
 	if seat_uid != 0:
 		var typing: bool = get_viewport().gui_get_focus_owner() != null
-		if _seat_request or (Input.is_physical_key_pressed(KEY_SPACE) and not typing):
+		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
 			_leave_seat()
-		_seat_request = false
+		_seat_request = false   # E does nothing while seated; only Space stands up
 		return
 	if _seat_request or _tick % SEAT_EVERY_TICKS == 0:
 		var chest: Vector3 = player.global_position + Vector3(0.0, Player.BODY_HEIGHT * 0.5, 0.0)

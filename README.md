@@ -42,7 +42,7 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 | W A S D | Walk |
 | Shift | Run |
 | Space | Jump, or stand up from a seat |
-| E | Sit in the nearest seat within reach (press again to stand up) |
+| E | Sit in the nearest seat within reach |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |

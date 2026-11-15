@@ -2,7 +2,7 @@ extends CharacterBody3D
 ## The blocky player character and its camera.
 ##
 ## Controls: WASD walk, Shift run, Space jump. The build tools sit the
-## character in a seat (E) and stand it up again (Space or E).
+## character in a seat (E) and stand it up again (Space).
 ## Scroll wheel zooms from first person out to a wide third-person view.
 ## In third person, hold the right mouse button to turn the camera.
 ## In first person the mouse always turns the camera; Esc frees the cursor.
