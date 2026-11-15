@@ -23,6 +23,10 @@ var player: CharacterBody3D = null   # player.gd
 var _tool_buttons: Array = []
 var _panels: Array = []              # one panel per tool, in Tool order
 var _part_buttons: Dictionary = {}   # part id -> Button
+var _category_buttons: Dictionary = {}   # category name -> its tab
+var _part_category := "Basic"        # the category whose parts are listed
+var _parts_title: Label
+var _part_search: LineEdit
 var _material_buttons: Dictionary = {}
 var _place_brush_label: Label
 var _transform_info: Label
@@ -247,38 +251,99 @@ func _readout(parent: Control) -> Label:
 
 func _build_place_panel() -> Control:
 	var panel := _column()
-	for category in PartLibrary.CATEGORIES:
-		# Each category is a header that folds its buttons away when clicked.
+
+	# Category tabs down the left edge, the chosen category's parts beside them.
+	var body := _row()
+	panel.add_child(body)
+
+	var tabs := _column()
+	body.add_child(tabs)
+	var categories: Array = PartLibrary.CATEGORIES.duplicate()
+	categories.reverse()   # Basic sits at the bottom, nearest the tool bar
+	for category in categories:
 		var category_name: String = category
-		var expanded: bool = category_name == "Basic"
-		var header := _button(_category_title(category_name, expanded), 0.0, true)
-		header.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		header.set_pressed_no_signal(expanded)
-		panel.add_child(header)
-		var buttons := _grid_of(3)
-		buttons.visible = expanded
-		panel.add_child(buttons)
-		header.toggled.connect(_on_category_toggled.bind(category_name, header, buttons))
-		for id in PartLibrary.part_ids():
-			if PartLibrary.category(id) != category:
-				continue
-			var part_button := _button(PartLibrary.part_name(id), 124.0, true)
-			part_button.pressed.connect(_on_part_button.bind(id))
-			buttons.add_child(part_button)
-			_part_buttons[id] = part_button
+		var tab := _button(category_name, 150.0, true)
+		tab.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tab.pressed.connect(_on_category_tab.bind(category_name))
+		tabs.add_child(tab)
+		_category_buttons[category_name] = tab
+
+	var listing := _column()
+	body.add_child(listing)
+	_parts_title = _label("")
+	listing.add_child(_parts_title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(410, 300)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	listing.add_child(scroll)
+	var buttons := _grid_of(3)
+	scroll.add_child(buttons)
+	# Every part's button lives in the one grid; the filter shows the right ones.
+	for id in PartLibrary.part_ids():
+		var part_button := _button(PartLibrary.part_name(id), 124.0, true)
+		part_button.pressed.connect(_on_part_button.bind(id))
+		buttons.add_child(part_button)
+		_part_buttons[id] = part_button
+
+	# Search across every category.
+	var search_row := _row()
+	panel.add_child(search_row)
+	search_row.add_child(_label("Search"))
+	_part_search = LineEdit.new()
+	_part_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_part_search.placeholder_text = "Type part of a name"
+	_part_search.text_changed.connect(_on_part_search_changed)
+	_part_search.text_submitted.connect(_on_part_search_submitted)
+	search_row.add_child(_part_search)
+	var clear_search := _button("Clear", 70.0)
+	clear_search.pressed.connect(_on_part_search_cleared)
+	search_row.add_child(clear_search)
+
 	_place_brush_label = _label("", 13)
 	panel.add_child(_place_brush_label)
 	panel.add_child(_label("R / T / Y  turn 90° about X / Y / Z", 13))
+	_apply_part_filter()
 	return panel
 
 
-static func _category_title(category_name: String, expanded: bool) -> String:
-	return "%s  %s parts" % ["-" if expanded else "+", category_name]
+## Shows the parts of the chosen category, or every part matching the search.
+func _apply_part_filter() -> void:
+	var query := _part_search.text.strip_edges().to_lower()
+	for id in _part_buttons:
+		var part_id: String = id
+		var part_button: Button = _part_buttons[id]
+		if query != "":
+			part_button.visible = PartLibrary.part_name(part_id).to_lower().contains(query)
+		else:
+			part_button.visible = PartLibrary.category(part_id) == _part_category
+	if query != "":
+		_parts_title.text = "Search results"
+	else:
+		_parts_title.text = "%s parts" % _part_category
+	for category_name in _category_buttons:
+		var tab: Button = _category_buttons[category_name]
+		tab.set_pressed_no_signal(query == "" and category_name == _part_category)
 
 
-func _on_category_toggled(expanded: bool, category_name: String, header: Button, buttons: Control) -> void:
-	buttons.visible = expanded
-	header.text = _category_title(category_name, expanded)
+func _on_category_tab(category_name: String) -> void:
+	_part_category = category_name
+	_part_search.text = ""
+	_part_search.release_focus()
+	_apply_part_filter()
+
+
+func _on_part_search_changed(_text: String) -> void:
+	_apply_part_filter()
+
+
+func _on_part_search_submitted(_text: String) -> void:
+	_part_search.release_focus()
+
+
+func _on_part_search_cleared() -> void:
+	_part_search.text = ""
+	_part_search.release_focus()
+	_apply_part_filter()
 
 
 func _build_delete_panel() -> Control:
