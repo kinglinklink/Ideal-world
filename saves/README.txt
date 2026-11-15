@@ -73,6 +73,16 @@ required and everything else is optional.
             does not know are ignored. The easiest way to see a part's
             setting names is to place it in the game, save, and read the file.
 
+  links     Where the part's signal inputs come from. Each entry names one
+            of this part's inputs, then the part it listens to and which of
+            that part's outputs to use:
+            "links": {"fire": {"part": 0, "output": "pressed"}}
+            "part" is the source's position in the parts list, counting the
+            first part as 0. Links to missing parts or unknown inputs and
+            outputs are dropped. As with settings, the easiest way to learn
+            the input and output names is to link parts in the game, save,
+            and read the file.
+
 Parts that do not fit are skipped when the file loads: an unknown type, a
 position outside the pad, or a part overlapping one of a different material.
 Parts of the same material are allowed to overlap.

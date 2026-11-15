@@ -40,6 +40,7 @@ static func make_record(type: String, pos: Vector3i, rot: Basis, size: Vector3i,
 		"material": material,
 		"color": color,
 		"props": PartSettings.defaults(type),   # the part's settings, by setting id
+		"links": {},        # input id -> {"uid": source part, "output": output id}
 	}
 
 
@@ -105,6 +106,18 @@ func get_part(uid: int) -> Dictionary:
 
 func get_node_for(uid: int) -> Node3D:
 	return _nodes.get(uid, null)
+
+
+## Every link that reads from the given part, as [consumer uid, input id, output id].
+func consumers_of(uid: int) -> Array:
+	var found: Array = []
+	for other_uid in _parts:
+		var links: Dictionary = (_parts[other_uid] as Dictionary).get("links", {})
+		for input_id in links:
+			var link: Dictionary = links[input_id]
+			if int(link.get("uid", 0)) == uid:
+				found.append([other_uid, input_id, str(link.get("output", ""))])
+	return found
 
 
 ## Returns "" when a part may sit where the record says, or the reason it may not.
@@ -281,6 +294,27 @@ func _restore(state: Dictionary) -> void:
 	parts_changed.emit()
 
 
+## Replaces a part's signal links. Links never change a part's shape, so
+## nothing needs rebuilding.
+func set_links(uid: int, links: Dictionary) -> void:
+	if not _parts.has(uid):
+		return
+	_remember()
+	(_parts[uid] as Dictionary)["links"] = links.duplicate(true)
+	_changed()
+
+
+## Drops every link whose source part no longer exists.
+func _prune_links() -> void:
+	for uid in _parts:
+		var record: Dictionary = _parts[uid]
+		var links: Dictionary = record.get("links", {})
+		for input_id in links.keys():
+			var link: Dictionary = links[input_id]
+			if not _parts.has(int(link.get("uid", 0))):
+				links.erase(input_id)
+
+
 ## Removes every part.
 func clear() -> void:
 	_remember()
@@ -310,6 +344,7 @@ func remove_part(uid: int) -> bool:
 	_remember()
 	_parts.erase(uid)
 	_free_node(uid)
+	_prune_links()
 	_changed()
 	return true
 
@@ -320,6 +355,7 @@ func remove_parts(uids: Array) -> void:
 		if _parts.has(uid):
 			_parts.erase(uid)
 			_free_node(uid)
+	_prune_links()
 	_changed()
 
 

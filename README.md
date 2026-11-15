@@ -19,6 +19,7 @@ Working now:
 - Total mass and a center-of-mass marker for the whole build
 - Saving and loading builds as shareable text files
 - Undo and redo for every change, up to 100 steps back
+- Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
 Not built yet: Spawn, physics, and the behavior of the mechanical, logic and combat parts.
@@ -50,7 +51,7 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 - **Place.** Pick a part from the menu and click to place it against whatever you point at. Click a category heading to fold it open or shut. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
 - **Delete.** Click a part to remove it.
 - **Transform.** Click to select a part; Shift+click adds to the selection. Arrow keys move the selection along the ground and Page Up / Page Down move it vertically, by the step chosen in the panel. Ctrl+C copies and Ctrl+X cuts. To paste, press the Paste button and click where the copy should go (a preview follows the cursor), or point and press Ctrl+V. Ctrl+A selects everything, and Delete removes the selection.
-- **Config.** Click a part to see its volume, mass and health, to change its dimensions, and to edit its settings if it has any. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.
+- **Config.** Click a part to see its volume, mass and health, to change its dimensions, and to edit its settings if it has any. To link a signal, press Link beside one of the part's inputs, then click the part the signal should come from; if that part has several outputs, pick one from the list that appears. Clear removes a link. Green lines show where the selected part's inputs come from and blue lines show where its outputs go. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.
 - **Paint.** Choose a material and a color, then click parts to paint them. Hover a material to see its density, friction and strength. The two Pick buttons copy the material or the color from a part you click.
 
 Parts of the same material may overlap. Parts of different materials may not.
@@ -85,6 +86,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/mesh_kit.gd` | Helpers that build meshes from boxes, cylinders and gear discs |
 | `scripts/material_library.gd` | Materials: density, friction, strength, look |
 | `scripts/part_settings.gd` | The settings each kind of part has, with defaults and limits |
+| `scripts/part_ports.gd` | The signal inputs and outputs each kind of part has |
 | `scripts/save_manager.gd` | Saving and loading builds |
 | `scripts/hud.gd` | The on-screen interface |
 | `saves/` | Saved builds, the format guide and an example |

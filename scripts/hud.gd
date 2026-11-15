@@ -9,6 +9,7 @@ const BuildGrid = preload("res://scripts/build_grid.gd")
 const BuildController = preload("res://scripts/build_controller.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
+const PartPorts = preload("res://scripts/part_ports.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
@@ -51,6 +52,9 @@ var _settings_scroll: ScrollContainer
 var _settings_box: VBoxContainer
 var _setting_controls: Dictionary = {}   # setting id -> the control that edits it
 var _settings_key := ""                  # which part the settings rows were built for
+var _signals_title: Label
+var _signals_scroll: ScrollContainer
+var _signals_box: VBoxContainer
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -364,6 +368,17 @@ func _build_config_panel() -> Control:
 	_settings_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_settings_scroll.add_child(_settings_box)
 
+	# The part's signal inputs and outputs, and what they are linked to.
+	_signals_title = _label("Signals (green lines in, blue lines out)", 13)
+	_signals_title.visible = false
+	panel.add_child(_signals_title)
+	_signals_scroll = ScrollContainer.new()
+	_signals_scroll.visible = false
+	panel.add_child(_signals_scroll)
+	_signals_box = _column()
+	_signals_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_signals_scroll.add_child(_signals_box)
+
 	panel.add_child(HSeparator.new())
 	_build_info = _label("", 13)
 	panel.add_child(_build_info)
@@ -383,7 +398,7 @@ func _rebuild_settings(type: String) -> void:
 		settings = PartSettings.for_type(type)
 	_settings_title.visible = not settings.is_empty()
 	_settings_scroll.visible = not settings.is_empty()
-	_settings_scroll.custom_minimum_size = Vector2(330, minf(settings.size() * 40.0, 300.0))
+	_settings_scroll.custom_minimum_size = Vector2(330, minf(settings.size() * 40.0, 220.0))
 
 	for setting in settings:
 		var id: String = setting["id"]
@@ -480,6 +495,115 @@ func _sync_settings(record: Dictionary) -> void:
 			var edit := control as LineEdit
 			if not edit.has_focus():
 				edit.text = str(value)
+
+
+## "Motor #12": a part's name with its number, to tell like parts apart.
+func _part_label(uid: int) -> String:
+	var record: Dictionary = grid.get_part(uid)
+	if record.is_empty():
+		return "a missing part"
+	return "%s #%d" % [PartLibrary.part_name(record["type"]), uid]
+
+
+## Lists the selected part's inputs and outputs with their links. Rebuilt on
+## every refresh, since it is only a handful of rows.
+func _sync_signals(record: Dictionary) -> void:
+	for child in _signals_box.get_children():
+		(child as Control).visible = false
+		child.queue_free()
+
+	var inputs: Array = []
+	var outputs: Array = []
+	if not record.is_empty():
+		inputs = PartPorts.inputs_of(record["type"])
+		outputs = PartPorts.outputs_of(record["type"])
+	var has_ports: bool = not inputs.is_empty() or not outputs.is_empty()
+	_signals_title.visible = has_ports
+	_signals_scroll.visible = has_ports
+	if not has_ports:
+		return
+
+	var chosen: Array = controller.selection
+	var uid: int = chosen[0]
+	var links: Dictionary = record.get("links", {})
+	var waiting: String = controller.link_input
+	var rows := 0
+
+	# After clicking a source part with several outputs: pick one.
+	var choices: Array = controller.link_choices()
+	if not choices.is_empty():
+		var source_uid: int = controller.link_source_uid
+		_signals_box.add_child(_label("Pick an output of %s:" % _part_label(source_uid), 13))
+		rows += 1
+		for port in choices:
+			var choice_button := _button(PartPorts.label(port))
+			choice_button.pressed.connect(_on_link_output_chosen.bind(str(port[0])))
+			_signals_box.add_child(choice_button)
+			rows += 1
+
+	if not inputs.is_empty():
+		_signals_box.add_child(_label("Inputs", 13))
+		rows += 1
+	for port in inputs:
+		var input_id: String = port[0]
+		var line := _row()
+		var link_button := _button("Cancel" if waiting == input_id else "Link", 60.0)
+		link_button.pressed.connect(_on_link_button.bind(input_id))
+		line.add_child(link_button)
+		var text := PartPorts.label(port)
+		if waiting == input_id:
+			text += "  <- click the source part"
+		elif links.has(input_id):
+			var link: Dictionary = links[input_id]
+			var source: int = int(link.get("uid", 0))
+			var source_record: Dictionary = grid.get_part(source)
+			var output_name := str(link.get("output", ""))
+			if not source_record.is_empty():
+				var output_port: Array = PartPorts.find_port(PartPorts.outputs_of(source_record["type"]), output_name)
+				if not output_port.is_empty():
+					output_name = str(output_port[1])
+			text += "  <- %s: %s" % [_part_label(source), output_name]
+			var clear_button := _button("Clear", 56.0)
+			clear_button.pressed.connect(_on_clear_link_button.bind(input_id))
+			line.add_child(clear_button)
+		else:
+			text += "  (not linked)"
+		line.add_child(_label(text, 13))
+		_signals_box.add_child(line)
+		rows += 1
+
+	if not outputs.is_empty():
+		_signals_box.add_child(_label("Outputs", 13))
+		rows += 1
+	var consumers: Array = grid.consumers_of(uid)
+	for port in outputs:
+		var listeners := 0
+		for consumer in consumers:
+			if consumer[2] == port[0]:
+				listeners += 1
+		var out_text := PartPorts.label(port)
+		if listeners > 0:
+			out_text += "  -> %d input(s)" % listeners
+		_signals_box.add_child(_label(out_text, 13))
+		rows += 1
+
+	_signals_scroll.custom_minimum_size = Vector2(330, minf(rows * 34.0, 230.0))
+
+
+func _on_link_button(input_id: String) -> void:
+	var waiting: String = controller.link_input
+	if waiting == input_id:
+		controller.cancel_link()
+	else:
+		controller.begin_link(input_id)
+
+
+func _on_clear_link_button(input_id: String) -> void:
+	controller.clear_link(input_id)
+
+
+func _on_link_output_chosen(output_id: String) -> void:
+	controller.choose_link_output(output_id)
 
 
 func _on_setting_changed(value: Variant, id: String) -> void:
@@ -911,6 +1035,7 @@ func _refresh() -> void:
 		]
 
 	_sync_settings(record)
+	_sync_signals(record)
 
 	# Whole build.
 	var count: int = grid.part_count()

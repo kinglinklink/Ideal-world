@@ -8,6 +8,7 @@ const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
+const PartPorts = preload("res://scripts/part_ports.gd")
 
 const FORMAT := "ideal-world-build"
 const VERSION := 1
@@ -102,9 +103,24 @@ static func _record_to_entry(record: Dictionary) -> Dictionary:
 static func save_build(grid: Node, save_name: String) -> String:
 	ensure_dir()
 	var entries: Array = []
-	for uid in grid.all_uids():
+	var uids: Array = grid.all_uids()
+	var index_of: Dictionary = {}   # part uid -> its position in the file's parts list
+	for index in uids.size():
+		index_of[uids[index]] = index
+	for uid in uids:
 		var record: Dictionary = grid.get_part(uid)
-		entries.append(_record_to_entry(record))
+		var entry: Dictionary = _record_to_entry(record)
+		# A link names its source part by position in the parts list, from 0.
+		var links: Dictionary = record.get("links", {})
+		var plain_links: Dictionary = {}
+		for input_id in links:
+			var link: Dictionary = links[input_id]
+			var source: int = int(link.get("uid", 0))
+			if index_of.has(source):
+				plain_links[input_id] = {"part": index_of[source], "output": str(link.get("output", ""))}
+		if not plain_links.is_empty():
+			entry["links"] = plain_links
+		entries.append(entry)
 	var data := {
 		"format": FORMAT,
 		"version": VERSION,
@@ -203,6 +219,33 @@ static func _entry_to_record(entry: Dictionary) -> Dictionary:
 	return record
 
 
+## Turns the links written for one part into real links, dropping any that
+## name a missing part, an unknown port, or ports that cannot connect.
+static func _read_links(grid: Node, uid: int, written: Dictionary, uid_at: Dictionary) -> Dictionary:
+	var links: Dictionary = {}
+	var own: Dictionary = grid.get_part(uid)
+	var inputs: Array = PartPorts.inputs_of(own["type"])
+	for input_id in written:
+		var input_port: Array = PartPorts.find_port(inputs, str(input_id))
+		var link: Variant = written[input_id]
+		if input_port.is_empty() or not (link is Dictionary):
+			continue
+		var source_position: Variant = (link as Dictionary).get("part")
+		if not (source_position is float or source_position is int):
+			continue
+		var source_key: int = int(source_position)
+		if not uid_at.has(source_key):
+			continue
+		var source_uid: int = uid_at[source_key]
+		var source: Dictionary = grid.get_part(source_uid)
+		var output_id := str((link as Dictionary).get("output", ""))
+		var output_port: Array = PartPorts.find_port(PartPorts.outputs_of(source["type"]), output_id)
+		if output_port.is_empty() or not PartPorts.compatible(input_port, output_port):
+			continue
+		links[str(input_id)] = {"uid": source_uid, "output": output_id}
+	return links
+
+
 ## Replaces the current build with a saved one.
 ## Returns {"error": String, "loaded": int, "skipped": int}. On an error the
 ## current build is left untouched.
@@ -222,26 +265,40 @@ static func load_build(grid: Node, save_name: String) -> Dictionary:
 		result["error"] = "\"%s\" is not an Ideal World build file." % save_name
 		return result
 
-	var records: Array = []
+	var records: Array = []      # [position in the file, record, that part's links as written]
 	var skipped := 0
+	var position := 0
 	for entry in entries:
 		var record: Dictionary = {}
+		var written_links: Variant = null
 		if entry is Dictionary:
 			record = _entry_to_record(entry)
+			written_links = (entry as Dictionary).get("links")
 		if record.is_empty():
 			skipped += 1
 		else:
-			records.append(record)
+			records.append([position, record, written_links])
+		position += 1
 
 	grid.begin_batch()
 	grid.clear()
 	var loaded := 0
-	for record in records:
-		var uid: int = grid.add_part(record)
+	var uid_at: Dictionary = {}   # position in the file -> the uid that part was given
+	for item in records:
+		var uid: int = grid.add_part(item[1])
 		if uid == 0:
 			skipped += 1   # outside the grid, or overlapping a different material
 		else:
 			loaded += 1
+			uid_at[item[0]] = uid
+	# With every part in place, connect the links the file describes.
+	for item in records:
+		if not uid_at.has(item[0]) or not (item[2] is Dictionary):
+			continue
+		var uid: int = uid_at[item[0]]
+		var links: Dictionary = _read_links(grid, uid, item[2], uid_at)
+		if not links.is_empty():
+			grid.set_links(uid, links)
 	grid.end_batch()
 
 	result["loaded"] = loaded
