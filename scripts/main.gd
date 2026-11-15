@@ -4,13 +4,14 @@ extends Node3D
 ##
 ## World axes: Y is up, X and Z are the ground plane. Distances are in metres.
 
+const Units = preload("res://scripts/units.gd")
 const Player = preload("res://scripts/player.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const BuildController = preload("res://scripts/build_controller.gd")
 const Hud = preload("res://scripts/hud.gd")
 const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
 
-const GROUND_SIZE := 2000.0   # metres across
+const GROUND_SIZE := 6000.0   # metres across
 
 
 func _ready() -> void:
@@ -26,7 +27,7 @@ func _ready() -> void:
 	player.name = "Player"
 	# Start just outside the pad, looking along +Z across it.
 	var pad_size: Vector3 = grid.size_metres()
-	player.position = Vector3(pad_size.x * 0.5, 0.1, -4.0)
+	player.position = Vector3(pad_size.x * 0.5, 0.1, -5.0)
 	player.yaw = PI
 	add_child(player)
 
@@ -67,7 +68,7 @@ func _make_sky_and_sun() -> void:
 	sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
 	sun.light_energy = 1.2
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 80.0
+	sun.directional_shadow_max_distance = 150.0
 	add_child(sun)
 
 
@@ -98,12 +99,13 @@ func _make_ground() -> void:
 
 
 ## The visible grid on the build pad. Clicks land on the ground collider
-## underneath; the grid decides whether a cell is inside the pad.
+## underneath; the grid decides whether a part is inside the pad.
 func _make_pad_surface(grid: Node3D) -> void:
 	var pad_size: Vector3 = grid.size_metres()
 
 	var material := ShaderMaterial.new()
 	material.shader = PAD_SHADER
+	material.set_shader_parameter("cell_size", Units.CELL)
 
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(pad_size.x, pad_size.z)
@@ -112,7 +114,7 @@ func _make_pad_surface(grid: Node3D) -> void:
 	var surface := MeshInstance3D.new()
 	surface.name = "PadSurface"
 	surface.mesh = plane
-	# Lifted 2 mm so it never flickers against the ground beneath it.
-	surface.position = Vector3(pad_size.x * 0.5, 0.002, pad_size.z * 0.5)
+	# Lifted slightly so it never flickers against the ground beneath it.
+	surface.position = Vector3(pad_size.x * 0.5, 0.01, pad_size.z * 0.5)
 	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	grid.add_child(surface)

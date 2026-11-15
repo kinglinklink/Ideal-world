@@ -6,33 +6,43 @@ extends CharacterBody3D
 ## In third person, hold the right mouse button to turn the camera.
 ## In first person the mouse always turns the camera; Esc frees the cursor.
 
+const Units = preload("res://scripts/units.gd")
+
 const WALK_SPEED := 5.0       # m/s
-const RUN_SPEED := 9.0        # m/s
-const JUMP_SPEED := 4.5       # m/s, about a 1 m jump
+const RUN_SPEED := 10.0       # m/s
+const JUMP_SPEED := 5.2       # m/s, about a 1.4 m jump
 const GRAVITY := 9.81         # m/s^2
 const MOUSE_SENSITIVITY := 0.0025
-const ZOOM_MAX := 40.0        # metres behind the character
+const ZOOM_MAX := 80.0        # metres behind the character
 const EYE_HEIGHT := 1.6       # metres
 const PITCH_LIMIT := 1.5      # radians
+const BODY_RADIUS := 0.3
+const BODY_HEIGHT := 1.8
 
 var yaw := 0.0
 var pitch := -0.35
-var zoom := 6.0               # 0 means first person
+var zoom := 8.0               # 0 means first person
 var cursor_free := false      # Esc toggles this in first person
 
 var _turning := false         # right mouse button held
+var _step_offset := 0.0       # smooths the view after stepping up a ledge
+var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
 var _camera: Camera3D
 var _model: Node3D
 
 
 func _ready() -> void:
+	# Always at least one grid cell, and never less than a tall stair.
+	_step_height = maxf(Units.CELL * 1.05, 0.55)
+
+	# A flat-bottomed cylinder stands on block edges more predictably than a capsule.
 	var collider := CollisionShape3D.new()
-	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.3
-	capsule.height = 1.8
-	collider.shape = capsule
-	collider.position = Vector3(0.0, 0.9, 0.0)
+	var cylinder := CylinderShape3D.new()
+	cylinder.radius = BODY_RADIUS
+	cylinder.height = BODY_HEIGHT
+	collider.shape = cylinder
+	collider.position = Vector3(0.0, BODY_HEIGHT * 0.5, 0.0)
 	add_child(collider)
 
 	_model = _build_model()
@@ -44,7 +54,7 @@ func _ready() -> void:
 
 	_camera = Camera3D.new()
 	_camera.near = 0.05
-	_camera.far = 4000.0
+	_camera.far = 6000.0
 	_camera.fov = 75.0
 	_pivot.add_child(_camera)
 	_camera.make_current()
@@ -56,6 +66,11 @@ func is_first_person() -> bool:
 
 func is_mouse_captured() -> bool:
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+## The camera's orientation: -Z is where it looks, +X is to its right.
+func get_camera_basis() -> Basis:
+	return _camera.global_transform.basis
 
 
 ## The ray the build tools aim along: through the cursor, or through the
@@ -114,6 +129,9 @@ func _physics_process(delta: float) -> void:
 		input.x -= 1.0
 	if Input.is_physical_key_pressed(KEY_D):
 		input.x += 1.0
+	# Ctrl+A, Ctrl+C and friends are tool shortcuts, not walking.
+	if Input.is_physical_key_pressed(KEY_CTRL):
+		input = Vector2.ZERO
 
 	var direction := Basis(Vector3.UP, yaw) * Vector3(input.x, 0.0, input.y)
 	if direction.length() > 1.0:
@@ -125,13 +143,24 @@ func _physics_process(delta: float) -> void:
 	velocity.x = direction.x * speed
 	velocity.z = direction.z * speed
 
-	if is_on_floor():
+	var grounded := is_on_floor()
+	if grounded:
 		if Input.is_physical_key_pressed(KEY_SPACE):
 			velocity.y = JUMP_SPEED
+			grounded = false
 	else:
 		velocity.y -= GRAVITY * delta
 
-	move_and_slide()
+	if grounded and _try_step_up(delta):
+		# The step already moved us forward. Settle onto the new floor.
+		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+		velocity = Vector3(0.0, -0.5, 0.0)
+		move_and_slide()
+		velocity = horizontal
+	else:
+		move_and_slide()
+
+	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-14.0 * delta))
 
 	# Turn the body: with the camera in first person, toward travel otherwise.
 	if is_first_person():
@@ -141,7 +170,39 @@ func _physics_process(delta: float) -> void:
 		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-12.0 * delta))
 
 
+## Climbs a ledge up to _step_height tall when walking into it.
+## Works by testing the move in three legs: up, forward, then back down.
+func _try_step_up(delta: float) -> bool:
+	var forward := Vector3(velocity.x, 0.0, velocity.z) * delta
+	if forward.length() < 0.0005:
+		return false
+	var here := global_transform
+	if not test_move(here, forward):
+		return false   # nothing in the way
+	var up := Vector3(0.0, _step_height, 0.0)
+	if test_move(here, up):
+		return false   # no head room
+	var raised := here.translated(up)
+	if test_move(raised, forward):
+		return false   # the obstacle is taller than a step
+	var over_ledge := raised.translated(forward)
+	var landing := KinematicCollision3D.new()
+	if not test_move(over_ledge, -up, landing):
+		return false   # nothing to stand on
+	if landing.get_normal().y < 0.7:
+		return false   # too steep to stand on
+	var settled: Vector3 = over_ledge.origin + landing.get_travel()
+	var climbed := settled.y - here.origin.y
+	if climbed < 0.01:
+		return false   # not actually a step; let the normal slide handle it
+	global_position = settled
+	_step_offset -= climbed
+	return true
+
+
 func _process(_delta: float) -> void:
+	_model.position.y = _step_offset
+	_pivot.position.y = EYE_HEIGHT + _step_offset
 	_pivot.rotation = Vector3(pitch, yaw, 0.0)
 	_camera.position = Vector3(0.0, 0.0, zoom)
 	# Keep a third-person camera from dipping under the ground plane.
@@ -187,8 +248,8 @@ func _box(size: Vector3, at: Vector3, color: Color) -> MeshInstance3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.roughness = 0.8
-	var instance := MeshInstance3D.new()
 	mesh.material = material
+	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.position = at
 	return instance
