@@ -9,6 +9,7 @@ const Player = preload("res://scripts/player.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const BuildController = preload("res://scripts/build_controller.gd")
 const Hud = preload("res://scripts/hud.gd")
+const Scenery = preload("res://scripts/scenery.gd")
 const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
 
 const GROUND_SIZE := 6000.0   # metres across
@@ -17,6 +18,10 @@ const GROUND_SIZE := 6000.0   # metres across
 const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
 const GARAGE_GAP := 12.0                        # from the garage door to the pad
 const DOOR_SIZE := Vector2(16.0, 5.5)           # width, height in metres
+
+# Plants keep clear of the pad and garage by these distances, in metres.
+const GRASS_MARGIN := 45.0
+const TREE_MARGIN := 80.0
 
 
 func _ready() -> void:
@@ -31,6 +36,14 @@ func _ready() -> void:
 	var pad_size: Vector3 = grid.size_metres()
 	var map_features: Array = _make_garage(pad_size)
 	map_features.append([Rect2(0.0, 0.0, pad_size.x, pad_size.z), Color(0.20, 0.26, 0.36), "Build pad"])
+
+	# Grass and trees, kept well back from the pad and the garage.
+	var home_depth := GARAGE_GAP + GARAGE_SIZE.z
+	var home := Rect2(0.0, -home_depth, pad_size.x, pad_size.z + home_depth)
+	var scenery: Node3D = Scenery.new()
+	scenery.name = "Scenery"
+	add_child(scenery)
+	scenery.build(home, GRASS_MARGIN, TREE_MARGIN)
 
 	var player: CharacterBody3D = Player.new()
 	player.name = "Player"
@@ -49,6 +62,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(controller, grid, player)
 	hud.set_map_features(map_features)
+	hud.set_map_trees(scenery.tree_spots)
 
 
 func _make_sky_and_sun() -> void:

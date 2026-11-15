@@ -8,9 +8,11 @@ const RANGE := 70.0   # metres from the centre of the map to its edge
 const BACKGROUND := Color(0.06, 0.08, 0.11, 0.8)
 const BORDER := Color(1.0, 1.0, 1.0, 0.5)
 const PLAYER := Color(1.0, 0.85, 0.2)
+const TREE := Color(0.30, 0.62, 0.32)
 
 var player: Node3D = null   # player.gd
 var features: Array = []    # each is [Rect2 footprint in world X and Z, colour, label]
+var tree_spots := PackedVector2Array()   # (x, z) of every tree
 
 
 func _ready() -> void:
@@ -40,6 +42,13 @@ func _draw() -> void:
 	var centre := player.global_position
 	var pixels_per_metre := extent.x * 0.5 / RANGE
 	var font := get_theme_default_font()
+
+	# Trees within range, as small green squares.
+	for spot in tree_spots:
+		if absf(spot.x - centre.x) > RANGE or absf(spot.y - centre.z) > RANGE:
+			continue
+		var dot := _to_map(spot.x, spot.y, centre, pixels_per_metre)
+		draw_rect(Rect2(dot - Vector2(1.5, 1.5), Vector2(3.0, 3.0)), TREE)
 
 	for feature in features:
 		var area: Rect2 = feature[0]

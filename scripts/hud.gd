@@ -79,6 +79,11 @@ func set_map_features(features: Array) -> void:
 	_minimap.features = features
 
 
+## Where the trees stand, as (x, z) points, for the mini map to dot in.
+func set_map_trees(spots: PackedVector2Array) -> void:
+	_minimap.tree_spots = spots
+
+
 # --- Small builders ----------------------------------------------------------
 
 func _label(text: String, font_size: int = 0) -> Label:

@@ -11,7 +11,8 @@ Working now:
 - A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - A garage behind the start point, shut for now, with its door facing the build pad
-- A mini map in the top-right corner showing the garage, the pad and where you are
+- A mini map in the top-right corner showing the garage, the pad, nearby trees and where you are
+- Grass and groves of trees, starting well back from the pad and garage
 - All five tools: Place, Delete, Transform, Config and Paint
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
 - Display models for eighteen mechanical parts: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake. They are models only and do nothing until Spawn is built.
@@ -92,6 +93,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/save_manager.gd` | Saving and loading builds |
 | `scripts/hud.gd` | The on-screen interface |
 | `scripts/minimap.gd` | The mini map |
+| `scripts/scenery.gd` | Grass and trees |
 | `saves/` | Saved builds, the format guide and an example |
 | `shaders/pad_grid.gdshader` | Draws the grid lines on the build pad |
 
