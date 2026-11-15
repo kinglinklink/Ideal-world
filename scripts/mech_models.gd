@@ -31,7 +31,10 @@ static func has_model(part_id: String) -> bool:
 	return IDS.has(part_id)
 
 
-static func build(part_id: String) -> ArrayMesh:
+## `options` carries the settings that change a model's shape:
+##   "teeth" for gears, "blades" and "pitch" (degrees) for the propeller.
+static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
+	var teeth: int = int(options.get("teeth", 12))
 	var body := Kit.new_surface()
 	var detail := Kit.new_surface()
 	var detail_look: Material = null   # null means the usual dark metal
@@ -58,11 +61,10 @@ static func build(part_id: String) -> ArrayMesh:
 			Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
 			Kit.add_cylinder(detail, Vector3.ZERO, X, 0.125, 0.9375)
 		"ball_joint":
-			# A socket, a ball, a stud and a mounting plate.
-			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(0.75, 0.375, 0.75))
-			Kit.add_sphere(detail, Vector3.ZERO, 0.22)
-			Kit.add_cylinder(detail, Vector3(0.0, 0.3125, 0.0), Y, 0.09, 0.25)
-			Kit.add_box(body, Vector3(0.0, 0.46875, 0.0), Vector3(0.5, 0.0625, 0.5))
+			# Two matching halves, like the hinge, with a ball held between them.
+			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+			Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+			Kit.add_sphere(detail, Vector3.ZERO, 0.27, 16, 8)
 		"bearing":
 			# Flat on four sides; the shaft passes through top to bottom.
 			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 0.875, 1.0))
@@ -87,11 +89,11 @@ static func build(part_id: String) -> ArrayMesh:
 				Kit.add_cylinder(detail, Vector3(0.0, -0.3125 + 0.125 * float(coil), 0.0), Y, 0.3, 0.0625)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.07, 0.875)
 		"gear":
-			Kit.add_gear(body, Vector3.ZERO, Y, 0.4, 0.5, 0.8, 12)
+			Kit.add_gear(body, Vector3.ZERO, Y, 0.4, 0.5, 0.8, teeth)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.15, 1.0)
 		"bevel_gear":
 			# A toothed base stepping in toward the shaft.
-			Kit.add_gear(body, Vector3(0.0, -0.3, 0.0), Y, 0.4, 0.5, 0.3, 12)
+			Kit.add_gear(body, Vector3(0.0, -0.3, 0.0), Y, 0.4, 0.5, 0.3, teeth)
 			Kit.add_cylinder(body, Vector3(0.0, -0.05, 0.0), Y, 0.33, 0.2)
 			Kit.add_cylinder(body, Vector3(0.0, 0.15, 0.0), Y, 0.22, 0.2)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.12, 1.0)
@@ -262,12 +264,20 @@ static func build(part_id: String) -> ArrayMesh:
 			], Vector3(0.0, 0.9, 0.0))
 			Kit.add_box(detail, Vector3(0.0, 0.0, 0.47), Vector3(1.0, 1.0, 0.06))
 		"propeller":
-			# Four blades on a hub; the shaft runs along Y.
+			# Blades on a hub; the shaft runs along Y. Each blade is tilted about
+			# its own length by the pitch angle.
+			var blades: int = clampi(int(options.get("blades", 4)), 2, 12)
+			var pitch: float = deg_to_rad(clampf(float(options.get("pitch", 20.0)), 0.0, 90.0))
+			# The propeller is a quarter as tall as it is wide at its normal
+			# size, so heights here are stretched four times to come out true.
+			var true_height := Transform3D(Basis.from_scale(Vector3(1.0, 4.0, 1.0)), Vector3.ZERO)
 			Kit.add_cylinder(body, Vector3.ZERO, Y, 0.16, 0.6)
-			Kit.add_box(body, Vector3(0.31, 0.0, 0.0), Vector3(0.38, 0.3, 0.14))
-			Kit.add_box(body, Vector3(-0.31, 0.0, 0.0), Vector3(0.38, 0.3, 0.14))
-			Kit.add_box(body, Vector3(0.0, 0.0, 0.31), Vector3(0.14, 0.3, 0.38))
-			Kit.add_box(body, Vector3(0.0, 0.0, -0.31), Vector3(0.14, 0.3, 0.38))
+			for blade in blades:
+				var around := Basis(Vector3.UP, TAU * float(blade) / float(blades))
+				var tilt := Basis(Vector3(1.0, 0.0, 0.0), pitch)
+				var placement := true_height * Transform3D(around, Vector3.ZERO) \
+						* Transform3D(tilt, Vector3(0.31, 0.0, 0.0))
+				Kit.add_box_placed(body, placement, Vector3(0.38, 0.03, 0.2))
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.12, 1.0)
 		"lift_gas_tank":
 			# A gas ball on a base ring, with a band round its middle.

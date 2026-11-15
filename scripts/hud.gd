@@ -16,6 +16,8 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 const MESSAGE_SECONDS := 3.5
 
+signal garage_button_pressed
+
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
 var player: CharacterBody3D = null   # player.gd
@@ -23,12 +25,17 @@ var player: CharacterBody3D = null   # player.gd
 var _tool_buttons: Array = []
 var _panels: Array = []              # one panel per tool, in Tool order
 var _part_buttons: Dictionary = {}   # part id -> Button
+var _category_buttons: Dictionary = {}   # category name -> its tab
+var _part_category := "Basic"        # the category whose parts are listed
+var _parts_title: Label
+var _part_search: LineEdit
 var _material_buttons: Dictionary = {}
 var _place_brush_label: Label
 var _transform_info: Label
 var _snap_option: OptionButton
 var _config_title: Label
 var _config_spins: Array = []
+var _config_captions: Array = []     # the three dimension labels beside the spin boxes
 var _config_info: Label
 var _build_info: Label
 var _color_button: ColorPickerButton
@@ -57,6 +64,8 @@ var _signals_title: Label
 var _signals_scroll: ScrollContainer
 var _signals_box: VBoxContainer
 var _minimap: Control
+var _garage_button: Button
+var _seat_label: Label
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -77,6 +86,12 @@ func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
 ## The buildings and areas the mini map should draw.
 func set_map_features(features: Array) -> void:
 	_minimap.features = features
+
+
+## Tells the interface whether the garage door is open, so the button at the
+## top of the screen offers the opposite.
+func set_garage_open(open: bool) -> void:
+	_garage_button.text = "Close garage" if open else "Open garage"
 
 
 ## Where the trees stand, as (x, z) points, for the mini map to dot in.
@@ -143,7 +158,7 @@ func _build_interface() -> void:
 
 	# Help text, top left.
 	var help := _outlined(_label(
-			"WASD walk   Shift run   Space jump   Scroll zoom\n"
+			"WASD walk   Shift run   Space jump   E sit in a seat   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)\n"
 			+ "1 Place   2 Delete   3 Transform   4 Config   5 Paint   Left click use tool\n"
 			+ "Saves button, bottom right, saves and loads builds", 14))
@@ -151,12 +166,20 @@ func _build_interface() -> void:
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(help)
 
-	# Messages from the tools, top centre.
+	# Top centre: the garage button, with messages from the tools under it.
+	var top := _column()
+	top.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	top.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(top)
+	_garage_button = _button("Open garage", 150.0)
+	_garage_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_garage_button.pressed.connect(_on_garage_button)
+	top.add_child(_garage_button)
 	_message_label = _outlined(_label("", 18))
-	_message_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_message_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
-	root.add_child(_message_label)
+	top.add_child(_message_label)
 
 	# Crosshair, screen centre, shown while the mouse is captured.
 	_crosshair = _label("+", 22)
@@ -164,12 +187,19 @@ func _build_interface() -> void:
 	_crosshair.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	root.add_child(_crosshair)
 
-	# Tool bar, bottom centre.
+	# Bottom centre: the tool bar, with a line above it for the seat prompt.
+	var bottom := _column()
+	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bottom.size_flags_vertical = Control.SIZE_SHRINK_END
+	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bottom)
+	_seat_label = _outlined(_label("", 18))
+	_seat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bottom.add_child(_seat_label)
 	var toolbar := _row()
 	toolbar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	toolbar.size_flags_vertical = Control.SIZE_SHRINK_END
 	toolbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(toolbar)
+	bottom.add_child(toolbar)
 	var tool_names: Array = BuildController.TOOL_NAMES
 	for index in tool_names.size():
 		var tool_button := _button("%d  %s" % [index + 1, tool_names[index]], 116.0, true)
@@ -247,38 +277,99 @@ func _readout(parent: Control) -> Label:
 
 func _build_place_panel() -> Control:
 	var panel := _column()
-	for category in PartLibrary.CATEGORIES:
-		# Each category is a header that folds its buttons away when clicked.
+
+	# Category tabs down the left edge, the chosen category's parts beside them.
+	var body := _row()
+	panel.add_child(body)
+
+	var tabs := _column()
+	body.add_child(tabs)
+	var categories: Array = PartLibrary.CATEGORIES.duplicate()
+	categories.reverse()   # Basic sits at the bottom, nearest the tool bar
+	for category in categories:
 		var category_name: String = category
-		var expanded: bool = category_name == "Basic"
-		var header := _button(_category_title(category_name, expanded), 0.0, true)
-		header.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		header.set_pressed_no_signal(expanded)
-		panel.add_child(header)
-		var buttons := _grid_of(3)
-		buttons.visible = expanded
-		panel.add_child(buttons)
-		header.toggled.connect(_on_category_toggled.bind(category_name, header, buttons))
-		for id in PartLibrary.part_ids():
-			if PartLibrary.category(id) != category:
-				continue
-			var part_button := _button(PartLibrary.part_name(id), 124.0, true)
-			part_button.pressed.connect(_on_part_button.bind(id))
-			buttons.add_child(part_button)
-			_part_buttons[id] = part_button
+		var tab := _button(category_name, 150.0, true)
+		tab.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tab.pressed.connect(_on_category_tab.bind(category_name))
+		tabs.add_child(tab)
+		_category_buttons[category_name] = tab
+
+	var listing := _column()
+	body.add_child(listing)
+	_parts_title = _label("")
+	listing.add_child(_parts_title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(410, 300)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	listing.add_child(scroll)
+	var buttons := _grid_of(3)
+	scroll.add_child(buttons)
+	# Every part's button lives in the one grid; the filter shows the right ones.
+	for id in PartLibrary.part_ids():
+		var part_button := _button(PartLibrary.part_name(id), 124.0, true)
+		part_button.pressed.connect(_on_part_button.bind(id))
+		buttons.add_child(part_button)
+		_part_buttons[id] = part_button
+
+	# Search across every category.
+	var search_row := _row()
+	panel.add_child(search_row)
+	search_row.add_child(_label("Search"))
+	_part_search = LineEdit.new()
+	_part_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_part_search.placeholder_text = "Type part of a name"
+	_part_search.text_changed.connect(_on_part_search_changed)
+	_part_search.text_submitted.connect(_on_part_search_submitted)
+	search_row.add_child(_part_search)
+	var clear_search := _button("Clear", 70.0)
+	clear_search.pressed.connect(_on_part_search_cleared)
+	search_row.add_child(clear_search)
+
 	_place_brush_label = _label("", 13)
 	panel.add_child(_place_brush_label)
 	panel.add_child(_label("R / T / Y  turn 90° about X / Y / Z", 13))
+	_apply_part_filter()
 	return panel
 
 
-static func _category_title(category_name: String, expanded: bool) -> String:
-	return "%s  %s parts" % ["-" if expanded else "+", category_name]
+## Shows the parts of the chosen category, or every part matching the search.
+func _apply_part_filter() -> void:
+	var query := _part_search.text.strip_edges().to_lower()
+	for id in _part_buttons:
+		var part_id: String = id
+		var part_button: Button = _part_buttons[id]
+		if query != "":
+			part_button.visible = PartLibrary.part_name(part_id).to_lower().contains(query)
+		else:
+			part_button.visible = PartLibrary.category(part_id) == _part_category
+	if query != "":
+		_parts_title.text = "Search results"
+	else:
+		_parts_title.text = "%s parts" % _part_category
+	for category_name in _category_buttons:
+		var tab: Button = _category_buttons[category_name]
+		tab.set_pressed_no_signal(query == "" and category_name == _part_category)
 
 
-func _on_category_toggled(expanded: bool, category_name: String, header: Button, buttons: Control) -> void:
-	buttons.visible = expanded
-	header.text = _category_title(category_name, expanded)
+func _on_category_tab(category_name: String) -> void:
+	_part_category = category_name
+	_part_search.text = ""
+	_part_search.release_focus()
+	_apply_part_filter()
+
+
+func _on_part_search_changed(_text: String) -> void:
+	_apply_part_filter()
+
+
+func _on_part_search_submitted(_text: String) -> void:
+	_part_search.release_focus()
+
+
+func _on_part_search_cleared() -> void:
+	_part_search.text = ""
+	_part_search.release_focus()
+	_apply_part_filter()
 
 
 func _build_delete_panel() -> Control:
@@ -359,8 +450,9 @@ func _build_config_panel() -> Control:
 	for axis in 3:
 		var size_row := _row()
 		var caption := _label("Size %s (blocks)" % AXIS_NAMES[axis])
-		caption.custom_minimum_size = Vector2(120, 0)
+		caption.custom_minimum_size = Vector2(170, 0)
 		size_row.add_child(caption)
+		_config_captions.append(caption)
 		var spin := SpinBox.new()
 		spin.min_value = 1.0 / Units.UNITS_PER_CELL
 		spin.max_value = 64.0
@@ -870,6 +962,7 @@ func _process(delta: float) -> void:
 	_fps_label.text = "FPS  %d" % int(Engine.get_frames_per_second())
 	_speed_label.text = "Speed  %.1f m/s" % player.velocity.length()
 	_crosshair.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	_seat_label.text = controller.seat_prompt()
 	if _message_time > 0.0:
 		_message_time -= delta
 		if _message_time <= 0.0:
@@ -960,6 +1053,10 @@ func _on_config_size(value: float, axis: int) -> void:
 		_refresh()   # put the old number back
 
 
+func _on_garage_button() -> void:
+	garage_button_pressed.emit()
+
+
 func _on_message(text: String) -> void:
 	_message_label.text = text
 	_message_time = MESSAGE_SECONDS
@@ -979,6 +1076,28 @@ static func _mass_text(kilograms: float) -> String:
 	if kilograms >= 1000.0:
 		return "%.2f t" % (kilograms / 1000.0)
 	return "%.2f kg" % kilograms
+
+
+## What a cannon of this size would do, by the design's ballistics: the bore
+## is a fifth of the cannon's smaller cross dimension, the projectile is three
+## bores long, and propellant pushes it down the barrel at an average 100 MPa.
+static func _cannon_text(record: Dictionary) -> String:
+	var size_m: Vector3 = Units.to_metres(record["size"])
+	var bore: float = 0.2 * minf(size_m.x, size_m.y)
+	var barrel: float = size_m.z
+	var props: Dictionary = record.get("props", {})
+	var projectile_name := str(props.get("projectile_material", "Steel"))
+	var density: float = MaterialLibrary.density(MaterialLibrary.id_for_name(projectile_name))
+	var bore_area := PI * bore * bore * 0.25
+	var projectile_mass := density * bore_area * bore * 3.0
+	var energy := 100000000.0 * bore_area * barrel   # joules
+	var velocity := 0.0
+	if projectile_mass > 0.0:
+		velocity = sqrt(2.0 * energy / projectile_mass)
+	return "\nBore: %.0f mm\nBarrel: %.2f m\nProjectile: %s of %s\nMuzzle velocity: %.0f m/s\nMuzzle energy: %.0f kJ (%.0f HP per hit)\nFastest fire: one shot per %.2f s" % [
+		bore * 1000.0, barrel, _mass_text(projectile_mass), projectile_name,
+		velocity, energy / 1000.0, energy / 1000.0, barrel * 0.5,
+	]
 
 
 ## Brings every button and label in line with the controller's state.
@@ -1030,18 +1149,24 @@ func _refresh() -> void:
 	if record.is_empty():
 		_config_title.text = "Config: click a part"
 		_config_info.text = ""
+		var plain_captions: Array = PartLibrary.size_captions("")
 		for spin_index in _config_spins.size():
 			var idle_spin: SpinBox = _config_spins[spin_index]
 			idle_spin.editable = false
+			var idle_caption: Label = _config_captions[spin_index]
+			idle_caption.text = plain_captions[spin_index]
 	else:
 		var type: String = record["type"]
 		var size: Vector3i = record["size"]
 		var material: String = record["material"]
 		_config_title.text = "Config: %s" % PartLibrary.part_name(type)
+		var captions: Array = PartLibrary.size_captions(type)
 		for spin_index in _config_spins.size():
 			var spin: SpinBox = _config_spins[spin_index]
 			spin.editable = true
 			spin.set_value_no_signal(float(size[spin_index]) / Units.UNITS_PER_CELL)
+			var caption: Label = _config_captions[spin_index]
+			caption.text = captions[spin_index]
 		var mass: float = BuildGrid.mass_of(record)
 		var strength: float = MaterialLibrary.info(material)["strength"]
 		var size_m: Vector3 = Units.to_metres(size)
@@ -1052,6 +1177,8 @@ func _refresh() -> void:
 			_mass_text(mass),
 			int(round(mass * strength)),
 		]
+		if type == "large_cannon":
+			_config_info.text += _cannon_text(record)
 
 	_sync_settings(record)
 	_sync_signals(record)

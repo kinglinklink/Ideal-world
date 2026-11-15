@@ -195,9 +195,8 @@ static func _build_table() -> void:
 		material_names.append(MaterialLibrary.display_name(material_id))
 	var projectile := _choice("projectile_material", "Projectile material", material_names)
 	projectile["default"] = "Steel"
+	# The cannon's bore and barrel length are its X/Y and Z dimensions.
 	_table["large_cannon"] = [
-		_number("barrel_length", "Barrel length", "m", 3.0, 0.05, 1000.0, 0.05),
-		_number("bore", "Bore", "m", 0.1, 0.005, 10.0, 0.005),
 		projectile,
 		_flag("unlimited_ammo", "Unlimited ammo", true),
 	]

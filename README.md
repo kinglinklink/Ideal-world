@@ -10,13 +10,14 @@ Working now:
 
 - A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
-- A garage behind the start point, shut for now, with its door facing the build pad
+- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
+- Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - A mini map in the top-right corner showing the garage, the pad, nearby trees and where you are
 - Grass and groves of trees, starting well back from the pad and garage
 - All five tools: Place, Delete, Transform, Config and Paint
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
 - Display models for eighteen mechanical parts: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake. They are models only and do nothing until Spawn is built.
-- Display models for every other planned part: 13 fluid and engine parts, 4 aero parts, 11 logic blocks and sensors, 4 combat parts, and the seat, anchor block and dynamic offsetter. Also models only for now. That makes 75 parts in nine fold-out categories.
+- Display models for every other planned part: 13 fluid and engine parts, 4 aero parts, 11 logic blocks and sensors, 4 combat parts, and the seat, anchor block and dynamic offsetter. Also models only for now. That makes 75 parts in nine categories.
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
@@ -40,7 +41,8 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 | --- | --- |
 | W A S D | Walk |
 | Shift | Run |
-| Space | Jump |
+| Space | Jump, or stand up from a seat |
+| E | Sit in the nearest seat within reach |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |
@@ -51,7 +53,7 @@ Not built yet: Spawn, physics, and the behavior of the mechanical, logic and com
 
 ### Tools
 
-- **Place.** Pick a part from the menu and click to place it against whatever you point at. Click a category heading to fold it open or shut. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
+- **Place.** Pick a part from the menu and click to place it against whatever you point at. Category tabs run down the left of the menu, and the search box finds a part by name across all of them. Picking a new part resets its rotation. New parts use the Paint tool's current material and color.
 - **Delete.** Click a part to remove it.
 - **Transform.** Click to select a part; Shift+click adds to the selection. Arrow keys move the selection along the ground and Page Up / Page Down move it vertically, by the step chosen in the panel. Ctrl+C copies and Ctrl+X cuts. To paste, press the Paste button and click where the copy should go (a preview follows the cursor), or point and press Ctrl+V. Ctrl+A selects everything, and Delete removes the selection.
 - **Config.** Click a part to see its volume, mass and health, to change its dimensions, and to edit its settings if it has any. To link a signal, press Link beside one of the part's inputs, then click the part the signal should come from; if that part has several outputs, pick one from the list that appears. Clear removes a link. Green lines show where the selected part's inputs come from and blue lines show where its outputs go. A part keeps its low corner in place when resized. The yellow ball marks the build's center of mass.

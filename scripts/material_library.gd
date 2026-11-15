@@ -87,6 +87,14 @@ static func density(material_id: String) -> float:
 	return float(info(material_id)["density"])
 
 
+## The id of the material with the given display name, or the default material.
+static func id_for_name(shown_name: String) -> String:
+	for material_id in MATERIALS:
+		if MATERIALS[material_id]["name"] == shown_name:
+			return material_id
+	return DEFAULT_ID
+
+
 static func default_color(material_id: String) -> Color:
 	return info(material_id)["color"]
 
