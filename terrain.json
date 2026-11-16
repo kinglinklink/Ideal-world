@@ -1,0 +1,46 @@
+{
+  "projection": "Web Mercator tiles (EPSG:3857), 256 pixels each",
+  "height_m": "700 + pixel / 10",
+  "base_height_m": 700.0,
+  "pixels_per_metre_of_height": 10.0,
+  "lake_surface_m": 882.0,
+  "source": "Mapzen Terrain Tiles (Terrarium) on AWS Open Data; USGS 3DEP, SRTM and others",
+  "layers": {
+    "lake": {
+      "file": "terrain_lake.png",
+      "zoom": 13,
+      "tile_x": 1489,
+      "tile_y": 2842,
+      "tiles_across": 19,
+      "tiles_down": 20,
+      "pixels": [
+        4864,
+        5120
+      ],
+      "west": -114.5654296875,
+      "east": -113.73046875,
+      "north": 48.166085419012525,
+      "south": 47.576525713746214,
+      "lowest_m": 781.9140625,
+      "highest_m": 2436.4296875
+    },
+    "islands": {
+      "file": "terrain_islands.png",
+      "zoom": 15,
+      "tile_x": 5978,
+      "tile_y": 11406,
+      "tiles_across": 15,
+      "tiles_down": 12,
+      "pixels": [
+        3840,
+        3072
+      ],
+      "west": -114.32373046875,
+      "east": -114.158935546875,
+      "north": 47.88688085106898,
+      "south": 47.79839667295524,
+      "lowest_m": 879.62890625,
+      "highest_m": 1343.73046875
+    }
+  }
+}
