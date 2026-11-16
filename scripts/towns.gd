@@ -9,6 +9,13 @@ extends Node3D
 ## camera comes within BUILD_DISTANCE and freed when it is far away, a square
 ## per frame; the bridges are always there.
 ##
+## Buildings can be destroyed. Each has health for the space it encloses:
+## HP_PER_M3 by what it is built of (wood for houses and sheds, brick for
+## schools, churches and apartments, concrete for shops, warehouses and
+## industry). Bullets, shells and blasts take it away (combat.gd asks here),
+## and a building at zero falls to a heap of rubble you can drive over. All
+## damage is undone when the build goes back to Build mode.
+##
 ## Map data (c) OpenStreetMap contributors, ODbL.
 
 const MapInfo = preload("res://scripts/map_info.gd")
@@ -32,6 +39,11 @@ const ROOFS := [
 	Color(0.30, 0.30, 0.32), Color(0.42, 0.28, 0.22), Color(0.25, 0.32, 0.27), Color(0.36, 0.36, 0.40),
 ]
 const BIG_KINDS := ["warehouse", "industrial", "commercial", "retail", "barn"]
+const BRICK_KINDS := ["school", "church", "apartments", "hotel", "civic", "public", "university", "college"]
+const CONCRETE_KINDS := ["warehouse", "industrial", "commercial", "retail", "hospital", "office", "supermarket"]
+const HP_PER_M3 := {"wood": 2.0, "brick": 4.0, "concrete": 6.0}
+const MAX_HP := 150000.0
+const RUBBLE := Color(0.42, 0.39, 0.35)
 
 var _samples := PackedFloat32Array()
 var _runs: Dictionary = {}        # Vector2i square -> Array of [first sample, count, code]
@@ -41,6 +53,9 @@ var _built: Dictionary = {}       # Vector2i square -> Array of nodes
 var _check := 0.0
 var _road_look: StandardMaterial3D
 var _house_look: StandardMaterial3D
+var _hp: Dictionary = {}          # Vector3i(square x, square z, index) -> HP left, once hit
+var _fallen: Dictionary = {}      # Vector3i -> true for buildings brought down
+var _dirty: Dictionary = {}       # squares to build again, with their rubble
 
 
 func setup(world: Dictionary) -> void:
@@ -82,6 +97,12 @@ func setup(world: Dictionary) -> void:
 
 func _process(delta: float) -> void:
 	_check -= delta
+	for key in _dirty:
+		var square: Vector2i = key
+		if _built.has(square):
+			_free_square(square)
+			_build_square(square)
+	_dirty.clear()
 	var camera := get_viewport().get_camera_3d()
 	if camera == null or _squares.is_empty():
 		return
@@ -107,10 +128,14 @@ func _process(delta: float) -> void:
 			if ((Vector2(square) + Vector2(0.5, 0.5)) * MapInfo.CELL).distance_to(here) > FREE_DISTANCE:
 				drop.append(square)
 		for key in drop:
-			for item in _built[key]:
-				var node: Node = item
-				node.queue_free()
-			_built.erase(key)
+			_free_square(key)
+
+
+func _free_square(square: Vector2i) -> void:
+	for item in _built[square]:
+		var node: Node = item
+		node.queue_free()
+	_built.erase(square)
 
 
 func _build_square(square: Vector2i) -> void:
@@ -143,10 +168,16 @@ func _build_square(square: Vector2i) -> void:
 		body.collision_layer = Units.LAYER_WORLD
 		body.collision_mask = 0
 		body.position = middle
+		body.set_meta("structure", self)
 		var drawn := 0
-		for item in _buildings[square]:
-			var entry: Array = item
-			drawn += _building(walls, body, entry)
+		var list: Array = _buildings[square]
+		for index in list.size():
+			var entry: Array = list[index]
+			var key := Vector3i(square.x, square.y, index)
+			if _fallen.has(key):
+				drawn += _rubble(walls, entry)
+			else:
+				drawn += _building(walls, body, entry, key)
 		if drawn > 0:
 			nodes.append(_add_mesh(walls, middle, BUILD_DISTANCE + MapInfo.CELL * 0.5, _house_look))
 		if body.get_child_count() > 0:
@@ -223,7 +254,7 @@ func _quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3)
 
 ## One building: its outline raised from `base` to `top`, with a flat roof.
 ## Inside the wall it is solid. Returns 1 if it drew anything, else 0.
-func _building(surface: SurfaceTool, body: StaticBody3D, entry: Array) -> int:
+func _building(surface: SurfaceTool, body: StaticBody3D, entry: Array, key: Vector3i) -> int:
 	var outline := PackedVector2Array()
 	for item in entry[2]:
 		var corner: Array = item
@@ -268,8 +299,188 @@ func _building(surface: SurfaceTool, body: StaticBody3D, entry: Array) -> int:
 		shape.points = points
 		var collider := CollisionShape3D.new()
 		collider.shape = shape
+		collider.set_meta("piece", key)
 		body.add_child(collider)
 	return 1
+
+
+## What is left of a building brought down: a low heap on its outline.
+func _rubble(surface: SurfaceTool, entry: Array) -> int:
+	var outline := PackedVector2Array()
+	for item in entry[2]:
+		var corner: Array = item
+		outline.append(Vector2(float(corner[0]), float(corner[1])))
+	if outline.size() < 3:
+		return 0
+	var base := float(entry[3]) + 0.6
+	var top := base + clampf((float(entry[4]) - base) * 0.15, 0.4, 2.5)
+	var middle := Vector2.ZERO
+	for corner in outline:
+		middle += corner
+	middle /= outline.size()
+	surface.set_color(RUBBLE)
+	# Sloping sides up to a smaller top, so it reads as a heap.
+	for index in outline.size():
+		var a := outline[index]
+		var b := outline[(index + 1) % outline.size()]
+		var a_top := middle.lerp(a, 0.6)
+		var b_top := middle.lerp(b, 0.6)
+		_quad(surface, Vector3(a.x, base - 0.6, a.y), Vector3(b.x, base - 0.6, b.y),
+				Vector3(b_top.x, top, b_top.y), Vector3(a_top.x, top, a_top.y))
+		for corner in [middle, b_top, a_top]:
+			var spot: Vector2 = corner
+			surface.add_vertex(Vector3(spot.x, top, spot.y))
+	return 1
+
+
+# --- Damage ------------------------------------------------------------------
+
+## How much health a building starts with: the space it encloses, by what it
+## is built of.
+func max_health(entry: Array) -> float:
+	var outline: Array = entry[2]
+	var area := 0.0
+	for index in outline.size():
+		var a: Array = outline[index]
+		var b: Array = outline[(index + 1) % outline.size()]
+		area += float(a[0]) * float(b[1]) - float(b[0]) * float(a[1])
+	var volume := absf(area) * 0.5 * maxf(float(entry[4]) - float(entry[3]) - 0.6, 1.0)
+	return minf(volume * float(HP_PER_M3[material_of(entry)]), MAX_HP)
+
+
+func material_of(entry: Array) -> String:
+	var kind := str(entry[7]) if entry.size() > 7 else "yes"
+	if BRICK_KINDS.has(kind):
+		return "brick"
+	if CONCRETE_KINDS.has(kind):
+		return "concrete"
+	return "wood"
+
+
+## The building a ray hit, or null if it was not one of these.
+func _piece(collider: Object, shape: int) -> Variant:
+	var body := collider as StaticBody3D
+	if body == null or shape < 0 or not body.has_meta("structure") or body.get_meta("structure") != self:
+		return null
+	var owner_id := body.shape_find_owner(shape)
+	var node := body.shape_owner_get_owner(owner_id) as Node
+	if node == null or not node.has_meta("piece"):
+		return null
+	return node.get_meta("piece")
+
+
+func _entry(key: Vector3i) -> Array:
+	var list: Array = _buildings.get(Vector2i(key.x, key.y), [])
+	return list[key.z] if key.z < list.size() else []
+
+
+func _health(key: Vector3i) -> float:
+	if _fallen.has(key):
+		return 0.0
+	if _hp.has(key):
+		return _hp[key]
+	var entry := _entry(key)
+	return max_health(entry) if not entry.is_empty() else 0.0
+
+
+## Health left in what a ray hit, or -1 if it is not a building of the towns.
+func piece_health(collider: Object, shape: int) -> float:
+	var key: Variant = _piece(collider, shape)
+	if key == null:
+		return -1.0
+	return _health(key)
+
+
+## A name for what a ray hit, so a shell does not hit the same thing twice.
+func piece_id(collider: Object, shape: int) -> String:
+	var key: Variant = _piece(collider, shape)
+	return "" if key == null else "town %s" % str(key)
+
+
+## Takes health from the building a ray hit. Returns where it stood (in the
+## world) if that brought it down, else an empty array.
+func damage_piece(collider: Object, shape: int, amount: float) -> Array:
+	var key: Variant = _piece(collider, shape)
+	if key == null:
+		return []
+	return _damage(key, amount)
+
+
+func _damage(key: Vector3i, amount: float) -> Array:
+	if _fallen.has(key) or amount <= 0.0:
+		return []
+	var left := _health(key) - amount
+	if left > 0.0:
+		_hp[key] = left
+		return []
+	_fallen[key] = true
+	_hp.erase(key)
+	var square := Vector2i(key.x, key.y)
+	_dirty[square] = true
+	# Take its walls out of the way at once.
+	for item in _built.get(square, []):
+		var node: Node = item
+		if node is StaticBody3D:
+			for child in node.get_children():
+				if child.has_meta("piece") and child.get_meta("piece") == key:
+					(child as CollisionShape3D).disabled = true
+	var entry := _entry(key)
+	var middle := _middle(square, entry)
+	return [to_global(Vector3(middle.x, (float(entry[3]) + float(entry[4])) * 0.5, middle.y))]
+
+
+## The middle of a building in map metres (x, z).
+func _middle(square: Vector2i, entry: Array) -> Vector2:
+	var sum := Vector2.ZERO
+	var outline: Array = entry[2]
+	for item in outline:
+		var corner: Array = item
+		sum += Vector2(float(corner[0]), float(corner[1]))
+	sum /= maxf(outline.size(), 1.0)
+	return sum + (Vector2(square) + Vector2(0.5, 0.5)) * MapInfo.CELL
+
+
+## A blast at `centre` (in the world): every building within `radius` takes
+## `peak` x (1 - distance / radius), the distance measured to its nearest
+## side, roughly. Returns where each one it brought down stood.
+func blast(centre: Vector3, radius: float, peak: float) -> Array:
+	var fell: Array = []
+	var at := to_local(centre)
+	var low := Vector2i(floori((at.x - radius - 200.0) / MapInfo.CELL), floori((at.z - radius - 200.0) / MapInfo.CELL))
+	var high := Vector2i(floori((at.x + radius + 200.0) / MapInfo.CELL), floori((at.z + radius + 200.0) / MapInfo.CELL))
+	for sx in range(low.x, high.x + 1):
+		for sz in range(low.y, high.y + 1):
+			var square := Vector2i(sx, sz)
+			var list: Array = _buildings.get(square, [])
+			var square_middle := (Vector2(square) + Vector2(0.5, 0.5)) * MapInfo.CELL
+			for index in list.size():
+				var entry: Array = list[index]
+				var key := Vector3i(sx, sz, index)
+				if _fallen.has(key):
+					continue
+				var middle := _middle(square, entry)
+				var flat := Vector2(at.x, at.z).distance_to(middle)
+				if flat > radius + 200.0:
+					continue
+				var reach := 0.0
+				for item in entry[2]:
+					var corner: Array = item
+					reach = maxf(reach, (Vector2(float(corner[0]), float(corner[1])) + square_middle).distance_to(middle))
+				var below := maxf(float(entry[3]) - at.y, 0.0) + maxf(at.y - float(entry[4]), 0.0)
+				var distance := Vector2(maxf(flat - reach, 0.0), below).length()
+				if distance >= radius:
+					continue
+				fell.append_array(_damage(key, peak * (1.0 - distance / radius)))
+	return fell
+
+
+## Puts every building back up, for a new spawn.
+func reset_damage() -> void:
+	for key in _fallen:
+		var spot: Vector3i = key
+		_dirty[Vector2i(spot.x, spot.y)] = true
+	_fallen.clear()
+	_hp.clear()
 
 
 ## Bridges: a solid concrete deck along each span, on piers down into the water.

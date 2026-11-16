@@ -28,6 +28,7 @@ const Units = preload("res://scripts/units.gd")
 const Forest = preload("res://scripts/forest.gd")
 const Landmarks = preload("res://scripts/landmarks.gd")
 const Towns = preload("res://scripts/towns.gd")
+const Towers = preload("res://scripts/towers.gd")
 const TERRAIN_SHADER = preload("res://shaders/terrain.gdshader")
 const WATER_SHADER = preload("res://shaders/water.gdshader")
 
@@ -55,6 +56,7 @@ var world: Dictionary = {}         # world.json
 var forest: Node3D = null          # forest.gd
 var landmarks: Node3D = null       # landmarks.gd
 var towns: Node3D = null           # towns.gd
+var towers: Node3D = null          # towers.gd
 
 var _coarse := PackedByteArray()
 var _detail := PackedByteArray()
@@ -99,6 +101,13 @@ func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
 	towns.name = "Towns"
 	add_child(towns)
 	towns.setup(world)
+
+	towers = Towers.new()
+	towers.name = "Towers"
+	add_child(towers)
+	towers.setup(self, world)
+	forest.clearings = towers.clearings()
+	landmarks.map_points.append_array(towers.map_points)
 
 	# Solid ground round the start, before anything can fall.
 	_build_all_needed()
@@ -350,6 +359,8 @@ func origin_shifted() -> void:
 		material.set_shader_parameter("map_offset", offset)
 	if _water_material != null:
 		_water_material.set_shader_parameter("map_offset", offset)
+	if towers != null:
+		towers.origin_shifted()
 	var camera := get_viewport().get_camera_3d()
 	if camera != null:
 		_place_levels(Origin.to_map(camera.global_position))
@@ -396,6 +407,13 @@ func _plan_tiles() -> void:
 			_want_round(wanted, at, BODY_REACH)
 			if moving.length() > 1.0:
 				_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
+	if towers != null:
+		for item in towers.debris_motions():
+			var motion: Array = item
+			var at: Vector3 = Origin.to_map(motion[0])
+			var moving: Vector3 = motion[1]
+			_want_round(wanted, at, BODY_REACH)
+			_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
 	_pending.clear()
 	for key in wanted:
 		var square: Vector2i = key

@@ -28,6 +28,7 @@ const BUILDS_PER_FRAME := 1
 
 ## How far away trees are drawn, in metres. The settings menu changes it.
 var draw_distance := 2600.0
+var clearings: Array = []      # [Vector2 map x and z, radius]: no trees inside (wizard towers)
 
 var _trees := PackedFloat32Array()
 var _tiles: Dictionary = {}     # Vector2i collision square -> Vector2i(first tree, count)
@@ -104,6 +105,16 @@ func _process(delta: float) -> void:
 			_built.erase(key)
 
 
+## Whether a tree at map position x, z stands in a clearing (under a tower).
+func _cleared(x: float, z: float) -> bool:
+	for item in clearings:
+		var clearing: Array = item
+		var middle: Vector2 = clearing[0]
+		if middle.distance_squared_to(Vector2(x, z)) < float(clearing[1]) * float(clearing[1]):
+			return true
+	return false
+
+
 func _build_cell(cell: Array) -> void:
 	var square: Vector2i = cell[0]
 	var first: int = cell[1]
@@ -117,6 +128,9 @@ func _build_cell(cell: Array) -> void:
 	for index in count:
 		var at := (first + index) * FLOATS
 		var size := _trees[at + 3]
+		if not clearings.is_empty() and _cleared(_trees[at] + (square.x + 0.5) * MapInfo.CELL,
+				_trees[at + 2] + (square.y + 0.5) * MapInfo.CELL):
+			size = 0.0   # drawn at no size: gone
 		var turn := _hash(first + index) * TAU
 		var cosine := cos(turn) * size
 		var sine := sin(turn) * size
@@ -181,6 +195,8 @@ func add_trunks(body: StaticBody3D, square: Vector2i) -> void:
 		var at := index * FLOATS
 		if at + 3 >= _trees.size():
 			break
+		if not clearings.is_empty() and _cleared(_trees[at] + middle_x, _trees[at + 2] + middle_z):
+			continue
 		var size := snappedf(_trees[at + 3], 0.1)
 		if not _trunk_shapes.has(size):
 			var cylinder := CylinderShape3D.new()

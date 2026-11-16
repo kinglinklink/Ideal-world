@@ -190,6 +190,35 @@ def bake_towns(path, out_dir, ground, is_water, lake_y, bounds, offset):
     return {"buildings": buildings, "bridges": bridges, "road_count": len(runs)}, clear_of_towns
 
 
+def obstacles(path, offset):
+    """Everything in the towns an airport must keep clear of, before the
+    ground is graded: (points, reaches) for every building's middle and every
+    road sample every 10 m, with how far each reaches. Empty arrays if there
+    is no map/osm.json."""
+    if not os.path.exists(path):
+        return np.zeros((0, 2)), np.zeros(0)
+    data = json.load(open(path))
+    points = []
+    reaches = []
+    for road in data.get("roads", []):
+        kind = KINDS.get(road.get("kind"))
+        if kind is None:
+            continue
+        line = _game(road["line"], offset)
+        lengths = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(line, axis=0), axis=1))]
+        t = np.r_[np.arange(0.0, lengths[-1], ROAD_STEP), lengths[-1]]
+        points.append(np.stack([np.interp(t, lengths, line[:, 0]), np.interp(t, lengths, line[:, 1])], axis=1))
+        reaches.append(np.full(len(t), WIDTHS[kind] * 0.5 + ROAD_STEP * 0.5))
+    for item in data.get("buildings", []):
+        outline = _game(item["outline"], offset)
+        middle = outline.mean(axis=0)
+        points.append(middle[None, :])
+        reaches.append(np.array([float(np.max(np.linalg.norm(outline - middle, axis=1)))]))
+    if not points:
+        return np.zeros((0, 2)), np.zeros(0)
+    return np.concatenate(points), np.concatenate(reaches)
+
+
 def _bridge(y, wet, deck):
     """Carries a road straight across water: each wet stretch is bridged from
     the last dry sample before it to the first dry one after it."""

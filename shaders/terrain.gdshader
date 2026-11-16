@@ -73,14 +73,51 @@ float terrain_height(vec2 xz) {
 	return grid_height(coarse_map, g, coarse_code);
 }
 
-// The blue byte of the nearest sample: surface kind and woods.
-float surface_byte(vec2 xz) {
-	vec2 g = (xz - detail_origin) / detail_spacing;
-	if (in_detail(g)) {
-		return floor(texelFetch(detail_map, ivec2(g + 0.5), 0).b * 255.0 + 0.5);
+// Adds one sample's blue byte (surface kind and woods) to the running
+// shares, weighted: made.x asphalt, .y gravel, .z levelled site, .w beyond
+// the wall; and how wooded.
+void add_surface(float byte_value, float weight, inout vec4 made, inout float wooded) {
+	float kind = mod(byte_value, 8.0);
+	wooded += weight * floor(byte_value / 8.0) / 31.0;
+	if (kind > 0.5 && kind < 1.5) {
+		made.x += weight;
+	} else if (kind > 1.5 && kind < 2.5) {
+		made.y += weight;
+	} else if (kind > 2.5 && kind < 3.5) {
+		made.z += weight;
+	} else if (kind > 3.5 && kind < 4.5) {
+		made.w += weight;
 	}
-	g = clamp((xz - coarse_origin) / coarse_spacing, vec2(0.0), coarse_size - 1.001);
-	return floor(texelFetch(coarse_map, ivec2(g + 0.5), 0).b * 255.0 + 0.5);
+}
+
+float blue_byte(sampler2D map, ivec2 p) {
+	return floor(texelFetch(map, p, 0).b * 255.0 + 0.5);
+}
+
+// The surface kinds and woods round a spot, blended from the four nearest
+// samples, so the edges of runways and clearings run smoothly instead of in
+// steps the size of the samples.
+void surface_shares(vec2 xz, out vec4 made, out float wooded) {
+	made = vec4(0.0);
+	wooded = 0.0;
+	vec2 g = (xz - detail_origin) / detail_spacing;
+	bool detail = in_detail(g);
+	if (!detail) {
+		g = clamp((xz - coarse_origin) / coarse_spacing, vec2(0.0), coarse_size - 1.001);
+	}
+	vec2 corner = floor(g);
+	vec2 f = g - corner;
+	ivec2 p = ivec2(corner);
+	float b00 = detail ? blue_byte(detail_map, p) : blue_byte(coarse_map, p);
+	float b10 = detail ? blue_byte(detail_map, p + ivec2(1, 0)) : blue_byte(coarse_map, p + ivec2(1, 0));
+	float b01 = detail ? blue_byte(detail_map, p + ivec2(0, 1)) : blue_byte(coarse_map, p + ivec2(0, 1));
+	float b11 = detail ? blue_byte(detail_map, p + ivec2(1, 1)) : blue_byte(coarse_map, p + ivec2(1, 1));
+	add_surface(b00, (1.0 - f.x) * (1.0 - f.y), made, wooded);
+	add_surface(b10, f.x * (1.0 - f.y), made, wooded);
+	add_surface(b01, (1.0 - f.x) * f.y, made, wooded);
+	add_surface(b11, f.x * f.y, made, wooded);
+	// Sharpen the blend back into a clean edge along the smooth line.
+	made = smoothstep(vec4(0.35), vec4(0.65), made);
 }
 
 void vertex() {
@@ -99,9 +136,9 @@ void fragment() {
 	if (inner_box.w > 0.5 && abs(xz.x - inner_box.x) < inner_box.z && abs(xz.y - inner_box.y) < inner_box.z) {
 		discard;
 	}
-	float surface = surface_byte(xz);
-	float kind = mod(surface, 8.0);
-	float wooded = floor(surface / 8.0) / 31.0;
+	vec4 made;
+	float wooded;
+	surface_shares(xz, made, wooded);
 	vec3 n = normalize(world_normal);
 	float steep = 1.0 - n.y;
 	float above_lake = world_position.y - lake_y;
@@ -126,15 +163,10 @@ void fragment() {
 	color = mix(color, snow, smoothstep(2150.0, 2300.0, real_height + medium * 120.0) * (1.0 - smoothstep(0.55, 0.8, steep)));
 
 	// Made ground.
-	if (kind > 0.5 && kind < 1.5) {
-		color = asphalt * (0.9 + 0.2 * fine);
-	} else if (kind > 1.5 && kind < 2.5) {
-		color = gravel * (0.85 + 0.3 * fine);
-	} else if (kind > 2.5 && kind < 3.5) {
-		color = site * (0.85 + 0.3 * fine);
-	} else if (kind > 3.5 && kind < 4.5) {
-		color *= 0.9;   // beyond the wall
-	}
+	color *= 1.0 - 0.1 * made.w;   // beyond the wall
+	color = mix(color, asphalt * (0.9 + 0.2 * fine), made.x);
+	color = mix(color, gravel * (0.85 + 0.3 * fine), made.y);
+	color = mix(color, site * (0.85 + 0.3 * fine), made.z);
 
 	ALBEDO = color;
 	ROUGHNESS = 1.0;

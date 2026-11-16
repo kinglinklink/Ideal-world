@@ -990,6 +990,8 @@ func _resplit(body: RigidBody3D) -> void:
 			_boxes.erase(piece)
 		_body_pieces.erase(body)
 		_bodies.erase(body)
+		_floats.erase(body)
+		_air.erase(body)
 		body.queue_free()
 		return
 
@@ -2149,7 +2151,9 @@ func _find_air() -> void:
 		while not stack.is_empty():
 			var at: int = stack[stack.size() - 1]
 			stack.resize(stack.size() - 1)
+			@warning_ignore("integer_division")
 			var x := at / step_x
+			@warning_ignore("integer_division")
 			var y := (at % step_x) / step_y
 			var z := at % step_y
 			if x > 0 and solid[at - step_x] == 0:
@@ -2177,7 +2181,9 @@ func _find_air() -> void:
 		for index in total:
 			if solid[index] != 0:
 				continue
+			@warning_ignore("integer_division")
 			var x := index / step_x
+			@warning_ignore("integer_division")
 			var y := (index % step_x) / step_y
 			var z := index % step_y
 			var middle := (Vector3(low + Vector3i(x, y, z)) + Vector3(0.5, 0.5, 0.5)) * cell
@@ -2201,9 +2207,14 @@ func _run_buoyancy(delta: float) -> void:
 	if terrain == null:
 		return
 	var surface := MapInfo.LAKE_Y
+	var gone: Array = []
 	for key in _floats:
+		# A body freed by a blast is still a key here until it is dropped.
+		if not is_instance_valid(key):
+			gone.append(key)
+			continue
 		var body: RigidBody3D = key
-		if not is_instance_valid(body) or body.freeze:
+		if body.freeze:
 			continue
 		var data: Array = _floats[body]
 		var reach: float = data[2]
@@ -2234,6 +2245,9 @@ func _run_buoyancy(delta: float) -> void:
 				drag = minf(drag, drag_cap)   # never more than stops it in one step
 				force -= moving * drag
 			body.apply_force(force, at - place.origin)
+	for key in gone:
+		_floats.erase(key)
+		_air.erase(key)
 
 
 ## A thruster pushes its body along the thruster's own -Z, at the thruster.
