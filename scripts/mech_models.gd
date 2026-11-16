@@ -20,7 +20,8 @@ const IDS := [
 	"light_panel", "impact_detector", "explosive_block", "machine_gun", "large_cannon", "ammo_generator",
 	"fluid_cylinder", "pump", "valve", "fluid_pipe", "fuel_tank", "pressure_tank",
 	"combustion_cylinder", "compressor", "combustor", "turbine", "nozzle", "thruster", "solid_rocket",
-	"aero_panel", "aero_panel_triangle", "propeller", "lift_gas_tank",
+	"aero_panel", "aero_panel_triangle", "aero_panel_dragless", "aero_panel_triangle_dragless",
+	"propeller", "lift_gas_tank",
 	"seat", "anchor_block", "dynamic_offsetter",
 	"input_block", "boolean_gate", "number_gate", "pid_controller",
 	"speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor",
@@ -263,11 +264,11 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_frustum(detail, Vector3(0.0, 0.0, 0.4), Z, 0.18, 0.32, 0.2, 24)
 			Kit.add_cylinder(detail, Vector3(0.0, 0.0, 0.1), Z, 0.42, 0.05, 24)
 		# --- Aero parts. The leading edge faces -Z. ---
-		"aero_panel":
+		"aero_panel", "aero_panel_dragless":
 			# A plain slab in one colour.
 			Kit.add_box(body, Vector3.ZERO, Vector3.ONE)
 			has_detail = false
-		"aero_panel_triangle":
+		"aero_panel_triangle", "aero_panel_triangle_dragless":
 			# A right triangle in one colour: root along the +Z edge, tip at
 			# the (-X, -Z) corner.
 			Kit.add_extruded_polygon(body, [

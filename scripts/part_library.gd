@@ -72,8 +72,10 @@ const PARTS := {
 	"nozzle": ["Nozzle", "Fluid and Engine", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"thruster": ["Thruster", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
 	"solid_rocket": ["Solid rocket", "Fluid and Engine", Vector3(1, 1, 2), 0.5, Vector3(0, 0, 0), "box"],
-	"aero_panel": ["Square aero panel", "Aero", Vector3(1, 0.125, 1), 0.9, Vector3(0, 0, 0), "box"],
-	"aero_panel_triangle": ["Triangle aero panel", "Aero", Vector3(1, 0.125, 1), 0.45, Vector3(0, 0, 0), "box"],
+	"aero_panel": ["Square aero panel", "Aero", Vector3(1, 0.125, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"aero_panel_triangle": ["Triangle aero panel", "Aero", Vector3(1, 0.125, 1), 0.5, Vector3(-0.1667, 0, 0.1667), "box"],
+	"aero_panel_dragless": ["Dragless square panel", "Aero", Vector3(1, 0.125, 1), 1.0, Vector3(0, 0, 0), "box"],
+	"aero_panel_triangle_dragless": ["Dragless triangle panel", "Aero", Vector3(1, 0.125, 1), 0.5, Vector3(-0.1667, 0, 0.1667), "box"],
 	"propeller": ["Propeller", "Aero", Vector3(1, 0.25, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"lift_gas_tank": ["Lift-gas tank", "Aero", Vector3(1, 1, 1), 0.1, Vector3(0, 0, 0), "box"],
 	"input_block": ["Input", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
@@ -100,6 +102,8 @@ const DEFAULT_COLORS := {
 	"large_cannon": Color(0.30, 0.33, 0.27),
 	"ammo_generator": Color(0.30, 0.33, 0.27),
 	"lift_gas_tank": Color(0.88, 0.92, 0.96),
+	"aero_panel_dragless": Color(0.55, 0.90, 1.0),
+	"aero_panel_triangle_dragless": Color(0.55, 0.90, 1.0),
 	"anchor_block": Color(0.55, 0.57, 0.60),
 	"input_block": Color(0.20, 0.21, 0.23),
 	"boolean_gate": Color(0.20, 0.21, 0.23),
@@ -151,7 +155,21 @@ static func placement_color(part_id: String, brush_color: Color) -> Color:
 ## instead of being pushed against the surface: the thin aero panels, whose
 ## thickness then lies evenly either side of the cell's centre line.
 static func sits_mid_cell(part_id: String) -> bool:
-	return part_id == "aero_panel" or part_id == "aero_panel_triangle"
+	return is_aero_panel(part_id)
+
+
+## True for the flat panels that make lift once spawned.
+static func is_aero_panel(part_id: String) -> bool:
+	return part_id.begins_with("aero_panel")
+
+
+static func is_triangle_panel(part_id: String) -> bool:
+	return part_id.begins_with("aero_panel_triangle")
+
+
+## True for the ideal panels, which make lift and no drag.
+static func is_dragless(part_id: String) -> bool:
+	return part_id.ends_with("_dragless")
 
 
 static func default_size_cells(part_id: String) -> Vector3:

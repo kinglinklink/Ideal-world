@@ -16,7 +16,7 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 9"
+const VERSION := "Build 10"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -361,7 +361,7 @@ func _build_parts_panel() -> Control:
 	_parts_title = _label("", 18)
 	listing.add_child(_parts_title)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(196, 340)
+	scroll.custom_minimum_size = Vector2(210, 340)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	listing.add_child(scroll)
 	var buttons := _column()
@@ -369,7 +369,7 @@ func _build_parts_panel() -> Control:
 	scroll.add_child(buttons)
 	# Every part's button lives in the one list; the filter shows the right ones.
 	for id in PartLibrary.part_ids():
-		var part_button := _button(PartLibrary.part_name(id), 180.0, true)
+		var part_button := _button(PartLibrary.part_name(id), 194.0, true)
 		part_button.pressed.connect(_on_part_button.bind(id))
 		buttons.add_child(part_button)
 		_part_buttons[id] = part_button
@@ -563,6 +563,11 @@ func _build_transform_panel() -> Control:
 	delete_button.pressed.connect(_on_delete_button)
 	edits.add_child(delete_button)
 
+	var place_button := _button("Paste in place")
+	place_button.tooltip_text = "Paste the copy exactly where it came from, selected,\nthen step it with the arrows or the Move buttons (Ctrl+Shift+V)"
+	place_button.pressed.connect(_on_paste_in_place_button)
+	panel.add_child(place_button)
+
 	var all_button := _button("Select all")
 	all_button.pressed.connect(_on_select_all_button)
 	panel.add_child(all_button)
@@ -573,7 +578,9 @@ func _build_transform_panel() -> Control:
 			+ "R / T / Y turn 90°\n"
 			+ "Ctrl+C copy, Ctrl+X cut\n"
 			+ "Paste, then click where it goes\n"
-			+ "(or point and press Ctrl+V)\n"
+			+ "(or point and press Ctrl+V);\n"
+			+ "the copy rests on the surface\n"
+			+ "Ctrl+Shift+V pastes in place\n"
 			+ "Ctrl+Z undo, Ctrl+Y redo", 13))
 	return panel
 
@@ -585,8 +592,10 @@ func _build_config_panel() -> Control:
 
 	for axis in 3:
 		var size_row := _row()
-		var caption := _label("Size %s (blocks)" % AXIS_NAMES[axis])
+		var caption := _outlined(_label("Size %s (blocks)" % AXIS_NAMES[axis]))
 		caption.custom_minimum_size = Vector2(170, 0)
+		# Colored like the axis lines drawn on the selected part.
+		caption.add_theme_color_override("font_color", (AXIS_COLORS[axis] as Color).lightened(0.25))
 		size_row.add_child(caption)
 		_config_captions.append(caption)
 		var spin := SpinBox.new()
@@ -602,6 +611,18 @@ func _build_config_panel() -> Control:
 
 	_config_info = _label("", 13)
 	panel.add_child(_config_info)
+
+	# Copy this part's size and settings, and paste them onto other parts.
+	var config_copy_row := _row()
+	panel.add_child(config_copy_row)
+	var copy_config_button := _button("Copy config", 150.0)
+	copy_config_button.tooltip_text = "Remember this part's size and settings (Shift+C).\nKept until you copy another or press Spawn."
+	copy_config_button.pressed.connect(_on_copy_config_button)
+	config_copy_row.add_child(copy_config_button)
+	var paste_config_button := _button("Paste config", 150.0)
+	paste_config_button.tooltip_text = "Give the selected part the copied size and settings (Shift+V)"
+	paste_config_button.pressed.connect(_on_paste_config_button)
+	config_copy_row.add_child(paste_config_button)
 
 	# The part's own settings. The rows are rebuilt for each kind of part.
 	_settings_title = _label("Settings (take effect after Spawn)", 13)
@@ -1096,7 +1117,8 @@ func _process(delta: float) -> void:
 	if player == null:
 		return
 	_fps_label.text = "FPS  %d" % int(Engine.get_frames_per_second())
-	_speed_label.text = "Speed  %.1f m/s" % player.velocity.length()
+	var moving: Vector3 = player.ride_velocity if player.seated else player.velocity
+	_speed_label.text = "Speed  %.1f m/s    Altitude  %.1f m" % [moving.length(), player.global_position.y]
 	_crosshair.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	_seat_label.text = controller.seat_prompt()
 	if _message_time > 0.0:
@@ -1152,6 +1174,18 @@ func _on_turn_button(axis: int) -> void:
 
 func _on_copy_button() -> void:
 	controller.copy_selection()
+
+
+func _on_paste_in_place_button() -> void:
+	controller.paste_in_place()
+
+
+func _on_copy_config_button() -> void:
+	controller.copy_config()
+
+
+func _on_paste_config_button() -> void:
+	controller.paste_config()
 
 
 func _on_cut_button() -> void:
@@ -1323,14 +1357,13 @@ func _refresh() -> void:
 			var caption: Label = _config_captions[spin_index]
 			caption.text = captions[spin_index]
 		var mass: float = BuildGrid.mass_of(record)
-		var strength: float = MaterialLibrary.info(material)["strength"]
 		var size_m: Vector3 = Units.to_metres(size)
-		_config_info.text = "Size: %.3f x %.3f x %.3f m\nMaterial: %s\nVolume: %.5f m³\nMass: %s\nHealth: %d HP" % [
+		_config_info.text = "Size: %.3f x %.3f x %.3f m\nMaterial: %s\nVolume: %.5f m³\nMass: %s\nHealth: %s" % [
 			size_m.x, size_m.y, size_m.z,
 			MaterialLibrary.display_name(material),
 			BuildGrid.volume_of(record),
 			_mass_text(mass),
-			int(round(mass * strength)),
+			MaterialLibrary.health_text(material, mass),
 		]
 		if type == "large_cannon":
 			_config_info.text += _cannon_text(record)
