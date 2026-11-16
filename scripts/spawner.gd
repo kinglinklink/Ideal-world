@@ -42,6 +42,12 @@ var _inputs: Dictionary = {}   # input block uid -> its keys and what it is putt
 var _drives: Array = []        # motors and servos; see _make_joint for what each holds
 var _outputs: Dictionary = {}  # drive uid -> the number on its output: RPM for a motor, degrees for a servo
 var _flame_mesh: Mesh = null
+# The physics engine's hinge motor may count a positive speed as clockwise or
+# as counterclockwise. The first time a drive moves, its answer is compared
+# with what was asked, and the sign is settled for good.
+var _motor_sign := -1.0
+var _motor_sign_known := false
+var _motor_sign_votes := 0
 
 
 # Welding works on "pieces". Most parts are one piece. A jointed part is two:
@@ -76,8 +82,7 @@ const JOINTED := {
 ## The jointed parts that are driven, and how.
 const DRIVES := {"motor": "motor", "servo": "servo", "door_hinge_servo": "servo"}
 
-const SERVO_STIFFNESS := 40.0   # per second; how hard a servo pulls toward where it should be
-const DRIVE_GAIN := 0.5         # share of a speed error a drive corrects in one tick
+const SERVO_GAIN := 0.2         # share of a servo's angle error it sets out to close each tick
 
 
 static func is_jointed(record: Dictionary) -> bool:
@@ -559,6 +564,17 @@ func _make_joint(grid_frame: Transform3D, uid: int, record: Dictionary,
 			joint.set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE,
 					friction / float(Engine.physics_ticks_per_second))
 
+	if DRIVES.has(type):
+		# A motor or servo uses the joint's own motor: each tick it is told
+		# the turning speed wanted, and the engine holds that speed as part of
+		# solving the joint, with at most the drive's max torque. Solved that
+		# way a drive is as stiff as a real one, however light or heavy the
+		# things it turns. Torque x time step is the motor's impulse limit.
+		joint.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, 0.0)
+		joint.set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE,
+				float(props.get("max_torque", 100.0)) / float(Engine.physics_ticks_per_second))
+		joint.set_flag(HingeJoint3D.FLAG_ENABLE_MOTOR, true)
+
 	# The joint and the bodies are all children of this node.
 	joint.node_a = NodePath("../" + str(base_body.name))
 	joint.node_b = NodePath("../" + str(top_body.name))
@@ -568,12 +584,11 @@ func _make_joint(grid_frame: Transform3D, uid: int, record: Dictionary,
 	if DRIVES.has(type):
 		# Both bodies start out square to the grid, so directions in the
 		# grid's space are also directions inside each body.
-		var world_pivot: Vector3 = grid_frame * pivot
 		_drives.append({
-			"uid": uid, "kind": DRIVES[type], "base": base_body, "top": top_body,
+			"uid": uid, "kind": DRIVES[type], "base": base_body, "top": top_body, "joint": joint,
 			"axis": axis,                # the axis, inside the base body
-			"pivot": base_body.transform.affine_inverse() * world_pivot,   # a point on it, inside the base body
 			"from": across, "to": across,   # one direction square to the axis, inside the base and inside the top
+			"motor_on": true, "asked": 0.0,   # the joint motor's state and the speed last asked of it
 			"props": props, "links": record.get("links", {}),
 			"last": 0.0, "turned": 0.0,     # the angle now, wrapped and counted through whole turns
 			"rate": 0.0,                    # the speed being asked for, in rad/s
@@ -586,10 +601,9 @@ func _make_joint(grid_frame: Transform3D, uid: int, record: Dictionary,
 ## Runs every motor and servo.
 ##
 ## Each one measures the angle and the turning speed of its top against its
-## base, decides the speed it wants, and applies a torque to the top and the
-## opposite torque to the base, never more than its max torque. Positive
-## angles and speeds are counterclockwise seen from the top looking back at
-## the base: for a motor or servo that is about its own +Y.
+## base, decides the speed it wants, and hands that to its joint's motor.
+## Positive angles and speeds are counterclockwise seen from the top looking
+## back at the base: for a motor or servo that is about its own +Y.
 func _run_drives(delta: float) -> void:
 	for entry in _drives:
 		var drive: Dictionary = entry
@@ -666,51 +680,52 @@ func _run_drives(delta: float) -> void:
 			drive["setpoint"] = setpoint
 			if commanded:
 				drive["hold"] = setpoint
-			wanted_spin = rate + SERVO_STIFFNESS * (setpoint - angle)
+			# Follow the moving setpoint, and close a share of any error each tick.
+			wanted_spin = rate + SERVO_GAIN * (setpoint - angle) / delta
 			_outputs[drive["uid"]] = rad_to_deg(angle)
 		drive["rate"] = rate
-		if not powered:
-			continue
+		_drive_joint(drive, powered, wanted_spin, spin)
 
-		var world_pivot: Vector3 = base_frame * (drive["pivot"] as Vector3)
-		var inertia: float = _turning_inertia(base, top, axis, world_pivot)
-		var limit: float = float(props.get("max_torque", 100.0))
-		var torque: float = clampf(DRIVE_GAIN * inertia * (wanted_spin - spin) / delta, -limit, limit)
-		if torque == 0.0:
-			continue
-		if not top.freeze:
-			top.sleeping = false
-			top.apply_torque(axis * torque)
+
+## Hands a drive's wanted turning speed to its joint's motor.
+func _drive_joint(drive: Dictionary, powered: bool, wanted_spin: float, spin: float) -> void:
+	var joint: HingeJoint3D = drive["joint"]
+	var asked: float = drive["asked"]
+	var motor_on: bool = drive["motor_on"]
+
+	# Settle which way the engine counts a positive motor speed. A motor
+	# follows what it is asked almost exactly, so if the top is turning at
+	# the speed asked the sign is right, and if it is turning at the same
+	# speed the other way the sign is backwards. Three clear answers decide.
+	if not _motor_sign_known and motor_on and absf(asked) > 0.05:
+		if absf(spin - asked) < 0.25 * absf(asked):
+			_motor_sign_votes += 1
+		elif absf(spin + asked) < 0.25 * absf(asked):
+			_motor_sign_votes -= 1
+		if _motor_sign_votes >= 3:
+			_motor_sign_known = true
+		elif _motor_sign_votes <= -3:
+			_motor_sign = -_motor_sign
+			_motor_sign_known = true
+			asked = INF   # force the speed to be sent again with the new sign
+
+	if powered != motor_on:
+		joint.set_flag(HingeJoint3D.FLAG_ENABLE_MOTOR, powered)
+		drive["motor_on"] = powered
+	if not powered:
+		drive["asked"] = 0.0
+		return
+	if wanted_spin != asked:
+		joint.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, _motor_sign * wanted_spin)
+	drive["asked"] = wanted_spin
+	# A body at rest goes to sleep, and a sleeping body ignores its motor.
+	if absf(wanted_spin - spin) > 0.005:
+		var base: RigidBody3D = drive["base"]
+		var top: RigidBody3D = drive["top"]
 		if not base.freeze:
 			base.sleeping = false
-			base.apply_torque(-axis * torque)
-
-
-## How hard the pair of bodies is to turn against each other about an axis,
-## in kg m^2: each body's own inertia about the axis, taken together.
-func _turning_inertia(base: RigidBody3D, top: RigidBody3D, axis: Vector3, pivot: Vector3) -> float:
-	var ease_of_turning: float = _inverse_inertia(base, axis, pivot) + _inverse_inertia(top, axis, pivot)
-	if ease_of_turning <= 0.0:
-		return 0.0
-	return 1.0 / ease_of_turning
-
-
-## One over a body's moment of inertia about an axis through `pivot`.
-## Zero for a body that is fixed in place.
-func _inverse_inertia(body: RigidBody3D, axis: Vector3, pivot: Vector3) -> float:
-	if body.freeze:
-		return 0.0
-	var state: PhysicsDirectBodyState3D = PhysicsServer3D.body_get_direct_state(body.get_rid())
-	if state == null:
-		return 0.0
-	var about_centre: float = axis.dot(state.inverse_inertia_tensor * axis)
-	if about_centre <= 0.0:
-		return 0.0
-	# The body turns about the pivot, not about its own centre of mass, so
-	# add mass x distance^2 (the parallel axis rule).
-	var arm: Vector3 = pivot - body.global_position
-	var distance_squared: float = maxf(arm.length_squared() - pow(arm.dot(axis), 2.0), 0.0)
-	return 1.0 / (1.0 / about_centre + body.mass * distance_squared)
+		if not top.freeze:
+			top.sleeping = false
 
 
 # --- Signals -----------------------------------------------------------------
