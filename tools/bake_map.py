@@ -29,7 +29,6 @@ import sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage
-from skimage import measure
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from map_common import ROOT, load_layer, layer_extent, resample, to_local  # noqa: E402
@@ -43,7 +42,8 @@ TILE = 128.0      # collision squares
 CELL = 1024.0     # tree drawing squares
 PAD_REF = np.array([-477.0, -781.0])   # the pad's corner in the reference frame of map_common
 HOME = (-15.0, -43.0, 47.0, 79.0)      # pad, gap and garage, with a margin: x0, z0, x1, z1
-SHORE_STRIP = 500.0                    # metres of mainland inside the wall
+BORDER_MARGIN = 2000.0                 # metres of land between the lake's furthest reach and the wall
+NEAR_SHORE = 600.0                     # woods are thicker this close to the water
 MAX_DEPTH = 113.0
 LAKE_LONLAT = (-114.10, 47.90)
 
@@ -168,19 +168,24 @@ def main():
     coarse_water = water_mask(coarse, lx, lz)
     detail_water = water_mask(detail, *ref_point(-1000.0, 2100.0))
 
-    # In bounds: the lake, every island, and a strip of the mainland.
+    # In bounds: a rectangle round the lake's furthest reach, with a margin of
+    # land all round, and its sides square to north. The land beyond it is
+    # still drawn.
     land_to_water = ndimage.distance_transform_edt(~coarse_water) * COARSE
-    inbounds = coarse_water | (land_to_water <= SHORE_STRIP)
-    inbounds = ndimage.binary_fill_holes(inbounds)
-    edge = int(200.0 / COARSE)
-    inbounds[:edge, :] = False
-    inbounds[-edge:, :] = False
-    inbounds[:, :edge] = False
-    inbounds[:, -edge:] = False
-    inbounds = ndimage.binary_fill_holes(inbounds)
-    labels, _ = ndimage.label(inbounds)
-    r, c = coarse.cell(lx, lz)
-    inbounds = labels == labels[r, c]
+    rows, cols = np.nonzero(coarse_water)
+    keep_in = 1000.0   # at least this much drawn land beyond the wall
+    bounds = [
+        max(math.floor((coarse.x0 + cols.min() * COARSE - BORDER_MARGIN) / 64.0) * 64.0, coarse.x0 + keep_in),
+        max(math.floor((coarse.z0 + rows.min() * COARSE - BORDER_MARGIN) / 64.0) * 64.0, coarse.z0 + keep_in),
+        min(math.ceil((coarse.x0 + cols.max() * COARSE + BORDER_MARGIN) / 64.0) * 64.0,
+            coarse.x0 + (coarse.cols - 1) * COARSE - keep_in),
+        min(math.ceil((coarse.z0 + rows.max() * COARSE + BORDER_MARGIN) / 64.0) * 64.0,
+            coarse.z0 + (coarse.rows - 1) * COARSE - keep_in),
+    ]
+    print("World bounds x %.0f to %.0f, z %.0f to %.0f (%.1f x %.1f km)" % (
+        bounds[0], bounds[2], bounds[1], bounds[3], (bounds[2] - bounds[0]) / 1000.0, (bounds[3] - bounds[1]) / 1000.0))
+    inbounds = ((coarse.X >= bounds[0]) & (coarse.X <= bounds[2])
+                & (coarse.Z >= bounds[1]) & (coarse.Z <= bounds[3]))
 
     # The lake bed: deepening away from shore to the real 113 m.
     water_to_land = ndimage.distance_transform_edt(coarse_water) * COARSE
@@ -208,7 +213,7 @@ def main():
 
     wild_horse = island_at(*ref_point(0.0, 0.0))
     melita = island_at(*ref_point(-1560.0, 2680.0))
-    cromwell = island_at(*ref_point(-3895.0, -637.0))
+
 
     # --- The build pad ---
     hx0, hz0, hx1, hz1 = HOME
@@ -221,7 +226,9 @@ def main():
         grade(grid, home_centre, 0.0, home_half[0], home_half[1], lambda t: np.full_like(t, base), 30.0,
               SITE, home_half)
 
-    features = {"runways": [], "buildings": [], "docks": []}
+    features = {"runways": [], "buildings": [], "docks": [], "helipads": []}
+    # Where trees must not grow: ("rect", centre, heading, half length, half width) or ("circle", centre, radius).
+    clearings = [("rect", home_centre, 0.0, home_half[0] + 50.0, home_half[1] + 50.0)]
 
     # --- Wild Horse runway: 1,200 m, at 90 degrees to Melita's ---
     melita_a = np.array(ref_point(-1948.0, 2588.0))
@@ -251,6 +258,8 @@ def main():
     for grid in (detail, coarse):
         grade(grid, apron_centre, wh_heading, 90.0, 45.0, lambda tt: np.full_like(tt, mid), 40.0,
               ASPHALT, (90.0, 45.0))
+    clearings.append(("rect", wh_centre, wh_heading, wh_half + 120.0, 60.0))
+    clearings.append(("rect", apron_centre, wh_heading, 120.0, 75.0))
     features["runways"].append({
         "name": "Wild Horse Island", "surface": "asphalt",
         "centre": [float(wh_centre[0]), float(wh_centre[1])], "heading": wh_heading,
@@ -276,6 +285,7 @@ def main():
 
     for grid in (detail, coarse):
         grade(grid, m_centre, melita_heading, m_half, 13.5, melita_profile, 20.0, GRAVEL, (m_half, 7.5))
+    clearings.append(("rect", m_centre, melita_heading, m_half + 15.0, 7.5 + 14.0))
     features["runways"].append({
         "name": "Melita Island", "surface": "gravel",
         "centre": [float(m_centre[0]), float(m_centre[1])], "heading": melita_heading,
@@ -302,6 +312,8 @@ def main():
         grade(grid, lodge_centre, melita_heading, 22.0, 15.0, lambda tt: np.full_like(tt, lodge_height), 15.0,
               SITE, (16.0, 10.0))
     clearing_centre = m_centre + m_along * along_pos + m_across * lodge_side * 30.0
+    clearings.append(("rect", lodge_centre, melita_heading, 32.0, 24.0))
+    clearings.append(("circle", clearing_centre, 90.0))
     features["buildings"].append({
         "kind": "melita_lodge", "name": "Camp Melita lodge (terminal)",
         "centre": [float(lodge_centre[0]), float(lodge_centre[1])], "heading": melita_heading,
@@ -315,10 +327,14 @@ def main():
     for grid in (detail, coarse):
         grade(grid, (cx, cz), 90.0, 60.0, 45.0, lambda tt: np.full_like(tt, mansion_height), 30.0,
               SITE, (55.0, 40.0))
+    clearings.append(("rect", (cx, cz), 90.0, 85.0, 70.0))
     features["buildings"].append({
         "kind": "cromwell_mansion", "name": "Cromwell Island villa",
         "centre": [cx, cz], "heading": 90.0, "ground": mansion_height - base,
     })
+
+    # --- Airstrips, helipads and the Shelter Island mansion on the other islands ---
+    island_features(coarse, detail, coarse_water, detail_water, lake, base, features, clearings, (cx, cz))
 
     # --- Join the detailed area smoothly onto the rest ---
     from_coarse = coarse.sample(coarse.h, detail.X, detail.Z)
@@ -336,14 +352,12 @@ def main():
 
     # --- Trees ---
     print("Placing trees ...")
-    trees = place_trees(coarse, detail, coarse_water, detail_water, inbounds, wild_horse, melita, cromwell,
-                        island_labels, features, home_centre, home_half, wh_centre, wh_heading, wh_half,
-                        apron_centre, m_centre, melita_heading, m_half, lodge_centre, clearing_centre,
-                        (cx, cz), base)
+    trees = place_trees(coarse, detail, coarse_water, detail_water, inbounds, land_to_water, wild_horse, melita,
+                        island_labels, clearings, base)
     print("  %d trees" % len(trees))
 
-    # --- The wall ---
-    walls = wall_lines(coarse, inbounds)
+    # --- The wall: the four sides of the rectangle ---
+    walls = [[[bounds[0], bounds[1]], [bounds[2], bounds[1]], [bounds[2], bounds[3]], [bounds[0], bounds[3]]]]
 
     # --- Carrier spots: deep open water, far from land ---
     open_water = coarse_water & (water_to_land >= 1500.0) & inbounds
@@ -366,7 +380,7 @@ def main():
     world = {
         "base_elevation": base, "lake_surface": lake, "lake_y": lake - base,
         "runways": features["runways"], "buildings": features["buildings"], "docks": features["docks"],
-        "walls": walls, "carrier_spots": carrier_spots, "islands": labels_list, "tree_cells": tree_cells,
+        "helipads": features["helipads"], "bounds": bounds, "walls": walls, "carrier_spots": carrier_spots, "islands": labels_list, "tree_cells": tree_cells,
         "minimap": {"x0": coarse.x0, "z0": coarse.z0,
                     "width": coarse.cols * COARSE, "depth": coarse.rows * COARSE},
     }
@@ -394,30 +408,26 @@ def smooth_noise(shape, size):
     return noise / max(noise.max(), 1e-9)
 
 
-def place_trees(coarse, detail, coarse_water, detail_water, inbounds, wild_horse, melita, cromwell,
-                island_labels, features, home_centre, home_half, wh_centre, wh_heading, wh_half,
-                apron_centre, m_centre, m_heading, m_half, lodge_centre, clearing_centre, mansion, base):
-    found = []
-
-    def keep_out(grid, x, z):
-        """True where trees must not grow."""
-        blocked = np.zeros(x.shape, dtype=bool)
-
-        def rect(centre, heading, half_len, half_wid):
+def in_clearing(x, z, clearings):
+    """True where trees must not grow."""
+    blocked = np.zeros(np.shape(x), dtype=bool)
+    for clearing in clearings:
+        if clearing[0] == "rect":
+            _, centre, heading, half_len, half_wid = clearing
             along, across = direction(heading)
             dx, dz = x - centre[0], z - centre[1]
             t = dx * along[0] + dz * along[1]
             s = dx * across[0] + dz * across[1]
-            return (np.abs(t) <= half_len) & (np.abs(s) <= half_wid)
+            blocked |= (np.abs(t) <= half_len) & (np.abs(s) <= half_wid)
+        else:
+            _, centre, radius = clearing
+            blocked |= np.hypot(x - centre[0], z - centre[1]) < radius
+    return blocked
 
-        blocked |= rect(home_centre, 0.0, home_half[0] + 50.0, home_half[1] + 50.0)
-        blocked |= rect(wh_centre, wh_heading, wh_half + 120.0, 60.0)
-        blocked |= rect(apron_centre, wh_heading, 120.0, 75.0)
-        blocked |= rect(m_centre, m_heading, m_half + 15.0, 7.5 + 14.0)
-        blocked |= rect(lodge_centre, m_heading, 32.0, 24.0)
-        blocked |= np.hypot(x - clearing_centre[0], z - clearing_centre[1]) < 90.0
-        blocked |= rect(mansion, 90.0, 85.0, 70.0)
-        return blocked
+
+def place_trees(coarse, detail, coarse_water, detail_water, inbounds, land_to_water, wild_horse, melita,
+                island_labels, clearings, base):
+    found = []
 
     def scatter(grid, density, land, shore_gap, use):
         """One chance per grid cell, with `density` trees per square metre."""
@@ -430,7 +440,7 @@ def place_trees(coarse, detail, coarse_water, detail_water, inbounds, wild_horse
         rows, cols = np.nonzero(hit)
         x = grid.x0 + (cols + RNG.uniform(-0.5, 0.5, len(cols))) * grid.sp
         z = grid.z0 + (rows + RNG.uniform(-0.5, 0.5, len(rows))) * grid.sp
-        ok = ~keep_out(grid, x, z)
+        ok = ~in_clearing(x, z, clearings)
         x, z = x[ok], z[ok]
         y = grid.sample(grid.h, x, z) - base
         return np.stack([x, y, z], axis=1)
@@ -452,66 +462,67 @@ def place_trees(coarse, detail, coarse_water, detail_water, inbounds, wild_horse
     island_sizes = ndimage.sum(np.ones_like(island_labels), island_labels, index=np.arange(island_labels.max() + 1))
     small_island = others & (island_sizes[island_labels] * DETAIL * DETAIL < 3.0e6)
     density[small_island] = 1.0 / 40.0
-    # The mainland inside the wall: woods in patches.
+    # The mainland: woods in patches, thicker near the water.
     in_d = coarse.sample(inbounds.astype(float), detail.X, detail.Z, order=0) > 0.5
+    near_d = coarse.sample(land_to_water, detail.X, detail.Z) < NEAR_SHORE
     mainland = others & ~small_island
-    density[mainland] = (np.clip(patches * 1.4 - 0.3, 0.0, 1.0) / 160.0)[mainland]
+    woods = np.clip(patches * 1.4 - 0.3, 0.0, 1.0)
+    density[mainland] = np.where(near_d, woods / 160.0, woods / 700.0)[mainland]
     found.append(scatter(detail, density, d_land, 6.0, in_d))
 
-    # Everywhere else inside the wall, at the coarse spacing.
+    # Everywhere else inside the wall, at the coarse spacing. The islands out
+    # here are wooded too.
     c_land = ~coarse_water
     cpatch = smooth_noise(coarse.h.shape, 6.0)
-    cdensity = np.clip(cpatch * 1.4 - 0.3, 0.0, 1.0) / 260.0
+    cwoods = np.clip(cpatch * 1.4 - 0.3, 0.0, 1.0)
+    c_labels, _ = ndimage.label(c_land)
+    c_sizes = np.bincount(c_labels.ravel())
+    c_island = c_land & (c_sizes[c_labels] * COARSE * COARSE < 3.0e6)
+    cdensity = np.where(land_to_water < NEAR_SHORE, cwoods / 260.0, cwoods / 1100.0)
+    cdensity = np.where(c_island, 1.0 / 45.0, cdensity)
     outside_detail = ~detail.inside(coarse.X, coarse.Z, 4.0)
     found.append(scatter(coarse, cdensity, c_land, 16.0, inbounds & outside_detail))
     trees = np.concatenate(found, axis=0)
 
     # Record how wooded each spot is, for shading the ground from far away.
+    # Each grid counts only the trees that stand on it, blurred over the same
+    # distance on both, so the two agree where they meet.
     for grid in (detail, coarse):
         counts = np.zeros(grid.h.shape)
-        r = np.clip(np.round((trees[:, 2] - grid.z0) / grid.sp).astype(int), 0, grid.rows - 1)
-        c = np.clip(np.round((trees[:, 0] - grid.x0) / grid.sp).astype(int), 0, grid.cols - 1)
-        np.add.at(counts, (r, c), 1.0)
-        per_area = ndimage.gaussian_filter(counts, 1.5) / (grid.sp * grid.sp)
+        r = np.round((trees[:, 2] - grid.z0) / grid.sp).astype(int)
+        c = np.round((trees[:, 0] - grid.x0) / grid.sp).astype(int)
+        on = (r >= 0) & (r < grid.rows) & (c >= 0) & (c < grid.cols)
+        np.add.at(counts, (r[on], c[on]), 1.0)
+        per_area = ndimage.gaussian_filter(counts, 24.0 / grid.sp) / (grid.sp * grid.sp)
         wooded = np.clip(per_area * 40.0 * 31.0, 0, 31).astype(np.uint8)
         grid.kind = (grid.kind & 7) | (wooded << 3)
     return trees
 
 
 def write_trees(trees, coarse):
-    """Writes every tree as a MultiMesh instance (a 3 x 4 transform and a
-    colour, 16 floats), sorted by 1,024 m drawing square and then by 128 m
-    collision square, so that both are runs of the file. X and Z are measured
-    from the middle of the tree's drawing square, where the game puts the
-    square's MultiMesh, so that its draw distance is judged from there."""
+    """Writes every tree as four floats: x and z measured from the middle of
+    its 1,024 m drawing square, its height y, and its size. The game turns and
+    colours each tree from its place in the file. Trees are sorted by drawing
+    square and then by 128 m collision square, so that both are runs of the
+    file."""
     count = len(trees)
     x, y, z = trees[:, 0], trees[:, 1], trees[:, 2]
     size = RNG.uniform(1.0, 2.2, count)
-    turn = RNG.uniform(0.0, 2.0 * math.pi, count)
     tile_i = np.floor(x / TILE).astype(np.int64)
     tile_k = np.floor(z / TILE).astype(np.int64)
     per = int(CELL / TILE)
     cell_i = np.floor_divide(tile_i, per)
     cell_k = np.floor_divide(tile_k, per)
     order = np.lexsort((tile_i, tile_k, cell_i, cell_k))
-    x, y, z, size, turn = x[order], y[order], z[order], size[order], turn[order]
+    x, y, z, size = x[order], y[order], z[order], size[order]
     tile_i, tile_k, cell_i, cell_k = tile_i[order], tile_k[order], cell_i[order], cell_k[order]
 
-    buffer = np.zeros((count, 16), dtype=np.float32)
-    cos, sin = np.cos(turn) * size, np.sin(turn) * size
-    buffer[:, 0] = cos
-    buffer[:, 2] = sin
-    buffer[:, 3] = x - (cell_i + 0.5) * CELL
-    buffer[:, 5] = size
-    buffer[:, 7] = y
-    buffer[:, 8] = -sin
-    buffer[:, 10] = cos
-    buffer[:, 11] = z - (cell_k + 0.5) * CELL
-    buffer[:, 12] = RNG.uniform(0.10, 0.20, count)
-    buffer[:, 13] = RNG.uniform(0.32, 0.48, count)
-    buffer[:, 14] = RNG.uniform(0.14, 0.24, count)
-    buffer[:, 15] = 1.0
-    buffer.tofile(os.path.join(OUT, "trees.bin"))
+    packed = np.zeros((count, 4), dtype=np.float32)
+    packed[:, 0] = x - (cell_i + 0.5) * CELL
+    packed[:, 1] = y
+    packed[:, 2] = z - (cell_k + 0.5) * CELL
+    packed[:, 3] = size
+    packed.tofile(os.path.join(OUT, "trees.bin"))
 
     # Runs of the same collision square: [tile x, tile z, first tree, count].
     key = tile_k * 100000 + tile_i
@@ -529,20 +540,167 @@ def write_trees(trees, coarse):
     return [[int(cell_i[s]), int(cell_k[s]), int(s), int(n)] for s, n in zip(cstarts, ccounts)]
 
 
-# --- Wall --------------------------------------------------------------------
+# --- The other islands ---------------------------------------------------------
 
-def wall_lines(coarse, inbounds):
-    padded = np.pad(inbounds.astype(float), 1)
-    padded = ndimage.gaussian_filter(padded, 1.0)
-    lines = measure.find_contours(padded, 0.5)
-    lines.sort(key=len, reverse=True)
-    outer = measure.approximate_polygon(lines[0], tolerance=0.6)
-    points = []
-    for row, col in outer:
-        points.append([float(coarse.x0 + (col - 1) * COARSE), float(coarse.z0 + (row - 1) * COARSE)])
-    length = sum(math.dist(points[i], points[i + 1]) for i in range(len(points) - 1))
-    print("Wall: %d corners, %.1f km long" % (len(points), length / 1000.0))
-    return [points]
+STRIP_ISLANDS = {"Cromwell", "Shelter", "Cedar", "Bird", "Bull", "Little Bull", "Dream", "Rock", "Mary B",
+                 "Douglas", "Goose", "Invitation"}
+MIN_STRIP = 250.0     # metres; shorter than this and an island gets a helipad instead
+STRIP_WIDTH = 12.0
+STRIP_INSET = 6.0     # metres between a strip's ends and the shore
+MAX_GROUND_SLOPE = 0.15   # strips are laid only across ground gentler than this
+MAX_STRIP_GRADE = 0.06    # and graded no steeper than this
+
+
+def limit_grade(profile, step, grade):
+    """Pulls a height profile in until no stretch is steeper than `grade`,
+    keeping it as close to the ground as it can: the middle of the cut and
+    fill, from both ends."""
+    prof = np.array(profile, dtype=float)
+    rise = grade * step
+    for _ in range(4):
+        up = prof.copy()
+        for i in range(1, len(up)):
+            up[i] = min(up[i], up[i - 1] + rise)
+            up[i] = max(up[i], up[i - 1] - rise)
+        down = prof.copy()
+        for i in range(len(down) - 2, -1, -1):
+            down[i] = min(down[i], down[i + 1] + rise)
+            down[i] = max(down[i], down[i + 1] - rise)
+        prof = (up + down) * 0.5
+    return prof
+
+
+def island_features(coarse, detail, coarse_water, detail_water, lake, base, features, clearings, villa):
+    """Gives each small island an airstrip as long as fits on it, or a helipad
+    if no strip fits, and Shelter Island its mansion."""
+    c_land = ~coarse_water
+    c_labels, _ = ndimage.label(c_land)
+    c_sizes = np.bincount(c_labels.ravel())
+    mainland = int(np.argmax(c_sizes[1:]) + 1)
+    for name, lon, lat in ISLANDS:
+        if name not in STRIP_ISLANDS:
+            continue
+        x, z = game_point(lon, lat)
+        # The island's piece of land in the coarse data, nearest the point.
+        r0, k0 = coarse.cell(x, z)
+        best = None
+        for dr in range(-8, 9):
+            for dc in range(-8, 9):
+                label = c_labels[r0 + dr, k0 + dc]
+                if label > 0 and label != mainland:
+                    d = math.hypot(dr, dc)
+                    if best is None or d < best[0]:
+                        best = (d, label)
+        if best is None:
+            print("  %s: not found" % name)
+            continue
+        rows, cols = np.nonzero(c_labels == best[1])
+        bx0 = coarse.x0 + cols.min() * COARSE - 80.0
+        bx1 = coarse.x0 + cols.max() * COARSE + 80.0
+        bz0 = coarse.z0 + rows.min() * COARSE - 80.0
+        bz1 = coarse.z0 + rows.max() * COARSE + 80.0
+        # A 4 m local grid over the island, from the finest data there is.
+        xs = np.arange(bx0, bx1, 4.0)
+        zs = np.arange(bz0, bz1, 4.0)
+        gx, gz = np.meshgrid(xs, zs)
+        use_detail = bool(detail.inside(np.array([bx0, bx1]), np.array([bz0, bz1]), 8.0).all())
+        source = detail if use_detail else coarse
+        h = source.sample(source.h, gx, gz)
+        land = h > lake + 0.3
+        labels, _ = ndimage.label(land)
+        rr, cc = np.unravel_index(np.argmin(np.hypot(gx - x, gz - z) + np.where(land, 0.0, 1e9)), land.shape)
+        island = labels == labels[rr, cc]
+        inner = ndimage.distance_transform_edt(island) * 4.0
+        usable = inner >= STRIP_INSET
+        # Only gentle ground, so a strip does not carve a trench through a hill.
+        sy, sx = np.gradient(ndimage.gaussian_filter(h, 2.0), 4.0)
+        usable &= np.hypot(sx, sy) < MAX_GROUND_SLOPE
+        if name == "Cromwell":
+            usable &= np.hypot(gx - villa[0], gz - villa[1]) > 110.0
+        strip = longest_line(gx[usable], gz[usable])
+        if strip is not None and strip[0] >= MIN_STRIP:
+            length, heading, a, b = strip
+            centre = (a + b) * 0.5
+            along, across = direction(heading)
+            half = length * 0.5
+            steps = int(length / 4.0) + 1
+            t = np.linspace(-half, half, steps)
+            pts = centre[None, :] + t[:, None] * along[None, :]
+            prof = ndimage.map_coordinates(h, [(pts[:, 1] - bz0) / 4.0, (pts[:, 0] - bx0) / 4.0], order=1)
+            prof = ndimage.gaussian_filter1d(prof, 10.0, mode="nearest")
+            prof = limit_grade(prof, t[1] - t[0], MAX_STRIP_GRADE)
+            prof = np.maximum(prof, lake + 1.0)
+
+            def profile(tt, t=t, prof=prof):
+                return np.interp(tt, t, prof)
+
+            for grid in (coarse, detail):
+                grade(grid, centre, heading, half, STRIP_WIDTH * 0.5 + 6.0, profile, 20.0, GRAVEL,
+                      (half, STRIP_WIDTH * 0.5))
+            clearings.append(("rect", centre, heading, half + 15.0, STRIP_WIDTH * 0.5 + 14.0))
+            features["runways"].append({
+                "name": "%s Island" % name, "surface": "gravel",
+                "centre": [float(centre[0]), float(centre[1])], "heading": float(heading),
+                "length": float(length), "width": STRIP_WIDTH,
+                "profile": [float(v - base) for v in prof], "profile_step": float(t[1] - t[0]),
+            })
+            print("  %s: %.0f m airstrip, heading %.0f" % (name, length, heading))
+        else:
+            # A helipad on the island's most inland spot.
+            rr, cc = np.unravel_index(np.argmax(inner), inner.shape)
+            centre = np.array([gx[rr, cc], gz[rr, cc]])
+            ground = float(max(h[rr, cc], lake + 1.0))
+            for grid in (coarse, detail):
+                grade(grid, centre, 0.0, 12.0, 12.0, lambda tt, g=ground: np.full_like(tt, g), 10.0, SITE, (11.0, 11.0))
+            clearings.append(("circle", centre, 25.0))
+            features["helipads"].append({"name": "%s Island" % name, "centre": [float(centre[0]), float(centre[1])],
+                                         "ground": ground - base})
+            print("  %s: helipad" % name)
+        if name == "Shelter":
+            # The mansion: on the most inland spot well clear of the strip.
+            room = inner.copy()
+            if strip is not None and strip[0] >= MIN_STRIP:
+                along, across = direction(strip[1])
+                centre_line = (strip[2] + strip[3]) * 0.5
+                off = np.abs((gx - centre_line[0]) * across[0] + (gz - centre_line[1]) * across[1])
+                room[off < 45.0] = 0.0
+            rr, cc = np.unravel_index(np.argmax(room), room.shape)
+            spot = np.array([gx[rr, cc], gz[rr, cc]])
+            heading = strip[1] if strip is not None else 0.0
+            ground = float(np.median(h[max(rr - 3, 0):rr + 4, max(cc - 3, 0):cc + 4]))
+            for grid in (coarse, detail):
+                grade(grid, spot, heading, 35.0, 28.0, lambda tt, g=ground: np.full_like(tt, g), 15.0, SITE, (30.0, 24.0))
+            clearings.append(("rect", spot, heading, 45.0, 38.0))
+            features["buildings"].append({"kind": "shelter_mansion", "name": "Shelter Island mansion",
+                                          "centre": [float(spot[0]), float(spot[1])], "heading": float(heading),
+                                          "ground": ground - base})
+            print("  Shelter mansion at %.0f, %.0f (%.1f m from the inner edge)" % (spot[0], spot[1], room[rr, cc]))
+
+
+def longest_line(px, pz, step=4.0):
+    """The longest straight run through a set of points on a 4 m grid:
+    (length, heading, start, end), or None."""
+    if len(px) < 2:
+        return None
+    best = None
+    for heading in np.arange(0.0, 180.0, 2.0):
+        along, across = direction(heading)
+        t = px * along[0] + pz * along[1]
+        s = px * across[0] + pz * across[1]
+        key = np.round(s / step).astype(int)
+        order = np.lexsort((t, key))
+        tk, kk = t[order], key[order]
+        breaks = np.nonzero((np.diff(kk) != 0) | (np.diff(tk) > step * 1.5))[0]
+        starts = np.r_[0, breaks + 1]
+        ends = np.r_[breaks, len(tk) - 1]
+        lengths = tk[ends] - tk[starts]
+        i = int(np.argmax(lengths))
+        if best is None or lengths[i] > best[0]:
+            offset = kk[starts[i]] * step
+            a = tk[starts[i]] * along + offset * across
+            b = tk[ends[i]] * along + offset * across
+            best = (float(lengths[i]), float(heading), a, b)
+    return best
 
 
 # --- Writing -----------------------------------------------------------------
