@@ -64,6 +64,11 @@ const MATERIALS := {
 		"color": Color(0.40, 0.41, 0.43), "metallic": 0.85, "roughness": 0.45},
 	"gold": {"name": "Gold", "density": 19300.0, "friction": 0.45, "strength": 1.0,
 		"color": Color(0.95, 0.77, 0.25), "metallic": 1.0, "roughness": 0.2},
+	# Not a real material: an ideal surface for experiments. Nothing grips it,
+	# nothing moves it and nothing damages it. Once spawned, anything made of
+	# it, and anything welded to it, is fixed in place.
+	"frictionless": {"name": "Frictionless surface", "density": 1000.0, "friction": 0.0, "strength": 0.0,
+		"color": Color(0.90, 0.96, 1.00), "metallic": 0.3, "roughness": 0.0, "immovable": true},
 }
 
 static var _surface_cache: Dictionary = {}
@@ -81,6 +86,18 @@ static func info(material_id: String) -> Dictionary:
 
 static func display_name(material_id: String) -> String:
 	return str(info(material_id)["name"])
+
+
+## True for a material that cannot be moved or damaged once spawned.
+static func is_immovable(material_id: String) -> bool:
+	return bool(info(material_id).get("immovable", false))
+
+
+## The health of a part of this material and mass, as text for the interface.
+static func health_text(material_id: String, mass: float) -> String:
+	if is_immovable(material_id):
+		return "infinite"
+	return "%d HP" % int(round(mass * float(info(material_id)["strength"])))
 
 
 static func density(material_id: String) -> float:
@@ -102,6 +119,8 @@ static func default_color(material_id: String) -> Color:
 ## The text shown when hovering a material in the paint window.
 static func tooltip(material_id: String) -> String:
 	var data: Dictionary = info(material_id)
+	if is_immovable(material_id):
+		return "%s\nFriction: none, against anything\nCannot be moved or damaged once spawned" % data["name"]
 	return "%s\nDensity: %d kg/m³\nFriction: %.2f\nStrength: %d HP per kg" % [
 		data["name"], int(data["density"]), float(data["friction"]), int(data["strength"]),
 	]

@@ -16,6 +16,7 @@ const GRAVITY := 9.81         # m/s^2
 const AIR_CONTROL := 3.0      # m/s^2 of steering in mid-air; 0 would be a pure throw
 const MASS := 70.0            # kg; what the character weighs and pushes with
 const PUSH_TIME := 0.25       # seconds over which a push hands over the character's momentum
+const GROUND_GRIP := 1.0      # friction coefficient between the feet and the ground or any fixed surface
 const MOUSE_SENSITIVITY := 0.0025
 const ZOOM_MAX := 80.0        # metres behind the character
 const BODY_SCALE := 0.85      # the character model is built 1.8 m tall, then shrunk
@@ -36,6 +37,8 @@ var _turning := false         # right mouse button held
 var _jump_locked := false     # Space was used to stand up; no jump until it is released
 var _floor_body: RigidBody3D = null   # the loose body being stood on, if any
 var _floor_point := Vector3.ZERO      # where the feet rest on it, in world space
+var _floor_grip := GROUND_GRIP        # friction coefficient of whatever is underfoot
+var ride_velocity := Vector3.ZERO     # while seated: the velocity of the seat, for the speed readout
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
@@ -54,6 +57,8 @@ var _air_blend := 0.0         # 0 on the ground, 1 in the air
 func _ready() -> void:
 	# Always at least one grid cell, and never less than a tall stair.
 	_step_height = maxf(Units.CELL * 1.05, 0.55)
+	collision_layer = Units.LAYER_PLAYER
+	collision_mask = Units.LAYER_WORLD | Units.LAYER_BODIES
 
 	# A flat-bottomed cylinder stands on block edges more predictably than a capsule.
 	var collider := CollisionShape3D.new()
@@ -179,6 +184,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		_floor_body = null
 		return
+	ride_velocity = Vector3.ZERO
 	if _jump_locked and not Input.is_physical_key_pressed(KEY_SPACE):
 		_jump_locked = false
 
@@ -208,11 +214,23 @@ func _physics_process(delta: float) -> void:
 		speed = RUN_SPEED
 	var grounded := is_on_floor()
 	_floor_body = null
+	_floor_grip = GROUND_GRIP
 	if grounded:
 		_floor_body = _find_floor_body()
+	# The speed the character is trying to reach. Pushing is worked out from this.
+	var wanted := Vector3(direction.x, 0.0, direction.z) * speed
+	# The hardest the feet can push sideways: grip x weight. In the air there
+	# is nothing to push against, and a push is a plain collision instead.
+	var grip_force := INF
+	var speed_before := Vector3(velocity.x, 0.0, velocity.z)
 	if grounded:
-		velocity.x = direction.x * speed
-		velocity.z = direction.z * speed
+		grip_force = _floor_grip * MASS * GRAVITY
+		# The feet change the character's speed only as fast as their grip
+		# allows: at most grip x g. On ice that is slow; on a frictionless
+		# surface it is nothing at all.
+		var reached := speed_before.move_toward(wanted, _floor_grip * GRAVITY * delta)
+		velocity.x = reached.x
+		velocity.z = reached.z
 		if Input.is_physical_key_pressed(KEY_SPACE) and not typing and not _jump_locked:
 			velocity.y = JUMP_SPEED
 			grounded = false
@@ -221,14 +239,14 @@ func _physics_process(delta: float) -> void:
 		# Holding a direction only nudges it, so a standing jump stays in place.
 		if direction.length() > 0.1:
 			var flying := Vector2(velocity.x, velocity.z)
-			var wanted := Vector2(direction.x, direction.z) * speed
-			flying = flying.move_toward(wanted, AIR_CONTROL * delta)
+			var steer := Vector2(direction.x, direction.z) * speed
+			flying = flying.move_toward(steer, AIR_CONTROL * delta)
 			velocity.x = flying.x
 			velocity.z = flying.y
 		velocity.y -= GRAVITY * delta
+		wanted = Vector3(velocity.x, 0.0, velocity.z)
 
-	# The speed the character is trying to move at, before anything blocks it.
-	var wanted := Vector3(velocity.x, 0.0, velocity.z)
+	var pushing := Vector3.ZERO   # the total force put on bodies this tick
 	if grounded and _try_step_up(delta):
 		# The step already moved us forward. Settle onto the new floor.
 		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -237,11 +255,19 @@ func _physics_process(delta: float) -> void:
 		velocity = horizontal
 	else:
 		move_and_slide()
-		_push_bodies(wanted, delta)
+		pushing = _push_bodies(wanted, grip_force, delta)
 	if _floor_body != null:
 		# Whatever the character stands on carries its weight.
+		var feet := _floor_point - _floor_body.global_position
 		_floor_body.sleeping = false
-		_floor_body.apply_force(Vector3(0.0, -MASS * GRAVITY, 0.0), _floor_point - _floor_body.global_position)
+		_floor_body.apply_force(Vector3(0.0, -MASS * GRAVITY, 0.0), feet)
+		# Newton's third law for the feet. Whatever sideways force the feet
+		# made this tick, to speed the character up or to push on something,
+		# the thing underfoot gets the same force the other way. This is what
+		# stops a body being pushed along by someone standing on it.
+		var speed_after := Vector3(velocity.x, 0.0, velocity.z)
+		var feet_force := (speed_after - speed_before) * (MASS / delta) + pushing
+		_floor_body.apply_force(-feet_force.limit_length(grip_force), feet)
 
 	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-14.0 * delta))
 
@@ -254,29 +280,38 @@ func _physics_process(delta: float) -> void:
 
 
 ## The loose (spawned, unanchored) body under the character's feet, or null.
+## Also notes how much grip the surface underfoot gives.
 func _find_floor_body() -> RigidBody3D:
 	var hit := KinematicCollision3D.new()
 	if not test_move(global_transform, Vector3(0.0, -0.1, 0.0), hit):
 		return null
 	var body := hit.get_collider() as RigidBody3D
-	if body == null or body.freeze:
-		return null
+	if body == null:
+		return null   # the ground or something else fixed
+	if body.physics_material_override != null:
+		_floor_grip = body.physics_material_override.friction
+	if body.freeze:
+		return null   # a spawned body that is fixed in place
 	_floor_point = hit.get_position()
 	return body
 
 
-## Pushes the loose bodies the character walked into this tick.
+## Pushes the loose bodies the character walked into this tick. Returns the
+## total force it put on them.
 ##
 ## The push comes from the character's momentum: its mass times the speed at
 ## which it is closing on the body. Handing that over across PUSH_TIME gives
-## the force. Walking at 4 m/s into something standing still is
-## 70 kg x 4 m/s / 0.25 s = 1120 N; running is 2100 N. The physics engine
-## then weighs that against the body's friction with the ground, so a light
-## body slides away, a heavy one creeps, and one whose friction beats the push
-## stays put. The character is held back to the body's speed by the collision
-## itself, so heavier things are slower to push.
-func _push_bodies(wanted: Vector3, delta: float) -> void:
+## the force: 70 kg x 4 m/s / 0.25 s = 1120 N at a walk.
+##
+## The feet set the limit. A push can never be harder than the grip of the
+## feet on whatever is underfoot, `grip_force`: about 687 N on the ground,
+## next to nothing on ice. The physics engine then weighs the push against
+## the body's own friction, so a light body slides away, a heavy one creeps,
+## and one whose friction beats the push stays put. The character is held
+## back to the body's speed by the collision itself.
+func _push_bodies(wanted: Vector3, grip_force: float, delta: float) -> Vector3:
 	var pushed: Array = []
+	var total := Vector3.ZERO
 	for index in get_slide_collision_count():
 		var collision := get_slide_collision(index)
 		var body := collision.get_collider() as RigidBody3D
@@ -300,12 +335,12 @@ func _push_bodies(wanted: Vector3, delta: float) -> void:
 		# or a light body would shoot off faster than the character walks.
 		var shared_mass := MASS * body.mass / (MASS + body.mass)
 		force = minf(force, 0.5 * shared_mass * closing / delta)
+		force = minf(force, grip_force)
 		pushed.append(body)
 		body.sleeping = false
 		body.apply_force(into * force, arm)
-		if _floor_body != null:
-			# Pushing off something loose pushes it back the other way.
-			_floor_body.apply_force(-into * force, _floor_point - _floor_body.global_position)
+		total += into * force
+	return total
 
 
 ## True for a spawned body that can be pushed around.

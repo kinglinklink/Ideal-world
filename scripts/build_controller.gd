@@ -61,6 +61,10 @@ var near_seat_uid := 0         # the nearest seat within reach, 0 for none
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
 var _seat_request := false     # E was pressed to sit; acted on in the next physics tick
+var _clipboard_anchor := Vector3i.ZERO   # where the copy was taken from, for Paste in place
+var _clipboard_low := Vector3.ZERO       # the copy's bounding box, in units from its anchor
+var _clipboard_high := Vector3.ZERO
+var _config_clipboard: Dictionary = {}   # a copied config: {"type", "size", "props"}; kept until Spawn
 var _hit_uid := 0              # part under the cursor, 0 for none
 var _has_target := false       # the cursor is on some surface
 var _target_cell := Vector3i.ZERO
@@ -95,6 +99,8 @@ func _ready() -> void:
 		var bar_material := StandardMaterial3D.new()
 		bar_material.albedo_color = AXIS_COLORS[axis]
 		bar_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bar_material.no_depth_test = true   # seen through the part they belong to
+		bar_material.render_priority = 2
 		bar.material_override = bar_material
 		_axis_markers.append(bar)
 
@@ -252,9 +258,18 @@ func _on_key(key: InputEventKey) -> void:
 			elif code == KEY_X:
 				cut_selection()
 			elif code == KEY_V:
-				paste()
+				if key.shift_pressed:
+					paste_in_place()
+				else:
+					paste()
 			elif code == KEY_A:
 				select_all()
+		return
+	if key.shift_pressed and current_tool == Tool.CONFIG and (code == KEY_C or code == KEY_V):
+		if code == KEY_C:
+			copy_config()
+		else:
+			paste_config()
 		return
 	if code == KEY_1:
 		toggle_tool(Tool.PLACE)
@@ -516,13 +531,21 @@ func copy_selection() -> void:
 	var first: Dictionary = grid.get_part(selection[0])
 	var first_pos: Vector3i = first["pos"]
 	var anchor: Vector3i = grid.cell_center_units(first_pos / Units.UNITS_PER_CELL)
+	_clipboard_anchor = anchor
+	_clipboard_low = Vector3(INF, INF, INF)
+	_clipboard_high = Vector3(-INF, -INF, -INF)
 	for uid in selection:
 		var record: Dictionary = grid.get_part(uid)
 		var pos: Vector3i = record["pos"]
 		record["pos"] = pos - anchor
 		record["copied_from"] = uid   # lets a paste re-point links between the copies
 		_clipboard.append(record)
-	_say("Copied %d part(s). Press Paste or Ctrl+V, pointing where it should go." % _clipboard.size())
+		# The box that holds the whole copy, so a paste can rest it on a surface.
+		var half: Vector3 = BuildGrid.half_extent_units(record)
+		var middle := Vector3(record["pos"] as Vector3i)
+		_clipboard_low = _clipboard_low.min(middle - half)
+		_clipboard_high = _clipboard_high.max(middle + half)
+	_say("Copied %d part(s). Ctrl+V pastes where you point; Ctrl+Shift+V pastes in place." % _clipboard.size())
 
 
 func cut_selection() -> void:
@@ -532,7 +555,22 @@ func cut_selection() -> void:
 	delete_selection()
 
 
-## Pastes the clipboard so its first part lands in the cell under the cursor.
+## Where the copy goes for the surface under the cursor: the position, in
+## units, that its anchor takes. Across the surface the copy's first part is
+## centred on the cell under the cursor. Along the surface's normal the whole
+## copy rests on the surface, however large it is, instead of sinking into it.
+func _paste_base() -> Vector3i:
+	var base: Vector3i = grid.cell_center_units(_target_cell)
+	var axis: int = _target_axis
+	var surface: float = float(base[axis] - _target_sign * Units.HALF_CELL_UNITS)
+	if _target_sign > 0:
+		base[axis] = int(ceil(surface - _clipboard_low[axis] - 0.001))
+	else:
+		base[axis] = int(floor(surface - _clipboard_high[axis] + 0.001))
+	return base
+
+
+## Pastes the copy onto the surface under the cursor.
 func paste() -> void:
 	if _clipboard.is_empty():
 		_say("Nothing copied yet.")
@@ -540,7 +578,22 @@ func paste() -> void:
 	if not _has_target:
 		_say("Point at a surface to paste onto.")
 		return
-	var base: Vector3i = grid.cell_center_units(_target_cell)
+	_paste_at(_paste_base())
+
+
+## Pastes the copy exactly where it was copied from, and selects it, so it
+## can be stepped into place with the arrow keys, Page Up and Page Down, or
+## the Move buttons, one snap step at a time.
+func paste_in_place() -> void:
+	if _clipboard.is_empty():
+		_say("Nothing copied yet.")
+		return
+	if _paste_at(_clipboard_anchor):
+		_say("Pasted in place. Step it with the arrow keys, Page Up / Page Down or the Move buttons.")
+
+
+## Adds the copied parts with their anchor at `base`. True if it worked.
+func _paste_at(base: Vector3i) -> bool:
 	var records: Array = []
 	for stored in _clipboard:
 		var record: Dictionary = (stored as Dictionary).duplicate(true)
@@ -549,7 +602,7 @@ func paste() -> void:
 		var problem: String = grid.check(record)
 		if problem != "":
 			_say("Cannot paste here. " + problem)
-			return
+			return false
 		records.append(record)
 	var pasted: Array = []
 	var new_uid_of: Dictionary = {}   # original uid -> the uid of its pasted copy
@@ -581,6 +634,7 @@ func paste() -> void:
 	selection = pasted
 	selection_changed.emit()
 	_refresh_markers()
+	return true
 
 
 ## Used by the Paste button: the next click in the world pastes there.
@@ -633,6 +687,55 @@ func set_config_size(axis: int, cells: float) -> bool:
 	var updates: Dictionary = {}
 	updates[selection[0]] = record
 	return _apply(updates)
+
+
+## Config tool, Shift+C: remembers the selected part's size and settings.
+## The copy is kept until another is taken or the build is spawned.
+func copy_config() -> void:
+	var record: Dictionary = config_record()
+	if record.is_empty():
+		_say("Click a part with the Config tool first, then Shift+C copies its config.")
+		return
+	var props: Dictionary = record.get("props", {})
+	_config_clipboard = {"type": record["type"], "size": record["size"], "props": props.duplicate(true)}
+	_say("Config copied from %s. Shift+V pastes it onto the part you have selected." % PartLibrary.part_name(record["type"]))
+
+
+## Config tool, Shift+V: gives the selected part the copied size and settings.
+## A part of another kind takes the size and whichever settings it shares.
+func paste_config() -> bool:
+	if _config_clipboard.is_empty():
+		_say("No config copied yet. Shift+C copies the selected part's config.")
+		return false
+	var record: Dictionary = config_record()
+	if record.is_empty():
+		_say("Click the part to paste the config onto first.")
+		return false
+	var type: String = record["type"]
+	# Size, keeping the part's low corner where it is, as resizing by hand does.
+	var old_pos: Vector3i = record["pos"]
+	var old_low: Vector3 = Vector3(old_pos) - BuildGrid.half_extent_units(record)
+	record["size"] = _config_clipboard["size"]
+	var new_half: Vector3 = BuildGrid.half_extent_units(record)
+	record["pos"] = Vector3i((old_low + new_half - Vector3(0.001, 0.001, 0.001)).ceil())
+	# Settings: every copied setting that this kind of part also has.
+	var props: Dictionary = record.get("props", {})
+	var copied: Dictionary = _config_clipboard["props"]
+	for setting in PartSettings.for_type(type):
+		var id: String = setting["id"]
+		if copied.has(id):
+			props[id] = copied[id]
+	record["props"] = PartSettings.sanitize(type, props)
+	var updates: Dictionary = {}
+	updates[selection[0]] = record
+	if not _apply(updates):
+		return false
+	_say("Config pasted.")
+	return true
+
+
+func has_config_copy() -> bool:
+	return not _config_clipboard.is_empty()
 
 
 # --- Signal links (Config tool) -----------------------------------------------
@@ -759,6 +862,7 @@ func toggle_spawn() -> void:
 		link_input = ""
 		link_source_uid = 0
 		selection = []
+		_config_clipboard = {}   # a copied config lasts until Spawn
 		var report: Dictionary = spawner.spawn(grid)
 		grid.set_active(false)
 		spawned = true
@@ -773,6 +877,10 @@ func toggle_spawn() -> void:
 			note += "\n%d hinge(s) free to turn." % hinges
 		if locked > 0:
 			note += "\n%d hinge(s) locked: both sides are welded to the same body." % locked
+		var thrusters: int = report["thrusters"]
+		var panels: int = report["panels"]
+		if thrusters > 0 or panels > 0:
+			note += "\n%d thruster(s), %d aero panel(s)." % [thrusters, panels]
 		_say(note)
 	_preview.visible = false
 	_hover.visible = false
@@ -798,6 +906,8 @@ func seat_prompt() -> String:
 func _update_seat() -> void:
 	if grid == null or player == null:
 		return
+	if spawner != null:
+		spawner.occupied_seat = seat_uid if spawned else 0   # key binds work only while seated
 	if seat_uid != 0:
 		_seat_request = false   # E does nothing while seated; only Space stands up
 		var typing: bool = get_viewport().gui_get_focus_owner() != null
@@ -811,6 +921,7 @@ func _update_seat() -> void:
 			else:
 				var riding: Array = _seat_place(frame)
 				player.hold_seat(riding[0], riding[1])
+				player.ride_velocity = spawner.seat_velocity(seat_uid)
 		return
 	if _seat_request or _tick % SEAT_EVERY_TICKS == 0:
 		near_seat_uid = _nearest_seat()
@@ -979,7 +1090,11 @@ func _update_cursor_markers() -> void:
 			var preview_color: Color = PREVIEW_OK if problem == "" else PREVIEW_BLOCKED
 			_fit_marker(_preview, record, preview_color, 1.0)
 			_fit_axes(record)
-	elif _hit_uid != 0 and current_tool != Tool.NONE:
+		return
+	if current_tool == Tool.CONFIG and not selection.is_empty() and grid.has_part(selection[0]):
+		# Show the selected part's own X, Y and Z, to match the three size boxes.
+		_fit_axes(grid.get_part(selection[0]))
+	if _hit_uid != 0 and current_tool != Tool.NONE:
 		var hover_color: Color = HOVER_DELETE if current_tool == Tool.DELETE else HOVER_OTHER
 		var hovered: Dictionary = grid.get_part(_hit_uid)
 		_fit_marker(_hover, hovered, hover_color, 1.03)
@@ -1016,7 +1131,7 @@ func _update_paste_preview() -> void:
 		_paste_markers.append(_new_marker("PastePreview"))
 	var base := Vector3i.ZERO
 	if active:
-		base = grid.cell_center_units(_target_cell)
+		base = _paste_base()
 	for index in _paste_markers.size():
 		var marker: MeshInstance3D = _paste_markers[index]
 		if index < count:
