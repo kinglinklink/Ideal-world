@@ -858,6 +858,20 @@ func part_frame(uid: int) -> Array:
 	return [body.global_transform * place, body]
 
 
+## A part's drawn meshes and collision shapes, for logic.gd to light up or
+## hide: [MeshInstance3D or null, CollisionShape3D or null] for each of its
+## pieces. Empty if the part is gone.
+func part_nodes(uid: int) -> Array:
+	var found: Array = []
+	for index in PIECES:
+		var piece: int = uid * PIECES + index
+		if not _pieces.has(piece):
+			continue
+		var entry: Dictionary = _pieces[piece]
+		found.append([entry["mesh"], entry["collider"]])
+	return found
+
+
 ## Every part that still exists: its uid.
 func live_parts() -> Array:
 	return _health.keys()

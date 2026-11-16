@@ -13,7 +13,8 @@ extends Node3D
 ##
 ## Also here: the lake surface, and the wall round the edge of the world: the
 ## four straight sides of a rectangle round the lake, square to north. The
-## trees are in forest.gd, and the airports and buildings in landmarks.gd.
+## trees are in forest.gd, the airports and buildings in landmarks.gd, and
+## the real towns (roads, houses, bridges) in towns.gd.
 ##
 ## Re-centring (origin.gd): everything here is laid out in map positions under
 ## this node, and main.gd moves this node by the world offset. So children
@@ -26,6 +27,7 @@ const Origin = preload("res://scripts/origin.gd")
 const Units = preload("res://scripts/units.gd")
 const Forest = preload("res://scripts/forest.gd")
 const Landmarks = preload("res://scripts/landmarks.gd")
+const Towns = preload("res://scripts/towns.gd")
 const TERRAIN_SHADER = preload("res://shaders/terrain.gdshader")
 const WATER_SHADER = preload("res://shaders/water.gdshader")
 
@@ -52,6 +54,7 @@ const WATER_KIND := 5              # the surface kind of the lake in the baked p
 var world: Dictionary = {}         # world.json
 var forest: Node3D = null          # forest.gd
 var landmarks: Node3D = null       # landmarks.gd
+var towns: Node3D = null           # towns.gd
 
 var _coarse := PackedByteArray()
 var _detail := PackedByteArray()
@@ -91,6 +94,11 @@ func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
 	landmarks.name = "Landmarks"
 	add_child(landmarks)
 	landmarks.setup(world)
+
+	towns = Towns.new()
+	towns.name = "Towns"
+	add_child(towns)
+	towns.setup(world)
 
 	# Solid ground round the start, before anything can fall.
 	_build_all_needed()

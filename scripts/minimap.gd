@@ -23,6 +23,7 @@ var _picture: Texture2D = null
 var _picture_area := Rect2()   # the world X and Z the picture covers
 var _islands: Array = []       # [Vector2, name]
 var _places: Array = []        # [Vector2, name]
+var _towns: Array = []         # [Vector2, name]
 var _range := NEAR_RANGE
 
 
@@ -45,6 +46,11 @@ func set_world(world: Dictionary, places: Array) -> void:
 		var island: Dictionary = item
 		var at: Array = island["at"]
 		_islands.append([Vector2(float(at[0]), float(at[1])), str(island["name"])])
+	_towns.clear()
+	for item in world.get("town_names", []):
+		var town: Dictionary = item
+		var spot: Array = town["at"]
+		_towns.append([Vector2(float(spot[0]), float(spot[1])), str(town["name"])])
 	_places = places
 
 
@@ -97,6 +103,13 @@ func _draw() -> void:
 		if Rect2(Vector2.ZERO, extent).grow(40.0).has_point(spot):
 			draw_string(font, spot + Vector2(-20.0, 4.0), str(island[1]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10,
 					Color(1.0, 1.0, 1.0, 0.7))
+	for item in _towns:
+		var town: Array = item
+		var at: Vector2 = town[0]
+		var spot := _to_map(at.x, at.y, centre, pixels_per_metre)
+		if Rect2(Vector2.ZERO, extent).grow(60.0).has_point(spot):
+			draw_string(font, spot + Vector2(-24.0, 4.0), str(town[1]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 11,
+					Color(0.85, 0.95, 1.0, 0.85))
 	for item in _places:
 		var place: Array = item
 		var at: Vector2 = place[0]
