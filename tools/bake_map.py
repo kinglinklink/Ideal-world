@@ -32,6 +32,7 @@ from scipy import ndimage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from map_common import ROOT, load_layer, layer_extent, resample, to_local  # noqa: E402
+import towns  # noqa: E402
 
 OUT = os.path.join(ROOT, "map_data")
 INFO_SCRIPT = os.path.join(ROOT, "scripts", "map_info.gd")
@@ -413,10 +414,38 @@ def main():
     coarse.kind[coarse_water] = WATER
     detail.kind[detail_water] = WATER
 
+    # --- Towns: real roads and buildings ---
+    print("Laying out the towns ...")
+
+    def ground(x, z):
+        x = np.asarray(x, dtype=float)
+        z = np.asarray(z, dtype=float)
+        heights = coarse.sample(coarse.h, x, z)
+        near = detail.inside(x, z, 8.0)
+        if near.any():
+            heights[near] = detail.sample(detail.h, x[near], z[near])
+        return heights - base
+
+    def is_water(x, z):
+        x = np.asarray(x, dtype=float)
+        z = np.asarray(z, dtype=float)
+        wet = (coarse.sample(coarse.kind & 7, x, z, order=0) == WATER)
+        near = detail.inside(x, z, 8.0)
+        if near.any():
+            wet[near] = detail.sample(detail.kind & 7, x[near], z[near], order=0) == WATER
+        return wet
+
+    town_info, clear_of_towns = towns.bake_towns(os.path.join(ROOT, "map", "osm.json"), OUT, ground, is_water,
+                                                 lake - base, bounds, PAD_REF)
+    town_names = []
+    for name, lon, lat in TOWNS:
+        x, z = game_point(lon, lat)
+        town_names.append({"name": name, "at": [x, z]})
+
     # --- Trees ---
     print("Placing trees ...")
     trees = place_trees(coarse, detail, coarse_water, detail_water, inbounds, land_to_water, wild_horse, melita,
-                        island_labels, clearings, base)
+                        island_labels, clearings, base, clear_of_towns)
     print("  %d trees" % len(trees))
 
     # --- The wall: the four sides of the rectangle ---
@@ -444,6 +473,7 @@ def main():
         "base_elevation": base, "lake_surface": lake, "lake_y": lake - base,
         "runways": features["runways"], "buildings": features["buildings"], "docks": features["docks"],
         "helipads": features["helipads"], "bounds": bounds, "walls": walls, "carrier_spots": carrier_spots, "islands": labels_list, "tree_cells": tree_cells,
+        "towns": town_info, "town_names": town_names,
         "minimap": {"x0": coarse.x0, "z0": coarse.z0,
                     "width": coarse.cols * COARSE, "depth": coarse.rows * COARSE},
     }
@@ -489,7 +519,7 @@ def in_clearing(x, z, clearings):
 
 
 def place_trees(coarse, detail, coarse_water, detail_water, inbounds, land_to_water, wild_horse, melita,
-                island_labels, clearings, base):
+                island_labels, clearings, base, clear_of_towns=None):
     found = []
 
     def scatter(grid, density, land, shore_gap, use):
@@ -546,6 +576,8 @@ def place_trees(coarse, detail, coarse_water, detail_water, inbounds, land_to_wa
     outside_detail = ~detail.inside(coarse.X, coarse.Z, 4.0)
     found.append(scatter(coarse, cdensity, c_land, 16.0, inbounds & outside_detail))
     trees = np.concatenate(found, axis=0)
+    if clear_of_towns is not None:
+        trees = trees[clear_of_towns(trees[:, [0, 2]])]   # off the roads and out of the buildings
 
     # Record how wooded each spot is, for shading the ground from far away.
     # Each grid counts only the trees that stand on it, blurred over the same

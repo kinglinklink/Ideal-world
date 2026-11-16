@@ -75,7 +75,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 16"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 17"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -124,6 +124,7 @@ The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25
 - **Shelter Island mansion:** a modern lake house of stone, timber and glass beside the island's strip.
 - **The aircraft carrier**, three times the size of a real one: a kilometre-long flight deck, 230 m wide and 54 m above the water. It is moored at a random spot on open water each time the game starts. Check the mini map to find it.
 - Every other island is at its real place: Dream, Shelter, Cedar, Rock, Mary B, Douglas, Goose, Bird, Bull, Little Bull and Invitation.
+- **The real towns**, from OpenStreetMap: Polson, Bigfork, Lakeside, Somers, Rollins, Woods Bay, Big Arm, Elmo, Dayton, Finley Point and Yellow Bay, with every mapped road and building inside the wall (about 4,000 buildings and thousands of kilometres of road). Roads are drawn on the ground: asphalt highways with a yellow centre line, side streets, and brown gravel tracks. Buildings stand on their real outlines at their real or estimated height and are solid, so you have to fly over them or drive round them. Bridges over water, such as US 93 at Polson, are solid decks you can drive across. The town names show on the mini map. Map data © OpenStreetMap contributors, ODbL.
 - **Altitude** on screen is real, in metres above sea level, and the air thins with real altitude, so wings lose a little lift at the lake's 881 m.
 
 **Water.** Spawned builds float. Each part pushes aside water equal to its own solid volume (its mass over its material's density), so wood floats and steel sinks; and air sealed inside a build (empty grid cells that cannot be reached from outside without passing through a part) floats it too, so a closed steel hull floats as a real one does. If any part of a hull is destroyed, its sealed air floods. Water also drags on whatever moves through it. The character swims, with head and shoulders out of the water; Space swims up. The lake bed is shaped from the distance to shore, down to the real 113 m deepest point.
@@ -174,6 +175,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/terrain.gd` | The map: ground drawn round the camera, solid ground near the character and spawned bodies, the lake and the wall |
 | `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
 | `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
+| `scripts/towns.gd` | The real towns: roads, buildings and bridges, built in 1 km squares near the camera |
 | `scripts/origin.gd` | Re-centring the world on the player |
 | `scripts/settings.gd` | Loading, saving and applying the settings |
 | `scripts/settings_panel.gd` | The settings window |
@@ -185,6 +187,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `tools/fetch_terrain.py` | Downloads the elevation data (run on your own computer) |
 | `tools/fetch_osm.py` | Downloads the real roads and buildings (run on your own computer) |
 | `tools/bake_map.py` | Turns the elevation data into the game's map |
+| `tools/towns.py` | Lays the OpenStreetMap roads, buildings and bridges on the baked ground (called by `bake_map.py`) |
 | `saves/` | Saved builds, the format guide and an example |
 | `shaders/pad_grid.gdshader` | Draws the grid lines on the build pad |
 
