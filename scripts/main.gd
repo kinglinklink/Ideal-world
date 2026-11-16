@@ -20,6 +20,7 @@ const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
 const Terrain = preload("res://scripts/terrain.gd")
 const Spawner = preload("res://scripts/spawner.gd")
 const Combat = preload("res://scripts/combat.gd")
+const Logic = preload("res://scripts/logic.gd")
 const Origin = preload("res://scripts/origin.gd")
 
 # The garage sits behind the start point, with its door facing the build pad.
@@ -78,6 +79,12 @@ func _ready() -> void:
 	combat.setup(spawner)
 	_combat = combat
 
+	# Logic blocks, sensors, lights, vanish blocks, propellers and lift gas.
+	var logic: Node3D = Logic.new()
+	logic.name = "Logic"
+	add_child(logic)
+	logic.setup(spawner)
+
 	# The map: ground, lake, forests, airports and the wall round the edge.
 	# Set up before the first physics step, so the ground is solid under the
 	# character from the start.
@@ -88,6 +95,7 @@ func _ready() -> void:
 	player.terrain = terrain
 	spawner.terrain = terrain
 	combat.terrain = terrain
+	logic.terrain = terrain
 	_terrain = terrain
 
 	# Grass round the pad and garage.

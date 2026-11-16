@@ -24,7 +24,9 @@ Working now:
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
 - All eighteen mechanical parts work once spawned: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake
 - All four combat parts work once spawned: machine gun, large cannon, ammo generator and explosive block. Parts have health, and a body that loses parts breaks into separate chunks.
-- Display models for the remaining planned parts: 13 fluid and engine parts, the propeller and lift-gas tank, and 11 logic blocks and sensors. These are models only for now.
+- **All eleven logic parts work once spawned** (see [Logic and sensors](#logic-and-sensors)): input, boolean gate, number logic, PID controller, speed, altitude, attitude and distance sensors, impact detector, light panel and vanish block
+- **The propeller and lift-gas tank work.** A propeller on a motor pulls along its spin axis according to its speed, blade count and pitch, and loads the motor in return. A lift-gas tank lifts straight up by its setting per block, scaled by its Amount input, and weakens as the air thins.
+- Display models for the 13 fluid and engine parts. These are models only for now.
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color, and one ideal material, **Frictionless surface**: nothing grips it, and once spawned it cannot be moved or damaged
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
@@ -33,7 +35,21 @@ Working now:
 - Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
-Not built yet: the fluid, engine and logic parts, the propeller and the lift-gas tank. Once spawned these are simply welded solid.
+Not built yet: the fluid and engine parts. Once spawned these are simply welded solid.
+
+### Logic and sensors
+
+Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any number other than 0 counts as on. Signals pass through a chain of up to four gates in the same physics tick.
+
+- **Boolean gate:** AND, OR, NOT (of A), XOR, NAND and NOR. **Latch:** A switches it on, B switches it off. **Timer:** when A switches on, the result stays on for the timer length.
+- **Number logic:** an unlinked B uses the Constant setting, so "Add" with only A linked adds the constant. Add, Subtract (A − B), Multiply, Divide (A ÷ B, 0 if B is 0), Absolute value (of A), Min, Max, Clamp (A between B and C), Compare (on if A > B), Select (B if A is on, else C), Map range (A from B…C onto 0…1). "Comparison is true" is on whenever the result is not 0.
+- **PID controller:** output = Kp × error + Ki × its running total + Kd × its rate of change, where error = setpoint − measurement, held between the lowest and highest output. The running total stops growing while the output is held at a limit, and the rate is taken from the measurement, so a sudden change of setpoint does not jolt it.
+- **Speed sensor:** m/s. **Altitude sensor:** metres above sea level (the lake is at 881 m). **Attitude sensor:** pitch (nose up positive), roll (right side down positive) and yaw (compass heading, 0 north, 90 east) in degrees, plus each rate in degrees per second, all of the sensor's own forward (−Z) and up (+Y).
+- **Distance sensor:** metres from the sensor straight ahead along its −Z to the first part, building, ground or water, up to its range; it reads the range if nothing is there.
+- **Impact detector:** puts out its acceleration in g (0 at rest or in steady flight) and switches on for its signal length whenever that passes its trigger level.
+- **Light panel:** glows in its color, or in the Red, Green and Blue inputs (0 to 255) if linked, while On is on (always, if On is not linked), and lights up what is around it.
+- **Vanish block:** disappears and stops being solid while Vanish is on. With "Comes back when the signal ends" off it stays gone.
+- **Propeller:** Speed out is in rpm.
 
 ## How to run it
 
@@ -175,6 +191,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/terrain.gd` | The map: ground drawn round the camera, solid ground near the character and spawned bodies, the lake and the wall |
 | `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
 | `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
+| `scripts/logic.gd` | Logic blocks, sensors, light panels, vanish blocks, propellers and lift-gas tanks |
 | `scripts/towns.gd` | The real towns: roads, buildings and bridges, built in 1 km squares near the camera |
 | `scripts/origin.gd` | Re-centring the world on the player |
 | `scripts/settings.gd` | Loading, saving and applying the settings |
