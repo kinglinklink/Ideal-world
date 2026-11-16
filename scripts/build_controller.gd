@@ -36,6 +36,7 @@ const HOVER_DELETE := Color(1.0, 0.25, 0.2, 0.5)
 const HOVER_OTHER := Color(1.0, 0.95, 0.5, 0.3)
 const SELECTED := Color(0.3, 1.0, 0.55, 0.4)
 const MASS_MARKER := Color(1.0, 0.85, 0.1, 0.95)
+const LIFT_MARKER := Color(0.25, 0.75, 1.0, 0.95)
 const LINK_IN := Color(0.3, 1.0, 0.4)     # lines from the parts this one listens to
 const LINK_OUT := Color(0.35, 0.65, 1.0)  # lines to the parts that listen to this one
 
@@ -74,6 +75,7 @@ var _target_sign := 1
 var _preview: MeshInstance3D
 var _hover: MeshInstance3D
 var _mass_marker: MeshInstance3D
+var _lift_marker: MeshInstance3D
 var _selection_markers: Array = []
 var _paste_markers: Array = []
 var _axis_markers: Array = []  # three bars showing the placement ghost's own X, Y and Z
@@ -104,17 +106,10 @@ func _ready() -> void:
 		bar.material_override = bar_material
 		_axis_markers.append(bar)
 
-	_mass_marker = _new_marker("CentreOfMass")
-	var ball := SphereMesh.new()
-	ball.radius = 0.4 * Units.CELL
-	ball.height = 0.8 * Units.CELL
-	_mass_marker.mesh = ball
-	var ball_material := StandardMaterial3D.new()
-	ball_material.albedo_color = MASS_MARKER
-	ball_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ball_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ball_material.no_depth_test = true   # visible through the build
-	_mass_marker.material_override = ball_material
+	# Balls for the centre of mass and the centre of lift, each with a label,
+	# and both visible through the build.
+	_mass_marker = _new_ball_marker("CentreOfMass", "Center of mass", MASS_MARKER)
+	_lift_marker = _new_ball_marker("CentreOfLift", "Center of lift", LIFT_MARKER)
 
 	# Thin lines that show the selected part's signal links.
 	_link_lines = _new_marker("SignalLinks")
@@ -125,6 +120,35 @@ func _ready() -> void:
 	line_material.vertex_color_use_as_albedo = true
 	line_material.no_depth_test = true
 	_link_lines.material_override = line_material
+
+
+## A ball with a name floating over it, drawn on top of everything.
+func _new_ball_marker(marker_name: String, caption: String, color: Color) -> MeshInstance3D:
+	var marker := _new_marker(marker_name)
+	var ball := SphereMesh.new()
+	ball.radius = 0.6 * Units.CELL
+	ball.height = 1.2 * Units.CELL
+	marker.mesh = ball
+	var ball_material := StandardMaterial3D.new()
+	ball_material.albedo_color = color
+	ball_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ball_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ball_material.no_depth_test = true   # visible through the build
+	ball_material.render_priority = 3
+	marker.material_override = ball_material
+	var label := Label3D.new()
+	label.text = caption
+	label.font_size = 48
+	label.pixel_size = 0.004
+	label.outline_size = 12
+	label.modulate = color
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.render_priority = 4
+	label.outline_render_priority = 3
+	label.position = Vector3(0.0, 1.4 * Units.CELL, 0.0)
+	marker.add_child(label)
+	return marker
 
 
 func _new_marker(marker_name: String) -> MeshInstance3D:
@@ -874,9 +898,9 @@ func toggle_spawn() -> void:
 		var hinges: int = report["hinges"]
 		var locked: int = report["locked"]
 		if hinges > 0:
-			note += "\n%d hinge(s) free to turn." % hinges
+			note += "\n%d joint(s) free to turn." % hinges
 		if locked > 0:
-			note += "\n%d hinge(s) locked: both sides are welded to the same body." % locked
+			note += "\n%d joint(s) locked: both sides are welded to the same body." % locked
 		var thrusters: int = report["thrusters"]
 		var panels: int = report["panels"]
 		if thrusters > 0 or panels > 0:
@@ -1215,8 +1239,16 @@ func _refresh_markers() -> void:
 
 	_draw_link_lines()
 
-	var show_mass: bool = current_tool == Tool.CONFIG and grid.part_count() > 0 and not spawned
+	# The balance markers show while configuring or moving parts.
+	var balancing: bool = current_tool == Tool.CONFIG or current_tool == Tool.TRANSFORM
+	var show_mass: bool = balancing and grid.part_count() > 0 and not spawned
 	_mass_marker.visible = show_mass
+	_lift_marker.visible = false
 	if show_mass:
 		var center: Vector3 = grid.center_of_mass()
 		_mass_marker.global_position = grid.global_transform * center
+		var lift: Array = grid.center_of_lift()
+		if lift[0]:
+			var lift_point: Vector3 = lift[1]
+			_lift_marker.global_position = grid.global_transform * lift_point
+			_lift_marker.visible = true

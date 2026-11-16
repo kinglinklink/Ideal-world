@@ -34,35 +34,54 @@ static func has_model(part_id: String) -> bool:
 
 ## `options` carries the settings that change a model's shape:
 ##   "teeth" for gears, "blades" and "pitch" (degrees) for the propeller,
-##   "half" ("base" or "top") for one side of a hinge.
+##   "half" ("base" or "top") for one side of a hinge, motor or servo.
 static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 	var teeth: int = int(options.get("teeth", 12))
 	var body := Kit.new_surface()
 	var detail := Kit.new_surface()
 	var detail_look: Material = null   # null means the usual dark metal
 	var has_detail := true             # false for a model that is one plain colour
+	# The jointed parts come apart when spawned, so "half" asks for one side
+	# alone: "base" stays put and "top" is the side that turns. A top is drawn
+	# in the part's own colour, with no detail surface.
+	var half: String = str(options.get("half", ""))
 	match part_id:
 		"motor":
-			# A housing with a collar and an output shaft on top.
-			Kit.add_box(body, Vector3(0.0, -0.1875, 0.0), Vector3(0.875, 0.625, 0.875))
-			Kit.add_cylinder(detail, Vector3(0.0, 0.1875, 0.0), Y, 0.28, 0.125)
-			Kit.add_cylinder(detail, Vector3(0.0, 0.375, 0.0), Y, 0.1, 0.25)
+			# A housing with a collar, and on top an output shaft carrying a
+			# mounting plate. The plate is longer one way, so turning shows.
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.1875, 0.0), Vector3(0.875, 0.625, 0.875))
+				Kit.add_cylinder(detail, Vector3(0.0, 0.1875, 0.0), Y, 0.28, 0.125)
+			var motor_top: SurfaceTool = body if half == "top" else detail
+			if half != "base":
+				Kit.add_cylinder(motor_top, Vector3(0.0, 0.34375, 0.0), Y, 0.1, 0.1875)
+				Kit.add_box(motor_top, Vector3(0.0, 0.46875, 0.0), Vector3(0.65, 0.0625, 0.4))
+			if half == "top":
+				has_detail = false
 		"servo":
-			# A slim housing with an off-centre output disc and a horn.
-			Kit.add_box(body, Vector3(0.0, -0.1875, 0.0), Vector3(0.875, 0.625, 0.625))
-			Kit.add_cylinder(detail, Vector3(0.15, 0.171875, 0.0), Y, 0.2, 0.09375)
-			Kit.add_box(detail, Vector3(0.15, 0.25, 0.0), Vector3(0.15, 0.0625, 0.6))
+			# A slim housing, and on top an output disc carrying a horn.
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.1875, 0.0), Vector3(0.875, 0.625, 0.625))
+			var servo_top: SurfaceTool = body if half == "top" else detail
+			if half != "base":
+				Kit.add_cylinder(servo_top, Vector3(0.0, 0.28125, 0.0), Y, 0.2, 0.3125)
+				Kit.add_box(servo_top, Vector3(0.0, 0.46875, 0.0), Vector3(0.15, 0.0625, 0.65))
+			if half != "":
+				has_detail = false   # the housing alone, or the output alone, is all one colour
 		"door_hinge_servo":
 			# A base, an upright leaf, the hinge barrel along their shared edge, and a drive unit.
-			Kit.add_box(body, Vector3(0.0, -0.4375, 0.0), Vector3(1.0, 0.125, 1.0))
-			Kit.add_box(body, Vector3(0.0, 0.0625, -0.4375), Vector3(1.0, 0.875, 0.125))
-			Kit.add_cylinder(detail, Vector3(0.0, -0.3125, -0.3125), X, 0.125, 0.9375)
-			Kit.add_box(detail, Vector3(0.3125, -0.25, 0.0), Vector3(0.25, 0.25, 0.375))
+			# The leaf is the side that turns.
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.4375, 0.0), Vector3(1.0, 0.125, 1.0))
+				Kit.add_cylinder(detail, Vector3(0.0, -0.3125, -0.3125), X, 0.125, 0.9375)
+				Kit.add_box(detail, Vector3(0.3125, -0.25, 0.0), Vector3(0.25, 0.25, 0.375))
+			if half != "base":
+				Kit.add_box(body, Vector3(0.0, 0.0625, -0.4375), Vector3(1.0, 0.875, 0.125))
+			if half == "top":
+				has_detail = false
 		"hinge":
-			# Two leaves with a pin between them, running along X. Once
-			# spawned the two sides move apart, so "half" asks for one side
-			# alone: "base" is the lower leaf with the pin, "top" the upper leaf.
-			var half: String = str(options.get("half", ""))
+			# Two leaves with a pin between them, running along X. The base
+			# is the lower leaf with the pin, the top the upper leaf.
 			if half != "top":
 				Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
 				Kit.add_cylinder(detail, Vector3.ZERO, X, 0.125, 0.9375)

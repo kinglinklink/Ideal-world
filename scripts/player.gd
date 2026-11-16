@@ -16,6 +16,7 @@ const GRAVITY := 9.81         # m/s^2
 const AIR_CONTROL := 3.0      # m/s^2 of steering in mid-air; 0 would be a pure throw
 const MASS := 70.0            # kg; what the character weighs and pushes with
 const PUSH_TIME := 0.25       # seconds over which a push hands over the character's momentum
+const G_SMOOTHING := 0.2       # seconds; the g-force readout is averaged over about this long
 const GROUND_GRIP := 1.0      # friction coefficient between the feet and the ground or any fixed surface
 const MOUSE_SENSITIVITY := 0.0025
 const ZOOM_MAX := 80.0        # metres behind the character
@@ -39,6 +40,9 @@ var _floor_body: RigidBody3D = null   # the loose body being stood on, if any
 var _floor_point := Vector3.ZERO      # where the feet rest on it, in world space
 var _floor_grip := GROUND_GRIP        # friction coefficient of whatever is underfoot
 var ride_velocity := Vector3.ZERO     # while seated: the velocity of the seat, for the speed readout
+var g_force := 1.0                    # the acceleration the character feels, in g: 1 standing still, 0 in free fall
+var _g_velocity := Vector3.ZERO       # the velocity at the last tick, for measuring acceleration
+var _g_skip := true                   # skip one measurement after sitting down or standing up
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
@@ -105,6 +109,7 @@ func sit(cushion: Vector3, heading: float) -> void:
 	seated = true
 	velocity = Vector3.ZERO
 	_step_offset = 0.0
+	_g_skip = true
 	_collider.set_deferred("disabled", true)   # the seat is solid; the sitter is not
 	hold_seat(cushion, heading)
 
@@ -121,6 +126,7 @@ func stand_up(exit_point: Vector3) -> void:
 	if not seated:
 		return
 	seated = false
+	_g_skip = true
 	_collider.set_deferred("disabled", false)
 	global_position = exit_point
 	velocity = Vector3.ZERO
@@ -183,6 +189,7 @@ func _physics_process(delta: float) -> void:
 		# No walking while seated. The build tools hold the character on its seat.
 		velocity = Vector3.ZERO
 		_floor_body = null
+		_measure_g(ride_velocity, delta)
 		return
 	ride_velocity = Vector3.ZERO
 	if _jump_locked and not Input.is_physical_key_pressed(KEY_SPACE):
@@ -269,6 +276,7 @@ func _physics_process(delta: float) -> void:
 		var feet_force := (speed_after - speed_before) * (MASS / delta) + pushing
 		_floor_body.apply_force(-feet_force.limit_length(grip_force), feet)
 
+	_measure_g(get_real_velocity(), delta)
 	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-14.0 * delta))
 
 	# Turn the body: with the camera in first person, toward travel otherwise.
@@ -277,6 +285,21 @@ func _physics_process(delta: float) -> void:
 	elif direction.length() > 0.1:
 		var target := atan2(-direction.x, -direction.z)
 		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-12.0 * delta))
+
+
+## Updates the g-force readout from the character's velocity this tick.
+## What is felt is acceleration measured against free fall, so standing
+## still reads 1 g, falling freely reads 0 g, and a hard turn or pull-up
+## reads more. It is smoothed a little so the number can be read.
+func _measure_g(moving: Vector3, delta: float) -> void:
+	if _g_skip:
+		_g_skip = false
+		_g_velocity = moving
+		return
+	var acceleration := (moving - _g_velocity) / delta
+	_g_velocity = moving
+	var felt := (acceleration + Vector3(0.0, GRAVITY, 0.0)).length() / GRAVITY
+	g_force = lerpf(g_force, felt, 1.0 - exp(-delta / G_SMOOTHING))
 
 
 ## The loose (spawned, unanchored) body under the character's feet, or null.

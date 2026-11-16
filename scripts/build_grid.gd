@@ -11,6 +11,7 @@ const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
+const Aero = preload("res://scripts/aero.gd")
 
 const SIZE := Vector3i(128, 128, 256)   # cells: X width, Y height, Z length
 const MAX_SIZE_UNITS := 64 * 200        # largest single part: 64 cells per side
@@ -230,6 +231,45 @@ func center_of_mass() -> Vector3:
 	if total <= 0.0:
 		return Vector3.ZERO
 	return weighted / total
+
+
+## The centre of lift of the build's aero panels, for level flight at a
+## 5 degree angle of attack. "Forward" and "up" are those of the first seat
+## placed, or the grid's own -Z and +Y if there is no seat. Each panel's lift
+## is worked out with the same formula Spawn uses, and the centre of lift is
+## where those lifts balance. Returns [true, the point] or [false, zero] if
+## nothing makes lift.
+func center_of_lift() -> Array:
+	var forward := Vector3(0.0, 0.0, -1.0)
+	var up := Vector3(0.0, 1.0, 0.0)
+	for uid in _parts:
+		var seat: Dictionary = _parts[uid]
+		if seat["type"] == "seat":
+			var seat_rot: Basis = seat["rot"]
+			forward = seat_rot * Vector3(0.0, 0.0, -1.0)
+			up = seat_rot * Vector3(0.0, 1.0, 0.0)
+			break
+	# Flying forward and sinking a little: the air meets the underside at 5 degrees.
+	var attack: float = deg_to_rad(5.0)
+	var moving: Vector3 = (forward * cos(attack) - up * sin(attack)) * 10.0
+	var total := 0.0
+	var weighted := Vector3.ZERO
+	for uid in _parts:
+		var record: Dictionary = _parts[uid]
+		var type: String = record["type"]
+		if not PartLibrary.is_aero_panel(type):
+			continue
+		var rot: Basis = record["rot"]
+		var size_m: Vector3 = Units.to_metres(record["size"])
+		var area: float = size_m.x * size_m.z
+		if PartLibrary.is_triangle_panel(type):
+			area *= 0.5
+		var lift: float = Aero.panel_force(moving, rot.y, area, true, Aero.SEA_LEVEL_AIR).dot(up)
+		total += lift
+		weighted += centroid_of(record) * lift
+	if absf(total) < 0.000001:
+		return [false, Vector3.ZERO]
+	return [true, weighted / total]
 
 
 # --- Changes -----------------------------------------------------------------
