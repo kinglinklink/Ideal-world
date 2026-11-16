@@ -6,9 +6,9 @@ extends Node3D
 ## act on it. This is the basic version: apart from the hinge, no part does
 ## anything yet, so every other joint, motor and engine is welded solid.
 ##
-## A hinge is the one working joint. It splits into two halves, base and top,
-## at its middle. Each half welds to what touches it, and the two halves are
-## joined so that they turn about the hinge's pin.
+## Hinges, motors and servos are the working joints. Each splits into a base
+## and a top. Each side welds to what touches it, and the two are joined so
+## that the top turns on the base: freely for a hinge, driven for the others.
 ##
 ## Thrusters push, and aero panels make lift and drag from the air moving
 ## over them. Input blocks read their keys while the character is seated, and
@@ -23,14 +23,10 @@ const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
+const Aero = preload("res://scripts/aero.gd")
 
 const TOUCH := 0.0004   # metres; faces this close together count as touching
 const BUCKET := 1.0     # metres; size of the sorting boxes used to find neighbours
-
-const SEA_LEVEL_AIR := 1.225    # kg/m^3
-const AIR_SCALE_HEIGHT := 8500.0   # metres; air density falls by e over this height
-const STALL_ANGLE := 15.0       # degrees
-const STALL_BLEND := 2.0        # degrees either side of stall over which the lift curves are blended
 
 var spawned := false
 var occupied_seat := 0         # uid of the seat the character is sitting in; set by the build controller
@@ -43,15 +39,49 @@ var _records: Dictionary = {}  # uid -> part record, as spawned; signal links ar
 var _thrusters: Array = []     # [body, transform inside it, thrust in newtons, links, flame]
 var _panels: Array = []        # aero panels: [body, centre inside it, normal inside it, area in m^2, dragless]
 var _inputs: Dictionary = {}   # input block uid -> its keys and what it is putting out
+var _drives: Array = []        # motors and servos; see _make_joint for what each holds
+var _outputs: Dictionary = {}  # drive uid -> the number on its output: RPM for a motor, degrees for a servo
 var _flame_mesh: Mesh = null
 
 
-# Welding works on "pieces". Most parts are one piece. A hinge is two: its
-# base half and its top half. A piece is numbered from its part's uid:
-# uid * 2 for a whole part or a hinge's base, uid * 2 + 1 for a hinge's top.
+# Welding works on "pieces". Most parts are one piece. A jointed part is two:
+# a base and a top that turns on it. A piece is numbered from its part's uid:
+# uid * 2 for a whole part or a joint's base, uid * 2 + 1 for a joint's top.
 
-static func is_hinge(record: Dictionary) -> bool:
-	return record["type"] == "hinge"
+## The parts that split in two when spawned. Places and sizes are fractions
+## of the part's own size, along the part's own axes.
+##   axis   the axis the top turns about: 0 = X, 1 = Y, 2 = Z
+##   pivot  a point on that axis
+##   base, top   [middle, size] of the box each side fills
+##   trim   scales the top's collision box, so a square top has room to turn
+const JOINTED := {
+	# Two leaves on a pin.
+	"hinge": {"axis": 0, "pivot": Vector3(0, 0, 0), "trim": Vector3(1, 1, 1),
+		"base": [Vector3(0, -0.25, 0), Vector3(1, 0.5, 1)],
+		"top": [Vector3(0, 0.25, 0), Vector3(1, 0.5, 1)]},
+	# A housing, with the output on the top face turning about the shaft.
+	"motor": {"axis": 1, "pivot": Vector3(0, 0, 0), "trim": Vector3(0.7, 1, 0.7),
+		"base": [Vector3(0, -0.125, 0), Vector3(1, 0.75, 1)],
+		"top": [Vector3(0, 0.375, 0), Vector3(1, 0.25, 1)]},
+	"servo": {"axis": 1, "pivot": Vector3(0, 0, 0), "trim": Vector3(0.7, 1, 0.7),
+		"base": [Vector3(0, -0.125, 0), Vector3(1, 0.75, 1)],
+		"top": [Vector3(0, 0.375, 0), Vector3(1, 0.25, 1)]},
+	# A plate on the bottom and a leaf standing at the back (-Z), hinged
+	# along the edge they share.
+	"door_hinge_servo": {"axis": 0, "pivot": Vector3(0, -0.3125, -0.3125), "trim": Vector3(1, 1, 1),
+		"base": [Vector3(0, -0.4375, 0), Vector3(1, 0.125, 1)],
+		"top": [Vector3(0, 0.0625, -0.4375), Vector3(1, 0.875, 0.125)]},
+}
+
+## The jointed parts that are driven, and how.
+const DRIVES := {"motor": "motor", "servo": "servo", "door_hinge_servo": "servo"}
+
+const SERVO_STIFFNESS := 40.0   # per second; how hard a servo pulls toward where it should be
+const DRIVE_GAIN := 0.5         # share of a speed error a drive corrects in one tick
+
+
+static func is_jointed(record: Dictionary) -> bool:
+	return JOINTED.has(record["type"])
 
 
 ## Builds the bodies from everything on the grid. Returns a short report:
@@ -97,12 +127,12 @@ func spawn(grid: Node3D) -> Dictionary:
 		if input_record["type"] == "input_block":
 			_inputs[input_uid] = _new_input_state(input_record.get("props", {}))
 
-	var hinges := 0
+	var hinges := 0   # joints of every kind that are free to turn
 	var locked := 0
 	for uid in records:
 		var part_uid: int = uid
 		var record: Dictionary = records[part_uid]
-		if not is_hinge(record):
+		if not is_jointed(record):
 			continue
 		var base_body: RigidBody3D = _piece_bodies.get(part_uid * 2)
 		var top_body: RigidBody3D = _piece_bodies.get(part_uid * 2 + 1)
@@ -111,7 +141,7 @@ func spawn(grid: Node3D) -> Dictionary:
 		if base_body == top_body:
 			locked += 1
 			continue
-		_make_hinge(grid_frame, record, base_body, top_body)
+		_make_joint(grid_frame, part_uid, record, base_body, top_body)
 		hinges += 1
 
 	_piece_bodies.clear()
@@ -137,6 +167,8 @@ func despawn() -> void:
 	_thrusters.clear()
 	_panels.clear()
 	_inputs.clear()
+	_drives.clear()
+	_outputs.clear()
 	occupied_seat = 0
 	spawned = false
 
@@ -180,45 +212,49 @@ func nearest_seat(world_point: Vector3, reach: float) -> int:
 
 # --- Pieces ------------------------------------------------------------------
 
-## The middle of one half of a hinge, in the grid's space, in metres.
-## The halves are split across the hinge's own Y axis; the top half is at +Y.
-static func _half_centre(record: Dictionary, top: bool) -> Vector3:
+## The [middle, size] of a jointed part's base or top, as fractions of the part.
+static func _piece_fractions(piece: int, record: Dictionary) -> Array:
+	var joint: Dictionary = JOINTED[record["type"]]
+	return joint["top"] if (piece & 1) == 1 else joint["base"]
+
+
+## The middle of one side of a jointed part, in the grid's space, in metres.
+static func _piece_middle(piece: int, record: Dictionary) -> Vector3:
 	var rot: Basis = record["rot"]
 	var size_units: Vector3i = record["size"]
-	var size_m: Vector3 = Units.to_metres(size_units)
-	var lift: float = size_m.y * (0.25 if top else -0.25)
-	return Vector3(record["pos"] as Vector3i) * Units.UNIT + rot * Vector3(0.0, lift, 0.0)
+	var middle: Vector3 = _piece_fractions(piece, record)[0]
+	return Vector3(record["pos"] as Vector3i) * Units.UNIT + rot * (middle * Units.to_metres(size_units))
 
 
-## The size of one half of a hinge along the hinge's own axes, in metres.
-static func _half_size(record: Dictionary) -> Vector3:
+## The size of one side of a jointed part along the part's own axes, in metres.
+static func _piece_size(piece: int, record: Dictionary) -> Vector3:
 	var size_units: Vector3i = record["size"]
-	var size_m: Vector3 = Units.to_metres(size_units)
-	return Vector3(size_m.x, size_m.y * 0.5, size_m.z)
+	var share: Vector3 = _piece_fractions(piece, record)[1]
+	return share * Units.to_metres(size_units)
 
 
 ## The bounding box of a piece, in the grid's space.
 static func _piece_box(piece: int, record: Dictionary) -> AABB:
-	if not is_hinge(record):
+	if not is_jointed(record):
 		return BuildGrid.bounds_of(record)
 	var rot: Basis = record["rot"]
-	var half: Vector3 = _half_size(record) * 0.5
+	var half: Vector3 = _piece_size(piece, record) * 0.5
 	var reach: Vector3 = (rot.x * half.x).abs() + (rot.y * half.y).abs() + (rot.z * half.z).abs()
-	var centre: Vector3 = _half_centre(record, (piece & 1) == 1)
+	var centre: Vector3 = _piece_middle(piece, record)
 	return AABB(centre - reach, reach * 2.0)
 
 
-## The mass of a piece in kilograms. A hinge's mass is shared by its halves.
+## The mass of a piece in kilograms. A jointed part's mass is shared by its two sides.
 static func _piece_mass(record: Dictionary) -> float:
-	if is_hinge(record):
+	if is_jointed(record):
 		return BuildGrid.mass_of(record) * 0.5
 	return BuildGrid.mass_of(record)
 
 
 ## A piece's centre of mass, in the grid's space.
 static func _piece_centre(piece: int, record: Dictionary) -> Vector3:
-	if is_hinge(record):
-		return _half_centre(record, (piece & 1) == 1)
+	if is_jointed(record):
+		return _piece_middle(piece, record)
 	return BuildGrid.centroid_of(record)
 
 
@@ -231,12 +267,16 @@ static func weld_groups(records: Dictionary) -> Array:
 	var parent: Dictionary = {}    # piece -> another piece in the same group
 	var boxes: Dictionary = {}     # piece -> bounding box
 	var buckets: Dictionary = {}   # sorting box -> the pieces that reach into it
+	# Every box first, because welding to one side of a joint has to look at the other side too.
 	for uid in records:
 		var part_uid: int = uid
 		var record: Dictionary = records[part_uid]
-		_add_piece(part_uid * 2, record, parent, boxes, buckets)
-		if is_hinge(record):
-			_add_piece(part_uid * 2 + 1, record, parent, boxes, buckets)
+		boxes[part_uid * 2] = _piece_box(part_uid * 2, record)
+		if is_jointed(record):
+			boxes[part_uid * 2 + 1] = _piece_box(part_uid * 2 + 1, record)
+	for piece in boxes:
+		var piece_id: int = piece
+		_add_piece(piece_id, parent, boxes, buckets)
 
 	var groups: Dictionary = {}
 	for piece in parent:
@@ -250,11 +290,9 @@ static func weld_groups(records: Dictionary) -> Array:
 
 
 ## Files one piece and welds it to every piece already filed that it touches.
-static func _add_piece(piece: int, record: Dictionary, parent: Dictionary,
-		boxes: Dictionary, buckets: Dictionary) -> void:
+static func _add_piece(piece: int, parent: Dictionary, boxes: Dictionary, buckets: Dictionary) -> void:
 	parent[piece] = piece
-	var box: AABB = _piece_box(piece, record)
-	boxes[piece] = box
+	var box: AABB = boxes[piece]
 	# Only pieces that reach into the same sorting box can be touching.
 	var margin := Vector3(TOUCH, TOUCH, TOUCH)
 	var low: Vector3 = ((box.position - margin) / BUCKET).floor()
@@ -276,23 +314,46 @@ static func _add_piece(piece: int, record: Dictionary, parent: Dictionary,
 ## True if two pieces weld to each other.
 static func _welds(a: int, b: int, boxes: Dictionary) -> bool:
 	if (a >> 1) == (b >> 1):
-		return false   # the two halves of one hinge: joined by its pin, never welded
+		return false   # the two sides of one joint: joined by its pin, never welded
 	var box_a: AABB = boxes[a]
 	var box_b: AABB = boxes[b]
 	if not _touching(box_a, box_b):
 		return false
-	# Something that touches both halves of a hinge, such as a block standing
-	# beside it, welds to the base half only. Otherwise one neighbour would
-	# lock the hinge solid.
-	if (a & 1) == 1:
-		var base_of_a: AABB = boxes[a - 1]
-		if _touching(box_b, base_of_a):
-			return false
-	if (b & 1) == 1:
-		var base_of_b: AABB = boxes[b - 1]
-		if _touching(box_a, base_of_b):
-			return false
-	return true
+	return _chooses(a, b, boxes) and _chooses(b, a, boxes)
+
+
+## Something that touches both sides of a joint welds to only one of them,
+## or it would lock the joint solid. It takes the side it shares more area
+## with, and the base if they are even. This answers whether `other` welds to
+## `piece` rather than to the other side of `piece`'s joint.
+static func _chooses(other: int, piece: int, boxes: Dictionary) -> bool:
+	var sibling: int = piece ^ 1
+	if not boxes.has(sibling):
+		return true   # not a jointed part
+	var other_box: AABB = boxes[other]
+	var sibling_box: AABB = boxes[sibling]
+	if not _touching(other_box, sibling_box):
+		return true
+	var piece_box: AABB = boxes[piece]
+	var with_piece: float = _contact(other_box, piece_box)
+	var with_sibling: float = _contact(other_box, sibling_box)
+	var even: bool = absf(with_piece - with_sibling) <= 0.02 * maxf(with_piece, with_sibling)
+	if (piece & 1) == 0:
+		return even or with_piece > with_sibling   # the base wins a tie
+	return not even and with_piece > with_sibling
+
+
+## How much two touching boxes share: the area of the face they meet over.
+static func _contact(a: AABB, b: AABB) -> float:
+	var a_high: Vector3 = a.end
+	var b_high: Vector3 = b.end
+	var spans: Array = []
+	for axis in 3:
+		spans.append(maxf(minf(a_high[axis], b_high[axis]) - maxf(a.position[axis], b.position[axis]), 0.0))
+	spans.sort()
+	var middle_span: float = spans[1]
+	var widest_span: float = spans[2]
+	return middle_span * widest_span
 
 
 ## True if two boxes overlap, or meet over an area rather than a line or point.
@@ -395,16 +456,20 @@ func _make_body(grid_frame: Transform3D, pieces: Array, records: Dictionary, sha
 		var mesh: Mesh
 		var shape_key: String
 		var shape_place := place
-		if is_hinge(record):
-			# Only this piece's half of the hinge: its leaf, and a box for it.
+		if is_jointed(record):
+			# Only this piece's side of the joint: its model, and a box for it.
 			var top: bool = (piece_id & 1) == 1
-			mesh = PartLibrary.get_mesh(type, {"half": "top" if top else "base"})
-			shape_key = "hinge half" + str(size_units)
+			var side: String = "top" if top else "base"
+			mesh = PartLibrary.get_mesh(type, {"half": side})
+			shape_key = "%s %s %s" % [type, side, size_units]
 			if not shapes.has(shape_key):
-				var half_box := BoxShape3D.new()
-				half_box.size = _half_size(record)
-				shapes[shape_key] = half_box
-			shape_place = Transform3D(rot, _half_centre(record, top) - centre)
+				var side_box := BoxShape3D.new()
+				side_box.size = _piece_size(piece_id, record)
+				if top:
+					var trim: Vector3 = JOINTED[type]["trim"]
+					side_box.size *= trim
+				shapes[shape_key] = side_box
+			shape_place = Transform3D(rot, _piece_middle(piece_id, record) - centre)
 		else:
 			mesh = PartLibrary.mesh_for_record(record)
 			shape_key = type + str(size_units)
@@ -451,44 +516,201 @@ func _make_body(grid_frame: Transform3D, pieces: Array, records: Dictionary, sha
 
 # --- Joints ------------------------------------------------------------------
 
-## Joins the two sides of a hinge so that they turn about its pin.
+## Joins the two sides of a jointed part so that the top turns on the base.
 ##
-## The pin runs along the hinge's own X axis through its middle. The angle is
-## zero as built, and the hinge's settings give its limits and its friction.
-## The two bodies a hinge joins do not collide with each other, so that a
-## hinge can swing without its own leaves or its neighbours jamming it; use
-## the angle limits to stop it where it should stop.
-func _make_hinge(grid_frame: Transform3D, record: Dictionary,
+## The angle is zero as built. A plain hinge takes its limits and friction
+## from its settings. A motor or servo is left free here and driven every
+## tick by _run_drives. The two bodies a joint connects do not collide with
+## each other, so that it can turn without its own halves or its neighbours
+## jamming it.
+func _make_joint(grid_frame: Transform3D, uid: int, record: Dictionary,
 		base_body: RigidBody3D, top_body: RigidBody3D) -> void:
+	var type: String = record["type"]
 	var rot: Basis = record["rot"]
 	var props: Dictionary = record.get("props", {})
+	var size_units: Vector3i = record["size"]
+	var joint_data: Dictionary = JOINTED[type]
+	var axis_index: int = joint_data["axis"]
+	var pivot_share: Vector3 = joint_data["pivot"]
+	var pivot: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT \
+			+ rot * (pivot_share * Units.to_metres(size_units))
+	var axis: Vector3 = rot[axis_index]
+	var across: Vector3 = rot[(axis_index + 1) % 3]
+
 	var joint := HingeJoint3D.new()
 	# A hinge joint turns about its own Z axis, so its Z is laid along the pin.
-	var pin_frame := Basis(rot.y, rot.z, rot.x)
-	joint.transform = grid_frame * Transform3D(pin_frame, Vector3(record["pos"] as Vector3i) * Units.UNIT)
+	var pin_frame := Basis(across, rot[(axis_index + 2) % 3], axis)
+	joint.transform = grid_frame * Transform3D(pin_frame, pivot)
 
-	if bool(props.get("limited", false)):
-		var lowest: float = deg_to_rad(float(props.get("min_angle", -90.0)))
-		var highest: float = deg_to_rad(float(props.get("max_angle", 90.0)))
-		if lowest <= highest:
-			joint.set_flag(HingeJoint3D.FLAG_USE_LIMIT, true)
-			joint.set_param(HingeJoint3D.PARAM_LIMIT_LOWER, lowest)
-			joint.set_param(HingeJoint3D.PARAM_LIMIT_UPPER, highest)
-
-	# Friction torque: a motor that aims for no turning, with only the
-	# friction torque to do it with. Torque x time step is its impulse limit.
-	var friction: float = float(props.get("friction", 0.0))
-	if friction > 0.0:
-		joint.set_flag(HingeJoint3D.FLAG_ENABLE_MOTOR, true)
-		joint.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, 0.0)
-		joint.set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE,
-				friction / float(Engine.physics_ticks_per_second))
+	if type == "hinge":
+		if bool(props.get("limited", false)):
+			var lowest: float = deg_to_rad(float(props.get("min_angle", -90.0)))
+			var highest: float = deg_to_rad(float(props.get("max_angle", 90.0)))
+			if lowest <= highest:
+				joint.set_flag(HingeJoint3D.FLAG_USE_LIMIT, true)
+				joint.set_param(HingeJoint3D.PARAM_LIMIT_LOWER, lowest)
+				joint.set_param(HingeJoint3D.PARAM_LIMIT_UPPER, highest)
+		# Friction torque: a motor that aims for no turning, with only the
+		# friction torque to do it with. Torque x time step is its impulse limit.
+		var friction: float = float(props.get("friction", 0.0))
+		if friction > 0.0:
+			joint.set_flag(HingeJoint3D.FLAG_ENABLE_MOTOR, true)
+			joint.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, 0.0)
+			joint.set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE,
+					friction / float(Engine.physics_ticks_per_second))
 
 	# The joint and the bodies are all children of this node.
 	joint.node_a = NodePath("../" + str(base_body.name))
 	joint.node_b = NodePath("../" + str(top_body.name))
 	add_child(joint)
 	_joints.append(joint)
+
+	if DRIVES.has(type):
+		# Both bodies start out square to the grid, so directions in the
+		# grid's space are also directions inside each body.
+		var world_pivot: Vector3 = grid_frame * pivot
+		_drives.append({
+			"uid": uid, "kind": DRIVES[type], "base": base_body, "top": top_body,
+			"axis": axis,                # the axis, inside the base body
+			"pivot": base_body.transform.affine_inverse() * world_pivot,   # a point on it, inside the base body
+			"from": across, "to": across,   # one direction square to the axis, inside the base and inside the top
+			"props": props, "links": record.get("links", {}),
+			"last": 0.0, "turned": 0.0,     # the angle now, wrapped and counted through whole turns
+			"rate": 0.0,                    # the speed being asked for, in rad/s
+			"setpoint": 0.0, "hold": 0.0,   # servo: where it should be now, and where it holds when idle
+		})
+
+
+# --- Drives ------------------------------------------------------------------
+
+## Runs every motor and servo.
+##
+## Each one measures the angle and the turning speed of its top against its
+## base, decides the speed it wants, and applies a torque to the top and the
+## opposite torque to the base, never more than its max torque. Positive
+## angles and speeds are counterclockwise seen from the top looking back at
+## the base: for a motor or servo that is about its own +Y.
+func _run_drives(delta: float) -> void:
+	for entry in _drives:
+		var drive: Dictionary = entry
+		var base: RigidBody3D = drive["base"]
+		var top: RigidBody3D = drive["top"]
+		var props: Dictionary = drive["props"]
+		var links: Dictionary = drive["links"]
+		var base_frame: Transform3D = base.global_transform
+		var local_axis: Vector3 = drive["axis"]
+		var axis: Vector3 = (base_frame.basis * local_axis).normalized()
+		var local_from: Vector3 = drive["from"]
+		var local_to: Vector3 = drive["to"]
+		var from: Vector3 = base_frame.basis * local_from
+		var to: Vector3 = top.global_transform.basis * local_to
+		var wrapped: float = atan2(axis.dot(from.cross(to)), from.dot(to))
+		var last: float = drive["last"]
+		var angle: float = float(drive["turned"]) + wrapf(wrapped - last, -PI, PI)
+		drive["last"] = wrapped
+		drive["turned"] = angle
+		var spin: float = (top.angular_velocity - base.angular_velocity).dot(axis)
+
+		var wanted_spin := 0.0
+		var powered := true
+		var rate: float = drive["rate"]
+		if drive["kind"] == "motor":
+			var top_spin: float = float(props.get("max_speed", 600.0)) * TAU / 60.0
+			var ramp: float = float(props.get("acceleration", 600.0)) * TAU / 60.0
+			# Speed is a share of max speed, -1 to 1. The two switches add a full turn each way.
+			var command: float = clampf(_input_value(links, "speed", 0.0), -1.0, 1.0)
+			if _input_value(links, "counterclockwise", 0.0) != 0.0:
+				command += 1.0
+			if _input_value(links, "clockwise", 0.0) != 0.0:
+				command -= 1.0
+			command = clampf(command, -1.0, 1.0)
+			if command == 0.0 and str(props.get("when_idle", "Hold still")) == "Spin freely":
+				powered = false
+				rate = spin   # so it picks up smoothly from whatever speed it has coasted to
+			else:
+				rate = move_toward(rate, command * top_spin, ramp * delta)
+				wanted_spin = rate
+			_outputs[drive["uid"]] = spin * 60.0 / TAU
+		else:
+			var top_speed: float = deg_to_rad(float(props.get("speed", 90.0)))
+			var easing: float = deg_to_rad(float(props.get("easing", 360.0)))
+			var setpoint: float = drive["setpoint"]
+			var go_positive: bool = _input_value(links, "go_positive", 0.0) != 0.0
+			var go_negative: bool = _input_value(links, "go_negative", 0.0) != 0.0
+			var target: float = deg_to_rad(float(props.get("default_angle", 0.0)))
+			var commanded := true
+			if go_positive and not go_negative:
+				target = deg_to_rad(float(props.get("positive_angle", 90.0)))
+			elif go_negative and not go_positive:
+				target = deg_to_rad(float(props.get("negative_angle", -90.0)))
+			elif links.has("angle"):
+				target = deg_to_rad(_input_value(links, "angle", 0.0))
+			else:
+				commanded = false
+				if str(props.get("when_idle", "Return to default angle")) == "Hold position":
+					target = drive["hold"]
+			# Move the setpoint toward the target: no faster than the servo's
+			# speed, easing away from rest and easing in to stop on the target.
+			var error: float = target - setpoint
+			var approach: float = top_speed
+			if easing > 0.0:
+				approach = minf(top_speed, sqrt(2.0 * easing * absf(error)))
+				rate = move_toward(rate, signf(error) * approach, easing * delta)
+			else:
+				rate = signf(error) * approach
+			if absf(error) <= absf(rate) * delta:
+				setpoint = target
+				rate = 0.0
+			else:
+				setpoint += rate * delta
+			drive["setpoint"] = setpoint
+			if commanded:
+				drive["hold"] = setpoint
+			wanted_spin = rate + SERVO_STIFFNESS * (setpoint - angle)
+			_outputs[drive["uid"]] = rad_to_deg(angle)
+		drive["rate"] = rate
+		if not powered:
+			continue
+
+		var world_pivot: Vector3 = base_frame * (drive["pivot"] as Vector3)
+		var inertia: float = _turning_inertia(base, top, axis, world_pivot)
+		var limit: float = float(props.get("max_torque", 100.0))
+		var torque: float = clampf(DRIVE_GAIN * inertia * (wanted_spin - spin) / delta, -limit, limit)
+		if torque == 0.0:
+			continue
+		if not top.freeze:
+			top.sleeping = false
+			top.apply_torque(axis * torque)
+		if not base.freeze:
+			base.sleeping = false
+			base.apply_torque(-axis * torque)
+
+
+## How hard the pair of bodies is to turn against each other about an axis,
+## in kg m^2: each body's own inertia about the axis, taken together.
+func _turning_inertia(base: RigidBody3D, top: RigidBody3D, axis: Vector3, pivot: Vector3) -> float:
+	var ease_of_turning: float = _inverse_inertia(base, axis, pivot) + _inverse_inertia(top, axis, pivot)
+	if ease_of_turning <= 0.0:
+		return 0.0
+	return 1.0 / ease_of_turning
+
+
+## One over a body's moment of inertia about an axis through `pivot`.
+## Zero for a body that is fixed in place.
+func _inverse_inertia(body: RigidBody3D, axis: Vector3, pivot: Vector3) -> float:
+	if body.freeze:
+		return 0.0
+	var state: PhysicsDirectBodyState3D = PhysicsServer3D.body_get_direct_state(body.get_rid())
+	if state == null:
+		return 0.0
+	var about_centre: float = axis.dot(state.inverse_inertia_tensor * axis)
+	if about_centre <= 0.0:
+		return 0.0
+	# The body turns about the pivot, not about its own centre of mass, so
+	# add mass x distance^2 (the parallel axis rule).
+	var arm: Vector3 = pivot - body.global_position
+	var distance_squared: float = maxf(arm.length_squared() - pow(arm.dot(axis), 2.0), 0.0)
+	return 1.0 / (1.0 / about_centre + body.mass * distance_squared)
 
 
 # --- Signals -----------------------------------------------------------------
@@ -556,6 +778,8 @@ func _input_value(links: Dictionary, input_id: String, unlinked: float) -> float
 		return float(state.get(output_id, 0.0))
 	if type == "seat":
 		return 1.0 if occupied_seat == source_uid else 0.0
+	if _outputs.has(source_uid):
+		return float(_outputs[source_uid])   # a motor's speed in RPM, a servo's angle in degrees
 	if type == "number_gate":
 		var props: Dictionary = source.get("props", {})
 		if str(props.get("operation", "")) == "Constant":
@@ -569,6 +793,7 @@ func _physics_process(delta: float) -> void:
 	if not spawned:
 		return
 	_update_inputs()
+	_run_drives(delta)
 	_run_thrusters()
 	_run_aero(delta)
 
@@ -622,31 +847,8 @@ func _new_flame(place: Transform3D, size_m: Vector3) -> MeshInstance3D:
 	return flame
 
 
-## Air density in kg/m^3 at a height in metres. It thins with altitude, which
-## gives wings a natural ceiling.
-static func air_density(height: float) -> float:
-	return SEA_LEVEL_AIR * exp(-maxf(height, 0.0) / AIR_SCALE_HEIGHT)
-
-
-## The lift coefficient of a flat panel at an angle of attack in radians.
-## Below stall lift rises steadily, 4.0 per radian. Past stall it follows a
-## flat plate, sin(2 x angle). The two are blended around the stall angle.
-static func lift_coefficient(angle: float) -> float:
-	var attached: float = 4.0 * angle
-	var stalled: float = sin(2.0 * angle)
-	var blend: float = smoothstep(deg_to_rad(STALL_ANGLE - STALL_BLEND),
-			deg_to_rad(STALL_ANGLE + STALL_BLEND), angle)
-	return lerpf(attached, stalled, blend)
-
-
-## Lift and drag on every aero panel.
-##
-## Each panel takes the air's speed at its own centre, including the spin of
-## the body it is on, and from that its angle of attack. Then
-##   lift = 1/2 x air density x speed^2 x area x lift coefficient
-##   drag = 1/2 x air density x speed^2 x area x (0.01 + 2 sin^2 angle)
-## Lift acts at right angles to the airflow and drag along it. A dragless
-## panel makes the lift and no drag at all.
+## Lift and drag on every aero panel. Each panel takes the air's speed at its
+## own centre, including the spin of the body it is on. See aero.gd.
 func _run_aero(delta: float) -> void:
 	for panel in _panels:
 		var body: RigidBody3D = panel[0]
@@ -658,26 +860,10 @@ func _run_aero(delta: float) -> void:
 		var area: float = panel[3]
 		var dragless: bool = panel[4]
 		var arm: Vector3 = frame.basis * centre
-		var normal: Vector3 = frame.basis * flat
 		var moving: Vector3 = body.linear_velocity + body.angular_velocity.cross(arm)
-		var speed: float = moving.length()
-		if speed < 0.05:
-			continue
-		var heading: Vector3 = moving / speed
-		# How squarely the panel meets the air: the sine of the angle of attack.
-		# Its sign says which face the air strikes.
-		var facing: float = heading.dot(normal)
-		var sine: float = minf(absf(facing), 1.0)
-		var angle: float = asin(sine)
-		var pressure: float = 0.5 * air_density(frame.origin.y + arm.y) * speed * speed * area
-		var force := Vector3.ZERO
-		if not dragless:
-			force = -heading * (pressure * (0.01 + 2.0 * sine * sine))
-		# Lift pushes the panel away from the face the air strikes, square to the airflow.
-		var across: Vector3 = normal - heading * facing
-		if across.length() > 0.0001:
-			force += across.normalized() * (-signf(facing) * pressure * lift_coefficient(angle))
+		var density: float = Aero.air_density(frame.origin.y + arm.y)
+		var force: Vector3 = Aero.panel_force(moving, frame.basis * flat, area, dragless, density)
 		# A tiny, light body in a fast airflow could be thrown about by one
 		# tick's force. Never push harder than would stop it dead in two ticks.
-		force = force.limit_length(0.5 * body.mass * speed / delta)
+		force = force.limit_length(0.5 * body.mass * moving.length() / delta)
 		body.apply_force(force, arm)
