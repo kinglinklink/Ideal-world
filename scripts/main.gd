@@ -95,6 +95,7 @@ func _ready() -> void:
 	player.terrain = terrain
 	spawner.terrain = terrain
 	combat.terrain = terrain
+	combat.structures = [terrain.towns, terrain.towers]
 	logic.terrain = terrain
 	_terrain = terrain
 

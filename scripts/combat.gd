@@ -38,6 +38,7 @@ const MAX_TRACERS := 96
 const RAY_MASK := Units.LAYER_WORLD | Units.LAYER_BODIES
 
 var spawner: Node3D = null   # spawner.gd
+var structures: Array = []   # towns.gd, towers.gd: things in the world that can be destroyed
 var terrain: Node3D = null   # terrain.gd: shots also stop at the ground, near or far
 
 var _generation := -1
@@ -52,6 +53,7 @@ var _flashes: Array = []           # [node, time left, full size]
 var _tracer_mesh: Mesh = null
 var _shell_mesh: Mesh = null
 var _flash_mesh: Mesh = null
+var _dust_mesh: Mesh = null
 
 
 ## Called by main.gd when the world re-centres: this node has already moved
@@ -150,6 +152,9 @@ func _start() -> void:
 ## Forgets everything from the last spawn and removes what is still flying.
 func _clear() -> void:
 	_generation = -1
+	for item in structures:
+		var structure: Node = item
+		structure.reset_damage()
 	_guns.clear()
 	_generators.clear()
 	_explosives.clear()
@@ -285,6 +290,8 @@ func _fire_bullet(uid: int, record: Dictionary) -> void:
 		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
 		if part != 0:
 			spawner.damage_part(part, BULLET_DAMAGE)
+		else:
+			_damage_structure(hit["collider"], int(hit["shape"]), BULLET_DAMAGE)
 	if body != null and not body.freeze:
 		body.apply_impulse(-direction * BULLET_MASS * BULLET_SPEED, from - body.global_position)
 	_add_tracer(from, to)
@@ -360,18 +367,26 @@ func _shell_travels(shell: Dictionary, from: Vector3, to: Vector3) -> bool:
 		var speed: Vector3 = shell["speed"]
 		var direction: Vector3 = speed.normalized()
 		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
-		if part != 0 and skip.has(part):
+		var structure: Node = _structure_of(hit["collider"])
+		var piece: Variant = part
+		if part == 0 and structure != null:
+			piece = structure.piece_id(hit["collider"], int(hit["shape"]))
+		if (part != 0 or structure != null) and skip.has(piece):
 			# Its collision has not been taken out of the world yet; look past it.
 			start = at + direction * 0.002
 			continue
 		var energy: float = 0.5 * mass * speed.length_squared()
 		var target := hit["collider"] as RigidBody3D
 		var health: float = 0.0
+		var breakable := part != 0
 		if part != 0:
 			health = spawner.health_of(part)
+		elif structure != null:
+			health = structure.piece_health(hit["collider"], int(hit["shape"]))
+			breakable = health >= 0.0
 		var spent: float = energy   # joules taken out of the shell here
 		var goes_on := false
-		if part != 0 and health < INF and health * 1000.0 < energy:
+		if breakable and health < INF and health * 1000.0 < energy:
 			spent = health * 1000.0
 			goes_on = true
 		var left: float = energy - spent
@@ -384,9 +399,11 @@ func _shell_travels(shell: Dictionary, from: Vector3, to: Vector3) -> bool:
 			target.apply_impulse((speed - new_speed) * mass, at - target.global_position)
 		if part != 0:
 			spawner.damage_part(part, spent * HP_PER_JOULE)
+		elif breakable:
+			_damage_structure(hit["collider"], int(hit["shape"]), spent * HP_PER_JOULE)
 		if not goes_on or new_speed == Vector3.ZERO:
 			return false
-		skip.append(part)
+		skip.append(piece)
 		shell["speed"] = new_speed
 		start = at + direction * 0.002
 	return true
@@ -498,7 +515,46 @@ func _set_off_blasts() -> void:
 					away = Vector3.UP
 				body.sleeping = false
 				body.apply_impulse(away.normalized() * dealt * BLAST_PUSH, point - body.global_position)
+		for item_structure in structures:
+			var structure: Node = item_structure
+			for spot in structure.blast(centre, radius, peak):
+				_add_dust(spot)
 	spawner.damage_parts(damage)
+
+
+# --- Buildings and towers ------------------------------------------------------
+
+## The towns or towers node a collider belongs to, or null.
+func _structure_of(collider: Object) -> Node:
+	if collider == null or not is_instance_valid(collider) or not collider.has_meta("structure"):
+		return null
+	return collider.get_meta("structure") as Node
+
+
+func _damage_structure(collider: Object, shape: int, amount: float) -> void:
+	var structure: Node = _structure_of(collider)
+	if structure == null:
+		return
+	for spot in structure.damage_piece(collider, shape, amount):
+		_add_dust(spot)
+
+
+## A cloud of dust where something big came down.
+func _add_dust(at: Vector3, size: float = 30.0) -> void:
+	var node := MeshInstance3D.new()
+	if _dust_mesh == null:
+		var ball := SphereMesh.new()
+		ball.radius = 0.5
+		ball.height = 1.0
+		ball.radial_segments = 12
+		ball.rings = 6
+		ball.material = _glow(Color(0.55, 0.50, 0.45, 0.55))
+		_dust_mesh = ball
+	node.mesh = _dust_mesh
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+	node.global_position = at
+	_flashes.append([node, FLASH_LIFE * 5.0, size, FLASH_LIFE * 5.0])
 
 
 # --- Effects -----------------------------------------------------------------
@@ -543,7 +599,7 @@ func _add_flash(at: Vector3, size: float) -> void:
 	add_child(node)
 	node.global_position = at
 	node.scale = Vector3.ONE * size * 0.3
-	_flashes.append([node, FLASH_LIFE, size])
+	_flashes.append([node, FLASH_LIFE, size, FLASH_LIFE])
 
 
 func _fade_effects(delta: float) -> void:
@@ -566,7 +622,7 @@ func _fade_effects(delta: float) -> void:
 			node.queue_free()
 			continue
 		# It swells to full size as it fades.
-		var done: float = 1.0 - float(flash[1]) / FLASH_LIFE
+		var done: float = clampf(1.0 - float(flash[1]) / float(flash[3]), 0.0, 1.0)
 		node.scale = Vector3.ONE * float(flash[2]) * lerpf(0.3, 1.0, sqrt(done))
 		flashes.append(flash)
 	_flashes = flashes

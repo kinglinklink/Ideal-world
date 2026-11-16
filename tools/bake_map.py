@@ -29,6 +29,7 @@ import sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+from scipy.spatial import cKDTree
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from map_common import ROOT, load_layer, layer_extent, resample, to_local  # noqa: E402
@@ -399,6 +400,7 @@ def main():
     polson_b = np.array(game_point(-114.187994, 47.689992))
     paved_airport(coarse, detail, "Polson", polson_a, polson_b, 23.0, base, features, clearings)
     mountain_airports(coarse, detail, coarse_water, land_to_water, inbounds, lake, base, features, clearings)
+    town_airports(coarse, detail, coarse_water, inbounds, lake, base, features, clearings)
 
     # --- Join the detailed area smoothly onto the rest ---
     from_coarse = coarse.sample(coarse.h, detail.X, detail.Z)
@@ -915,6 +917,80 @@ def mountain_airports(coarse, detail, coarse_water, land_to_water, inbounds, lak
         paved_airport(coarse, detail, name, spot - along * half, spot + along * half, 30.0, base, features, clearings,
                       max_slope=0.03)
         print("    (cut and fill about %.1f m on average)" % cost)
+
+
+TOWN_LENGTH = 700.0
+TOWN_WIDTH = 20.0
+TOWN_SEARCH = 4500.0        # metres from the middle of town to look for a site
+TOWN_MAX_EARTHWORK = 6.0    # metres of average cut and fill allowed
+TOWN_CLEAR_ALONG = 80.0     # metres past each runway end kept clear of buildings and roads
+TOWN_CLEAR_ACROSS = 170.0   # metres either side of the centre line kept clear (room for the apron)
+
+
+def town_airports(coarse, detail, coarse_water, inbounds, lake, base, features, clearings):
+    """A small paved airport near each town that has none: the flattest 700 m
+    line within reach of the town, on dry ground, clear of every building
+    and road, and away from the other airports."""
+    points, reaches = towns.obstacles(os.path.join(ROOT, "map", "osm.json"), PAD_REF)
+    tree = cKDTree(points) if len(points) else None
+    half = TOWN_LENGTH * 0.5
+    for name, lon, lat in TOWNS:
+        town = np.array(game_point(lon, lat))
+        if any(r["name"] == "%s airport" % name for r in features["runways"]):
+            continue   # Polson has its own
+        best = None
+        for x in np.arange(town[0] - TOWN_SEARCH, town[0] + TOWN_SEARCH + 1.0, 150.0):
+            for z in np.arange(town[1] - TOWN_SEARCH, town[1] + TOWN_SEARCH + 1.0, 150.0):
+                centre = np.array([x, z])
+                if np.linalg.norm(centre - town) > TOWN_SEARCH:
+                    continue
+                r, c = coarse.cell(x, z)
+                if not (0 <= r < coarse.rows and 0 <= c < coarse.cols) or not inbounds[r, c] or coarse_water[r, c]:
+                    continue
+                if any(np.linalg.norm(centre - np.array(rw["centre"])) < 2500.0 for rw in features["runways"]):
+                    continue
+                near = []
+                if tree is not None:
+                    near = tree.query_ball_point(centre, half + TOWN_CLEAR_ALONG + TOWN_CLEAR_ACROSS + 60.0)
+                for heading in np.arange(0.0, 180.0, 15.0):
+                    along, across = direction(heading)
+                    ok = True
+                    for e in np.linspace(-1.0, 1.0, 9):
+                        for s in (-1.0, 0.0, 1.0):
+                            p = centre + along * e * (half + 60.0) + across * s * 120.0
+                            rr, cc = coarse.cell(p[0], p[1])
+                            if not (0 <= rr < coarse.rows and 0 <= cc < coarse.cols) or not inbounds[rr, cc] \
+                                    or coarse_water[rr, cc]:
+                                ok = False
+                    if not ok:
+                        continue
+                    if len(near):
+                        rel = points[near] - centre
+                        t = np.abs(rel @ along)
+                        s = np.abs(rel @ across)
+                        reach = reaches[near]
+                        if np.any((t < half + TOWN_CLEAR_ALONG + reach) & (s < TOWN_CLEAR_ACROSS + reach)):
+                            continue
+                    t, rows = _profile_heights(coarse, centre, heading, half, (-TOWN_WIDTH, 0.0, TOWN_WIDTH), 20.0)
+                    if rows.min() < lake + 4.0:
+                        continue   # marsh and river flats at lake level
+                    line = rows.mean(axis=0)
+                    slope, mid = np.polyfit(t, line, 1)
+                    slope = float(np.clip(slope, -0.02, 0.02))
+                    mid = float(np.mean(line - slope * t))
+                    cost = float(np.mean(np.abs(rows - (mid + slope * t)[None, :])))
+                    # A little nearer town is a little better.
+                    score = cost + np.linalg.norm(centre - town) / 2000.0
+                    if best is None or score < best[0]:
+                        best = (score, cost, centre, heading)
+        if best is None or best[1] > TOWN_MAX_EARTHWORK:
+            print("  %s: no room for an airport" % name)
+            continue
+        _, cost, centre, heading = best
+        along, _ = direction(heading)
+        paved_airport(coarse, detail, name, centre - along * half, centre + along * half, TOWN_WIDTH, base,
+                      features, clearings, max_slope=0.02)
+        print("    (cut and fill about %.1f m on average, %.1f km from town)" % (cost, np.linalg.norm(centre - np.array(game_point(lon, lat))) / 1000.0))
 
 
 def longest_line(px, pz, step=4.0):

@@ -271,7 +271,7 @@ func _dock(dock: Dictionary) -> void:
 				pier.box(Vector3(sx * (width * 0.5 + 7.0), -0.15, -finger), Vector3(14.0, 0.3, 2.0), WOOD)
 			finger += 9.0
 		# The fleet: pontoon "arks" along the T-head, sailboats and fishing
-		# boats in the slips, canoes pulled up on the walkway.
+		# boats in the slips, canoes racked on the T-head.
 		for index in 3:
 			_boat(pier, Vector3(-20.0 + index * 20.0, -0.9, -length - 13.0), Vector3(4.5, 1.2, 12.0), Color(0.82, 0.82, 0.80), true)
 		var slip := 38.5
@@ -286,8 +286,9 @@ func _dock(dock: Dictionary) -> void:
 					pier.cylinder(Vector3(sx * (width * 0.5 + 7.0), 5.0, -slip), 0.1, 11.0, PAINT, false)
 				count += 1
 			slip += 9.0
+		# Canoes racked side by side on the T-head.
 		for index in 6:
-			pier.box(Vector3(-width * 0.5 + 1.0, 0.25, -6.0 - index * 1.2), Vector3(0.8, 0.4, 4.5),
+			pier.box(Vector3(14.0 + index * 1.4, 0.25, -length - 4.0), Vector3(0.8, 0.4, 4.5),
 					[Color(0.85, 0.35, 0.12), Color(0.15, 0.40, 0.70)][index % 2], false)
 	elif kind == "yacht":
 		map_points.append([start, "Cromwell dock"])
