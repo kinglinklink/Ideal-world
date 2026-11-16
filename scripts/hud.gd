@@ -12,12 +12,13 @@ const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Minimap = preload("res://scripts/minimap.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
+const SettingsPanel = preload("res://scripts/settings_panel.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 14"
+const VERSION := "Build 15"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -30,6 +31,7 @@ const TAB_LABELS := {
 }
 
 signal garage_button_pressed
+signal respawn_pressed
 
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
@@ -60,6 +62,7 @@ var _paint_brush_label: Label
 var _count_label: Label
 var _speed_label: Label
 var _fps_label: Label
+var _settings_panel: PanelContainer   # settings_panel.gd
 var _crosshair: Label
 var _message_label: Label
 var _message_time := 0.0
@@ -114,6 +117,17 @@ func set_map_features(features: Array) -> void:
 ## top of the screen offers the opposite.
 func set_garage_open(open: bool) -> void:
 	_garage_button.text = "Close garage" if open else "Open garage"
+
+
+## Loads and applies the saved settings. `forest` is forest.gd.
+func setup_settings(forest: Node) -> void:
+	_settings_panel.setup(forest)
+	_settings_panel.connect("changed", _on_settings_changed)
+	_on_settings_changed(_settings_panel.values)
+
+
+func _on_settings_changed(values: Dictionary) -> void:
+	_fps_label.visible = bool(values.get("show_fps", true))
 
 
 ## The map of the lake behind the mini map, and the places to label on it.
@@ -180,8 +194,8 @@ func _build_interface() -> void:
 
 	# Help text, top left.
 	var help := _outlined(_label(
-			"WASD walk   Shift run   Space jump   E sit in a seat   Scroll zoom\n"
-			+ "Hold right mouse to look   Esc free cursor (first person)\n"
+			"WASD walk or swim   Shift run   Space jump (swim up)   E sit in a seat   Scroll zoom\n"
+			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the pad\n"
 			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint (press again to put away)   Left click use tool\n"
 			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -194,10 +208,23 @@ func _build_interface() -> void:
 	top.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(top)
+	var top_buttons := _row()
+	top_buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	top_buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(top_buttons)
 	_garage_button = _button("Open garage", 150.0)
-	_garage_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_garage_button.pressed.connect(_on_garage_button)
-	top.add_child(_garage_button)
+	top_buttons.add_child(_garage_button)
+	var respawn := _button("Respawn (P)", 120.0)
+	respawn.tooltip_text = "Back to the build pad"
+	respawn.pressed.connect(func() -> void: respawn_pressed.emit())
+	top_buttons.add_child(respawn)
+	var settings := _button("Settings", 100.0)
+	settings.pressed.connect(func() -> void: _settings_panel.visible = not _settings_panel.visible)
+	top_buttons.add_child(settings)
+	_settings_panel = SettingsPanel.new()
+	_settings_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	top.add_child(_settings_panel)
 	_message_label = _outlined(_label("", 18))
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))

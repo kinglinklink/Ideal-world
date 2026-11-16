@@ -8,6 +8,7 @@ extends CharacterBody3D
 ## In first person the mouse always turns the camera; Esc frees the cursor.
 
 const Units = preload("res://scripts/units.gd")
+const MapInfo = preload("res://scripts/map_info.gd")
 
 const WALK_SPEED := 4.0       # m/s
 const RUN_SPEED := 7.5        # m/s
@@ -18,6 +19,11 @@ const MASS := 70.0            # kg; what the character weighs and pushes with
 const PUSH_TIME := 0.25       # seconds over which a push hands over the character's momentum
 const G_SMOOTHING := 0.2       # seconds; the g-force readout is averaged over about this long
 const GROUND_GRIP := 1.0      # friction coefficient between the feet and the ground or any fixed surface
+const SWIM_SPEED := 1.4       # m/s
+const SWIM_SPRINT := 2.4      # m/s with Shift
+const SWIM_PUSH := 3.0        # m/s^2 a swimmer can push itself through the water
+const FLOAT_DEPTH := 1.2      # metres of the body under water when floating: head and shoulders out
+const WATER_DRAG := 2.5       # 1/s; how fast the water slows the swimmer
 const MOUSE_SENSITIVITY := 0.0025
 const ZOOM_MAX := 80.0        # metres behind the character
 const BODY_SCALE := 0.85      # the character model is built 1.8 m tall, then shrunk
@@ -41,6 +47,7 @@ var _floor_point := Vector3.ZERO      # where the feet rest on it, in world spac
 var _floor_grip := GROUND_GRIP        # friction coefficient of whatever is underfoot
 var ride_velocity := Vector3.ZERO     # while seated: the velocity of the seat, for the speed readout
 var terrain: Node3D = null            # terrain.gd, for the height of the ground under the camera
+var swimming := false                 # in the lake, deeper than standing height
 var g_force := 1.0                    # the acceleration the character feels, in g: 1 standing still, 0 in free fall
 var _g_velocity := Vector3.ZERO       # the velocity at the last tick, for measuring acceleration
 var _g_skip := true                   # skip one measurement after sitting down or standing up
@@ -134,6 +141,17 @@ func stand_up(exit_point: Vector3) -> void:
 	_jump_locked = true   # the Space press that stood us up is not also a jump
 
 
+## Puts the character down at `at` (its feet, in world space), at rest,
+## facing `heading`.
+func teleport(at: Vector3, heading: float) -> void:
+	global_position = at
+	velocity = Vector3.ZERO
+	yaw = heading
+	_model.rotation.y = heading
+	_g_skip = true
+	_step_offset = 0.0
+
+
 ## The camera's orientation: -Z is where it looks, +X is to its right.
 func get_camera_basis() -> Basis:
 	return _camera.global_transform.basis
@@ -220,6 +238,10 @@ func _physics_process(delta: float) -> void:
 	var speed := WALK_SPEED
 	if Input.is_physical_key_pressed(KEY_SHIFT):
 		speed = RUN_SPEED
+	swimming = _in_deep_water()
+	if swimming:
+		_swim(direction, typing, delta)
+		return
 	var grounded := is_on_floor()
 	_floor_body = null
 	_floor_grip = GROUND_GRIP
@@ -286,6 +308,43 @@ func _physics_process(delta: float) -> void:
 	elif direction.length() > 0.1:
 		var target := atan2(-direction.x, -direction.z)
 		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-12.0 * delta))
+
+
+## True when the character is in the lake deep enough to float.
+func _in_deep_water() -> bool:
+	if terrain == null:
+		return false
+	var depth := MapInfo.LAKE_Y - global_position.y
+	if depth < FLOAT_DEPTH * 0.8:
+		return false
+	return terrain.lake_at(global_position)
+
+
+## Swimming. The body floats with its head and shoulders out (a person is
+## about as dense as water, a little less with air in the lungs), the water
+## slows every movement, and the arms push at most SWIM_PUSH. Space swims up
+## out of the water, for climbing onto a dock or a boat.
+func _swim(direction: Vector3, typing: bool, delta: float) -> void:
+	_floor_body = null
+	var depth := MapInfo.LAKE_Y - global_position.y
+	# Buoyancy: the deeper the body, the harder the water pushes it up,
+	# balancing gravity at FLOAT_DEPTH.
+	var lift := GRAVITY * clampf(depth / FLOAT_DEPTH, 0.0, 2.0)
+	velocity.y += (lift - GRAVITY) * delta
+	if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
+		velocity.y += SWIM_PUSH * 2.0 * delta
+	velocity *= exp(-WATER_DRAG * delta)
+	var top := SWIM_SPRINT if Input.is_physical_key_pressed(KEY_SHIFT) else SWIM_SPEED
+	var flat := Vector2(velocity.x, velocity.z)
+	flat = flat.move_toward(Vector2(direction.x, direction.z) * top, SWIM_PUSH * delta)
+	velocity.x = flat.x
+	velocity.z = flat.y
+	move_and_slide()
+	_measure_g(get_real_velocity(), delta)
+	_step_offset = lerpf(_step_offset, 0.0, 1.0 - exp(-14.0 * delta))
+	if direction.length() > 0.1:
+		var target := atan2(-direction.x, -direction.z)
+		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-6.0 * delta))
 
 
 ## Updates the g-force readout from the character's velocity this tick.
@@ -452,7 +511,7 @@ func _process(delta: float) -> void:
 		var lifted := _camera.global_position
 		var ground := 0.0
 		if terrain != null:
-			ground = terrain.height_at(lifted.x, lifted.z)
+			ground = terrain.ground_at(lifted)
 		if lifted.y < ground + 0.2:
 			lifted.y = ground + 0.2
 			_camera.global_position = lifted

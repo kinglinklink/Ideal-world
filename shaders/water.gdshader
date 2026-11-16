@@ -14,6 +14,7 @@ uniform vec2 coarse_size;
 uniform vec2 detail_origin;
 uniform float detail_spacing;
 uniform vec2 detail_size;
+uniform vec2 map_offset;    // map = world + map_offset (see origin.gd)
 uniform vec3 shallow : source_color = vec3(0.16, 0.42, 0.58);
 uniform vec3 deep : source_color = vec3(0.05, 0.20, 0.36);
 
@@ -46,10 +47,10 @@ void vertex() {
 }
 
 void fragment() {
-	if (!is_lake(world_position.xz)) {
+	vec2 xz = world_position.xz + map_offset;
+	if (!is_lake(xz)) {
 		discard;
 	}
-	vec2 xz = world_position.xz;
 	// Two layers of ripples drifting different ways.
 	float a = texture(noise_map, xz / 23.0 + vec2(TIME * 0.011, TIME * 0.007)).r;
 	float b = texture(noise_map, xz / 9.0 - vec2(TIME * 0.016, -TIME * 0.009)).r;

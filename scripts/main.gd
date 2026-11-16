@@ -5,6 +5,10 @@ extends Node3D
 ##
 ## World axes: Y is up, X and Z are the ground plane, north is -Z. Distances
 ## are in metres. Y = 0 is the level of the build pad; see map_info.gd.
+##
+## This script also keeps the world centred on the player (see origin.gd):
+## when the player strays more than 1.5 km from the origin, everything is
+## moved back by whole kilometres, so positions stay small and precise.
 
 const Units = preload("res://scripts/units.gd")
 const Player = preload("res://scripts/player.gd")
@@ -16,6 +20,7 @@ const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
 const Terrain = preload("res://scripts/terrain.gd")
 const Spawner = preload("res://scripts/spawner.gd")
 const Combat = preload("res://scripts/combat.gd")
+const Origin = preload("res://scripts/origin.gd")
 
 # The garage sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
@@ -30,6 +35,13 @@ var _garage_door: StaticBody3D
 var _garage_door_collider: CollisionShape3D
 var _garage_open := false
 var _hud: CanvasLayer
+var _player: CharacterBody3D
+var _spawner: Node3D
+var _combat: Node3D
+var _terrain: Node3D
+var _controller: Node3D
+var _start := Vector3.ZERO     # where the character starts and respawns, in map positions
+const START_HEADING := PI
 
 
 func _ready() -> void:
@@ -47,13 +59,16 @@ func _ready() -> void:
 	var player: CharacterBody3D = Player.new()
 	player.name = "Player"
 	# Start between the garage door and the pad, looking along +Z across the pad.
-	player.position = Vector3(pad_size.x * 0.5, 0.1, -GARAGE_GAP * 0.5)
-	player.yaw = PI
+	_start = Vector3(pad_size.x * 0.5, 0.1, -GARAGE_GAP * 0.5)
+	player.position = _start
+	player.yaw = START_HEADING
 	add_child(player)
+	_player = player
 
 	var spawner: Node3D = Spawner.new()
 	spawner.name = "Spawner"
 	add_child(spawner)
+	_spawner = spawner
 
 	# Guns, shells and explosives. Added after the spawner, so each tick it
 	# runs once the machines have moved.
@@ -61,6 +76,7 @@ func _ready() -> void:
 	combat.name = "Combat"
 	add_child(combat)
 	combat.setup(spawner)
+	_combat = combat
 
 	# The map: ground, lake, forests, airports and the wall round the edge.
 	# Set up before the first physics step, so the ground is solid under the
@@ -70,6 +86,9 @@ func _ready() -> void:
 	add_child(terrain)
 	terrain.setup(player, spawner, _grass_noise())
 	player.terrain = terrain
+	spawner.terrain = terrain
+	combat.terrain = terrain
+	_terrain = terrain
 
 	# Grass round the pad and garage.
 	var home_depth := GARAGE_GAP + GARAGE_SIZE.z
@@ -83,6 +102,7 @@ func _ready() -> void:
 	controller.name = "BuildController"
 	add_child(controller)
 	controller.setup(grid, player, spawner)
+	_controller = controller
 
 	var hud: CanvasLayer = Hud.new()
 	hud.name = "Hud"
@@ -92,6 +112,51 @@ func _ready() -> void:
 	hud.set_world_map(terrain.world, terrain.landmarks.map_points)
 	_hud = hud
 	hud.connect("garage_button_pressed", _on_garage_button)
+	hud.connect("respawn_pressed", _respawn)
+	hud.setup_settings(terrain.forest)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_P \
+			and get_viewport().gui_get_focus_owner() == null:
+		_respawn()
+
+
+## Sends the character back to the build pad.
+func _respawn() -> void:
+	_controller.respawn(Origin.to_world(_start), START_HEADING)
+
+
+# --- Keeping the world centred on the player ------------------------------------
+
+func _physics_process(_delta: float) -> void:
+	if _player == null:
+		return
+	var at := _player.global_position
+	if absf(at.x) > Origin.SHIFT_DISTANCE or absf(at.z) > Origin.SHIFT_DISTANCE:
+		var shift := Vector3(snappedf(at.x, Origin.SHIFT_STEP), 0.0, snappedf(at.z, Origin.SHIFT_STEP))
+		_shift_world(shift)
+
+
+## Moves everything in the world by -`shift`, so the player is back near the
+## origin. Velocities, joints and contacts are untouched: the whole world moves
+## together, so nothing can tell it happened. Shifts are whole multiples of
+## 1,024 m, which floats hold exactly, so nothing drifts.
+func _shift_world(shift: Vector3) -> void:
+	Origin.offset += shift
+	for child in get_children():
+		if child == _player:
+			_player.global_position -= shift
+		elif child == _spawner:
+			_spawner.shift_origin(shift)   # moves each body itself
+		elif child is DirectionalLight3D:
+			continue
+		elif child is Node3D:
+			var node: Node3D = child
+			node.position -= shift
+	_combat.shift_origin(shift)
+	_terrain.origin_shifted()
 
 
 func _make_sky_and_sun() -> void:

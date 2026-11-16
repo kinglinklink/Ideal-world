@@ -6,6 +6,9 @@ extends Node3D
 ##                              starting at the camp dock, with the camp
 ##                              lodge as its terminal
 ##   Cromwell Island villa      the unfinished four-storey stone mansion
+##   the other islands          gravel airstrips as long as each allows, or a
+##                              helipad where none fits, and the Shelter
+##                              Island mansion
 ##   the aircraft carrier       at a random spot on open water each time
 ##
 ## Buildings are made of boxes and cylinders, merged into one mesh per colour,
@@ -56,6 +59,10 @@ func setup(world: Dictionary) -> void:
 				_lodge(building)
 			"cromwell_mansion":
 				_mansion(building)
+			"shelter_mansion":
+				_shelter_mansion(building)
+	for item in world.get("helipads", []):
+		_helipad(item)
 	_carrier(world.get("carrier_spots", []))
 
 
@@ -162,7 +169,7 @@ func _bush_strip(runway: Dictionary) -> void:
 	var width := float(runway["width"])
 	var profile: Array = runway["profile"]
 	var step := float(runway["profile_step"])
-	map_points.append([centre, "Melita airstrip"])
+	map_points.append([centre, "%s airstrip" % str(runway.get("name", "Island")).trim_suffix(" Island")])
 
 	var a := deg_to_rad(heading)
 	var along := Vector3(sin(a), 0.0, -cos(a))
@@ -333,6 +340,60 @@ func _mansion(villa: Dictionary) -> void:
 	house.box(crane + Vector3(11.0, 47.0, 0.0), Vector3(3.0, 2.0, 2.4), STONE)
 	house.box(crane + Vector3(0.0, 46.5, 0.0), Vector3(2.4, 2.4, 2.4), GLASS)
 	house.finish()
+
+
+# --- Shelter Island mansion and helipads ---------------------------------------
+
+## The modern lake house on Shelter Island: two long storeys of stone and
+## timber in an L, a tall glass great room where the wings meet, low dark
+## roofs with deep eaves, and a deck toward the water.
+func _shelter_mansion(house_info: Dictionary) -> void:
+	var place := frame(_point(house_info["centre"]), float(house_info["ground"]), float(house_info["heading"]))
+	map_points.append([_point(house_info["centre"]), "Shelter mansion"])
+	var house := Builder.new(self, "ShelterMansion", place, 0.8)
+	var timber := Color(0.52, 0.38, 0.25)
+	var dark_roof := Color(0.20, 0.21, 0.23)
+	house.box(Vector3(0.0, 0.4, 0.0), Vector3(58.0, 0.8, 44.0), STONE)
+	# The long wing, along the strip.
+	house.box(Vector3(-6.0, 4.8, 8.0), Vector3(16.0, 8.0, 46.0), PALE_STONE)
+	house.box(Vector3(-6.0, 9.2, 8.0), Vector3(20.0, 0.6, 50.0), dark_roof)
+	# The cross wing.
+	house.box(Vector3(10.0, 4.4, -12.0), Vector3(28.0, 7.2, 14.0), timber)
+	house.box(Vector3(10.0, 8.4, -12.0), Vector3(32.0, 0.6, 18.0), dark_roof)
+	# The great room: glass most of the way up, under a raised roof.
+	house.box(Vector3(-6.0, 6.0, -12.0), Vector3(16.0, 10.4, 16.0), GLASS)
+	house.box(Vector3(-6.0, 11.6, -12.0), Vector3(20.0, 0.8, 20.0), dark_roof)
+	for corner in [Vector3(-13.8, 6.0, -19.8), Vector3(1.8, 6.0, -19.8), Vector3(-13.8, 6.0, -4.2), Vector3(1.8, 6.0, -4.2)]:
+		house.box(corner, Vector3(0.6, 10.4, 0.6), timber)
+	# Windows along both storeys of the long wing.
+	for storey in 2:
+		var y := 2.8 + storey * 3.8
+		var z := -12.0
+		while z <= 28.0:
+			house.box(Vector3(2.06, y, z), Vector3(0.12, 2.4, 3.0), GLASS, false)
+			house.box(Vector3(-14.06, y, z), Vector3(0.12, 2.4, 3.0), GLASS, false)
+			z += 5.0
+	# Stone chimneys, and a deck along the outer side.
+	house.box(Vector3(-6.0, 7.5, 30.0), Vector3(3.0, 15.0, 3.0), STONE)
+	house.box(Vector3(22.0, 6.5, -12.0), Vector3(3.0, 13.0, 3.0), STONE)
+	house.box(Vector3(7.0, 1.0, 8.0), Vector3(10.0, 0.3, 40.0), WOOD)
+	house.finish()
+
+
+## A helipad: a concrete square with an H, on the island's most inland spot.
+func _helipad(pad: Dictionary) -> void:
+	var centre := _point(pad["centre"])
+	map_points.append([centre, "%s helipad" % str(pad.get("name", "")).trim_suffix(" Island")])
+	var deck := Builder.new(self, "Helipad", frame(centre, float(pad["ground"]), 0.0), 0.8)
+	deck.box(Vector3(0.0, -0.19, 0.0), Vector3(22.0, 0.5, 22.0), Color(0.62, 0.62, 0.60))
+	deck.box(Vector3(0.0, 0.065, 0.0), Vector3(20.0, 0.02, 20.0), Color(0.30, 0.30, 0.32), false)
+	deck.box(Vector3(-3.0, 0.08, 0.0), Vector3(1.4, 0.02, 9.0), PAINT, false)
+	deck.box(Vector3(3.0, 0.08, 0.0), Vector3(1.4, 0.02, 9.0), PAINT, false)
+	deck.box(Vector3(0.0, 0.08, 0.0), Vector3(6.0, 0.02, 1.4), PAINT, false)
+	for x in [-10.0, 10.0]:
+		for z in [-10.0, 10.0]:
+			deck.box(Vector3(float(x), 0.2, float(z)), Vector3(0.4, 0.4, 0.4), Color(0.95, 0.85, 0.2), false)
+	deck.finish()
 
 
 # --- Aircraft carrier ----------------------------------------------------------

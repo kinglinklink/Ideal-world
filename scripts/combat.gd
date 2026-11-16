@@ -38,6 +38,7 @@ const MAX_TRACERS := 96
 const RAY_MASK := Units.LAYER_WORLD | Units.LAYER_BODIES
 
 var spawner: Node3D = null   # spawner.gd
+var terrain: Node3D = null   # terrain.gd: shots also stop at the ground, near or far
 
 var _generation := -1
 var _guns: Dictionary = {}         # gun uid -> {"cooldown": s}
@@ -51,6 +52,14 @@ var _flashes: Array = []           # [node, time left, full size]
 var _tracer_mesh: Mesh = null
 var _shell_mesh: Mesh = null
 var _flash_mesh: Mesh = null
+
+
+## Called by main.gd when the world re-centres: this node has already moved
+## with everything else, so only the remembered shell positions need moving.
+func shift_origin(shift: Vector3) -> void:
+	for item in _shells:
+		var shell: Dictionary = item
+		shell["at"] = (shell["at"] as Vector3) - shift
 
 
 func setup(the_spawner: Node3D) -> void:
@@ -185,7 +194,7 @@ func _run_generators(delta: float) -> void:
 
 
 ## Takes one round for a gun. True if it may fire.
-func _take_round(uid: int, record: Dictionary) -> bool:
+func _take_round(record: Dictionary) -> bool:
 	var props: Dictionary = record.get("props", {})
 	if bool(props.get("unlimited_ammo", true)):
 		return true
@@ -228,7 +237,7 @@ func _run_guns(delta: float) -> void:
 			interval = float(cannon_ballistics(record)["interval"])
 		var shots := 0
 		while cooldown <= 0.0 and shots < MAX_SHOTS_PER_TICK:
-			if not _take_round(uid, record):
+			if not _take_round(record):
 				cooldown = 0.0
 				break
 			if record["type"] == "machine_gun":
@@ -383,11 +392,48 @@ func _shell_travels(shell: Dictionary, from: Vector3, to: Vector3) -> bool:
 	return true
 
 
+## The first thing on the line from `from` to `to`: a body, a building, a
+## tree, or the ground itself. The ground is solid for physics only near the
+## character and spawned bodies, so a long shot also checks the map's heights
+## directly; a ground hit has no collider.
 func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	if from.is_equal_approx(to):
 		return {}
 	var query := PhysicsRayQueryParameters3D.create(from, to, RAY_MASK)
-	return get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+	if terrain == null:
+		return hit
+	var end: Vector3 = to if hit.is_empty() else hit["position"]
+	var ground := _ground_hit(from, end)
+	if ground.is_empty():
+		return hit
+	return {"position": ground[0], "collider": null, "shape": -1}
+
+
+## Where a straight line first goes under the ground, or empty. Steps along
+## it every few metres, then narrows the crossing down.
+func _ground_hit(from: Vector3, to: Vector3) -> Array:
+	var length := from.distance_to(to)
+	if length < 0.001:
+		return []
+	var steps := maxi(1, int(ceil(length / 4.0)))
+	var previous := from
+	if previous.y < terrain.ground_at(previous):
+		return []   # starting underground: leave it to the physics
+	for step in range(1, steps + 1):
+		var point := from.lerp(to, float(step) / steps)
+		if point.y < terrain.ground_at(point):
+			var above := previous
+			var below := point
+			for _narrow in 8:
+				var middle := (above + below) * 0.5
+				if middle.y < terrain.ground_at(middle):
+					below = middle
+				else:
+					above = middle
+			return [above]
+		previous = point
+	return []
 
 
 # --- Explosives --------------------------------------------------------------

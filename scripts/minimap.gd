@@ -6,6 +6,7 @@ extends Control
 ## 12 km across in a fast plane.
 
 const MapInfo = preload("res://scripts/map_info.gd")
+const Origin = preload("res://scripts/origin.gd")
 
 const NEAR_RANGE := 300.0    # metres from the centre to the edge, standing still
 const FAR_RANGE := 6000.0
@@ -68,7 +69,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, extent), BACKGROUND)
 	if player == null:
 		return
-	var centre := player.global_position
+	var centre := Origin.to_map(player.global_position)   # everything on the map is in map positions
 	var pixels_per_metre := extent.x * 0.5 / _range
 	var font := get_theme_default_font()
 
