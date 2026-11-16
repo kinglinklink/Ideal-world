@@ -3,16 +3,19 @@ extends RefCounted
 ## Used by Spawn for the real forces and by build mode for the centre of
 ## lift marker, so the two can never disagree.
 
+const MapInfo = preload("res://scripts/map_info.gd")
+
 const SEA_LEVEL_AIR := 1.225       # kg/m^3
 const AIR_SCALE_HEIGHT := 8500.0   # metres; air density falls by e over this height
 const STALL_ANGLE := 15.0          # degrees
 const STALL_BLEND := 2.0           # degrees either side of stall over which the lift curves are blended
 
 
-## Air density in kg/m^3 at a height in metres. It thins with altitude, which
-## gives wings a natural ceiling.
+## Air density in kg/m^3 at a height in game metres (above the build pad).
+## It thins with real altitude above sea level, which gives wings a natural
+## ceiling: the pad on Wild Horse Island is about 900 m up already.
 static func air_density(height: float) -> float:
-	return SEA_LEVEL_AIR * exp(-maxf(height, 0.0) / AIR_SCALE_HEIGHT)
+	return SEA_LEVEL_AIR * exp(-maxf(height + MapInfo.BASE_ELEVATION, 0.0) / AIR_SCALE_HEIGHT)
 
 
 ## The lift coefficient of a flat panel at an angle of attack in radians.

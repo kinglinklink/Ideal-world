@@ -1,8 +1,10 @@
 extends Node3D
-## Entry point. Builds the starting area in code: sky, sun, ground, the build
-## pad, the player, the build tools and the interface.
+## Entry point. Builds the world in code: sky, sun, the Flathead Lake map,
+## the build pad on Wild Horse Island, the player, the build tools and the
+## interface.
 ##
-## World axes: Y is up, X and Z are the ground plane. Distances are in metres.
+## World axes: Y is up, X and Z are the ground plane, north is -Z. Distances
+## are in metres. Y = 0 is the level of the build pad; see map_info.gd.
 
 const Units = preload("res://scripts/units.gd")
 const Player = preload("res://scripts/player.gd")
@@ -11,11 +13,9 @@ const BuildController = preload("res://scripts/build_controller.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Scenery = preload("res://scripts/scenery.gd")
 const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
-const GROUND_SHADER = preload("res://shaders/ground.gdshader")
+const Terrain = preload("res://scripts/terrain.gd")
 const Spawner = preload("res://scripts/spawner.gd")
 const Combat = preload("res://scripts/combat.gd")
-
-const GROUND_SIZE := 6000.0   # metres across
 
 # The garage sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
@@ -23,9 +23,8 @@ const GARAGE_GAP := 12.0                        # from the garage door to the pa
 const DOOR_SIZE := Vector2(16.0, 5.5)           # width, height in metres
 const WALL_THICKNESS := 0.4
 
-# Plants keep clear of the pad and garage by these distances, in metres.
+# Grass keeps clear of the pad and garage by this distance, in metres.
 const GRASS_MARGIN := 45.0
-const TREE_MARGIN := 80.0
 
 var _garage_door: StaticBody3D
 var _garage_door_collider: CollisionShape3D
@@ -35,7 +34,6 @@ var _hud: CanvasLayer
 
 func _ready() -> void:
 	_make_sky_and_sun()
-	_make_ground()
 
 	var grid: Node3D = BuildGrid.new()
 	grid.name = "BuildGrid"
@@ -45,14 +43,6 @@ func _ready() -> void:
 	var pad_size: Vector3 = grid.size_metres()
 	var map_features: Array = _make_garage(pad_size)
 	map_features.append([Rect2(0.0, 0.0, pad_size.x, pad_size.z), Color(0.20, 0.26, 0.36), "Build pad"])
-
-	# Grass and trees, kept well back from the pad and the garage.
-	var home_depth := GARAGE_GAP + GARAGE_SIZE.z
-	var home := Rect2(0.0, -home_depth, pad_size.x, pad_size.z + home_depth)
-	var scenery: Node3D = Scenery.new()
-	scenery.name = "Scenery"
-	add_child(scenery)
-	scenery.build(home, GRASS_MARGIN, TREE_MARGIN)
 
 	var player: CharacterBody3D = Player.new()
 	player.name = "Player"
@@ -72,6 +62,23 @@ func _ready() -> void:
 	add_child(combat)
 	combat.setup(spawner)
 
+	# The map: ground, lake, forests, airports and the wall round the edge.
+	# Set up before the first physics step, so the ground is solid under the
+	# character from the start.
+	var terrain: Node3D = Terrain.new()
+	terrain.name = "Terrain"
+	add_child(terrain)
+	terrain.setup(player, spawner, _grass_noise())
+	player.terrain = terrain
+
+	# Grass round the pad and garage.
+	var home_depth := GARAGE_GAP + GARAGE_SIZE.z
+	var home := Rect2(0.0, -home_depth, pad_size.x, pad_size.z + home_depth)
+	var scenery: Node3D = Scenery.new()
+	scenery.name = "Scenery"
+	add_child(scenery)
+	scenery.build(home, GRASS_MARGIN, terrain)
+
 	var controller: Node3D = BuildController.new()
 	controller.name = "BuildController"
 	add_child(controller)
@@ -82,7 +89,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(controller, grid, player)
 	hud.set_map_features(map_features)
-	hud.set_map_trees(scenery.tree_spots)
+	hud.set_world_map(terrain.world, terrain.landmarks.map_points)
 	_hud = hud
 	hud.connect("garage_button_pressed", _on_garage_button)
 
@@ -102,6 +109,12 @@ func _make_sky_and_sun() -> void:
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# Haze, so the far mountains fade into the sky.
+	environment.fog_enabled = true
+	environment.fog_light_color = Color(0.70, 0.80, 0.90)
+	environment.fog_density = 0.00005
+	environment.fog_sky_affect = 0.0
+	environment.fog_aerial_perspective = 0.4
 
 	var world_environment := WorldEnvironment.new()
 	world_environment.name = "WorldEnvironment"
@@ -113,26 +126,13 @@ func _make_sky_and_sun() -> void:
 	sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
 	sun.light_energy = 1.2
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 150.0
+	sun.directional_shadow_max_distance = 250.0
 	add_child(sun)
 
 
-## A flat grass slab. Its top face is the ground plane at Y = 0.
-func _make_ground() -> void:
-	var ground := StaticBody3D.new()
-	ground.name = "Ground"
-	ground.position = Vector3(0.0, -0.5, 0.0)
-	add_child(ground)
-
-	var slab := Vector3(GROUND_SIZE, 1.0, GROUND_SIZE)
-
-	var shape := BoxShape3D.new()
-	shape.size = slab
-	var collider := CollisionShape3D.new()
-	collider.shape = shape
-	ground.add_child(collider)
-
-	# Grass: one seamless noise picture, mixed at three sizes by the shader.
+## The noise picture the ground and water shaders read for grass mottling
+## and ripples.
+func _grass_noise() -> NoiseTexture2D:
 	var noise := FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	noise.seed = 7
@@ -144,15 +144,7 @@ func _make_ground() -> void:
 	noise_map.seamless = true
 	noise_map.generate_mipmaps = true
 	noise_map.noise = noise
-	var material := ShaderMaterial.new()
-	material.shader = GROUND_SHADER
-	material.set_shader_parameter("noise_map", noise_map)
-	var mesh := BoxMesh.new()
-	mesh.size = slab
-	mesh.material = material
-	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.mesh = mesh
-	ground.add_child(mesh_instance)
+	return noise_map
 
 
 func _solid(parent: Node3D, size: Vector3, at: Vector3, color: Color) -> void:

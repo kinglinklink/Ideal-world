@@ -1956,6 +1956,17 @@ func set_outputs(uid: int, values: Dictionary) -> void:
 	_outputs[uid] = values
 
 
+## Where each moving body is and how fast it is going: [position, velocity]
+## pairs, for the map to keep the ground solid round them.
+func body_motions() -> Array:
+	var motions: Array = []
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if is_instance_valid(body) and not body.freeze:
+			motions.append([body.global_position, body.linear_velocity])
+	return motions
+
+
 ## Every spawned part's record, by uid, as it was spawned. Destroyed parts
 ## are still listed; ask record_of to leave those out.
 func all_records() -> Dictionary:
