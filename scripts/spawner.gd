@@ -27,6 +27,7 @@ const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const Aero = preload("res://scripts/aero.gd")
+const MapInfo = preload("res://scripts/map_info.gd")
 
 ## Emitted when a part's health runs out and it is removed.
 signal part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary)
@@ -37,6 +38,10 @@ const PIECES := 8       # a part's pieces are numbered uid * PIECES + 0, 1, 2 ..
 
 const SERVO_GAIN := 0.2      # share of a position error a servo or piston sets out to close each tick
 const SOLENOID_SPEED := 5.0  # m/s; a solenoid snaps across as fast as its force allows, up to this
+const WATER_DENSITY := 1000.0   # kg/m^3
+const WATER_DRAG := 0.5         # drag coefficient of a submerged float
+const FLOAT_CELL := 1.0         # metres; floats are merged into cubes this size
+const MAX_AIR_CELLS := 1500000  # bigger builds skip the sealed-air search
 
 ## The parts that come apart when spawned. Places and sizes are fractions of
 ## the part's own size, along the part's own axes.
@@ -135,6 +140,9 @@ var _health: Dictionary = {}       # uid -> health points left
 var _boxes: Dictionary = {}        # piece -> its bounding box in the grid's space, for welding
 var _pieces: Dictionary = {}       # piece -> {"uid", "body", "mesh", "collider", "extras", "mass", "friction", "centre", "place"}
 var _bodies: Array = []            # every RigidBody3D
+var terrain: Node3D = null         # terrain.gd, to tell lake from dry land
+var _floats: Dictionary = {}       # body -> [PackedVector3Array points in the body, PackedFloat32Array volumes, reach]
+var _air: Dictionary = {}          # body -> [PackedVector3Array, PackedFloat32Array]: sealed air, merged into cubes
 var _body_pieces: Dictionary = {}  # body -> Array of the pieces in it
 var _body_count := 0               # for naming bodies
 var _shapes: Dictionary = {}       # collision shapes, shared between identical pieces
@@ -168,6 +176,11 @@ var _slide_votes := 0
 # --- Machines and pieces -----------------------------------------------------
 
 ## The MACHINES entry for a part, or {} for a part that stays in one piece.
+## The uid of the part a piece belongs to.
+static func _uid_of(piece: int) -> int:
+	return floori(float(piece) / PIECES)
+
+
 static func machine_of(record: Dictionary) -> Dictionary:
 	var type: String = record["type"]
 	if not MACHINES.has(type):
@@ -287,7 +300,7 @@ func spawn(grid: Node3D) -> Dictionary:
 		var rough: Array = []
 		for piece in pieces:
 			var piece_id: int = piece
-			var piece_record: Dictionary = _records[piece_id / PIECES]
+			var piece_record: Dictionary = _records[_uid_of(piece_id)]
 			var piece_material: String = piece_record["material"]
 			if MaterialLibrary.is_immovable(piece_material):
 				slick.append(piece_id)
@@ -330,6 +343,7 @@ func spawn(grid: Node3D) -> Dictionary:
 
 	_find_gears()
 	_find_meshes()
+	_find_air()
 	generation += 1
 	spawned = true
 	return {
@@ -370,6 +384,8 @@ func despawn() -> void:
 	_gears.clear()
 	_meshes.clear()
 	_racks.clear()
+	_floats.clear()
+	_air.clear()
 	occupied_seat = 0
 	spawned = false
 
@@ -385,7 +401,7 @@ func _piece_body(piece: int) -> RigidBody3D:
 func _has_anchor(pieces: Array) -> bool:
 	for piece in pieces:
 		var piece_id: int = piece
-		var record: Dictionary = _records[piece_id / PIECES]
+		var record: Dictionary = _records[_uid_of(piece_id)]
 		if record["type"] == "anchor_block":
 			return true
 	return false
@@ -491,7 +507,7 @@ static func _add_piece(piece: int, parent: Dictionary, boxes: Dictionary, bucket
 
 ## True if two pieces weld to each other.
 static func _welds(a: int, b: int, boxes: Dictionary) -> bool:
-	if a / PIECES == b / PIECES:
+	if _uid_of(a) == _uid_of(b):
 		return false   # pieces of one machine: held by its joints, never welded
 	var box_a: AABB = boxes[a]
 	var box_b: AABB = boxes[b]
@@ -645,7 +661,7 @@ func _make_body(pieces: Array, fixed: bool) -> float:
 	var moment := Vector3.ZERO   # sum of mass x position, for the centre of mass
 	for piece in pieces:
 		var piece_id: int = piece
-		var record: Dictionary = _records[piece_id / PIECES]
+		var record: Dictionary = _records[_uid_of(piece_id)]
 		var piece_mass: float = _piece_mass(piece_id, record)
 		mass += piece_mass
 		moment += _piece_centre(piece_id, record) * piece_mass
@@ -680,7 +696,7 @@ func _make_body(pieces: Array, fixed: bool) -> float:
 ## and whatever it does. `centre` is the body's origin in the grid's space.
 ## Returns true if the piece is solid.
 func _build_piece(body: RigidBody3D, piece: int, centre: Vector3) -> bool:
-	var uid: int = piece / PIECES
+	var uid: int = _uid_of(piece)
 	var record: Dictionary = _records[uid]
 	var type: String = record["type"]
 	var rot: Basis = record["rot"]
@@ -796,6 +812,7 @@ func _refresh_body(body: RigidBody3D) -> void:
 	body.mass = maxf(mass, 0.001)
 	body.center_of_mass = centre
 	body.physics_material_override.friction = grip / mass   # the mass-weighted average of its materials
+	_rebuild_floats(body)
 
 
 # --- Damage ------------------------------------------------------------------
@@ -948,6 +965,10 @@ func _remove_part(uid: int, touched: Array, gone: Array) -> void:
 ## otherwise checks whether what is left still hangs together. Each separate
 ## chunk beyond the heaviest becomes a new body.
 func _resplit(body: RigidBody3D) -> void:
+	# A hull that has lost a part is holed: its sealed air floods.
+	if _air.has(body):
+		_air.erase(body)
+		_rebuild_floats(body)
 	var pieces: Array = _body_pieces.get(body, [])
 	if not _any_solid(pieces):
 		for piece in pieces:
@@ -1000,7 +1021,7 @@ func _mass_of_pieces(pieces: Array) -> float:
 func _chunk_is_fixed(pieces: Array) -> bool:
 	for piece in pieces:
 		var piece_id: int = piece
-		var record: Dictionary = _records[piece_id / PIECES]
+		var record: Dictionary = _records[_uid_of(piece_id)]
 		var material: String = record["material"]
 		if record["type"] == "anchor_block" or MaterialLibrary.is_immovable(material):
 			return true
@@ -2003,6 +2024,202 @@ func _physics_process(delta: float) -> void:
 	_run_gears()
 	_run_thrusters()
 	_run_aero(delta)
+	_run_buoyancy(delta)
+
+
+# --- Re-centring ---------------------------------------------------------------
+
+## Moves every body and joint by -`shift` when main.gd re-centres the world.
+func shift_origin(shift: Vector3) -> void:
+	_grid_frame.origin -= shift
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if is_instance_valid(body):
+			body.global_position -= shift
+	for entry in _joints:
+		var joint_entry: Dictionary = entry
+		var node: Node3D = joint_entry["node"]
+		if is_instance_valid(node):
+			node.global_position -= shift
+
+
+# --- Floating ------------------------------------------------------------------
+
+## Works out the floats of a body: every part's own solid volume (its mass
+## over its material's density), plus any air sealed inside it, merged into
+## 1 m cubes. Points are inside the body, measured from its origin.
+func _rebuild_floats(body: RigidBody3D) -> void:
+	var cubes: Dictionary = {}   # Vector3i -> [volume, volume x position]
+	for piece in _body_pieces.get(body, []):
+		var entry: Dictionary = _pieces[piece]
+		var record: Dictionary = _records[_uid_of(piece)]
+		var density: float = MaterialLibrary.density(str(record["material"]))
+		if density <= 0.0:
+			continue
+		var volume: float = float(entry["mass"]) / density
+		var point: Vector3 = entry["centre"]
+		_add_to_cube(cubes, point, volume)
+	if _air.has(body):
+		var air: Array = _air[body]
+		var points: PackedVector3Array = air[0]
+		var volumes: PackedFloat32Array = air[1]
+		for index in points.size():
+			_add_to_cube(cubes, points[index], volumes[index])
+	var out_points := PackedVector3Array()
+	var out_volumes := PackedFloat32Array()
+	var reach := 0.0
+	for key in cubes:
+		var cube: Array = cubes[key]
+		var volume: float = cube[0]
+		if volume <= 0.0:
+			continue
+		var point: Vector3 = cube[1] / volume
+		out_points.append(point)
+		out_volumes.append(volume)
+		reach = maxf(reach, point.length())
+	_floats[body] = [out_points, out_volumes, reach + FLOAT_CELL]
+
+
+static func _add_to_cube(cubes: Dictionary, point: Vector3, volume: float) -> void:
+	var key := Vector3i((point / FLOAT_CELL).floor())
+	if not cubes.has(key):
+		cubes[key] = [0.0, Vector3.ZERO]
+	var cube: Array = cubes[key]
+	cube[0] = float(cube[0]) + volume
+	cube[1] = (cube[1] as Vector3) + point * volume
+
+
+## Finds the air sealed inside each body: the empty grid cells inside it that
+## cannot be reached from outside without passing through a part. A boat
+## with a closed hull floats on that air, as a real one does.
+@warning_ignore("integer_division")
+func _find_air() -> void:
+	var cell := Units.CELL
+	var to_grid := _grid_frame.affine_inverse()
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if body.freeze:
+			continue
+		var pieces: Array = _body_pieces.get(body, [])
+		if pieces.is_empty():
+			continue
+		var bounds := AABB()
+		var first := true
+		for piece in pieces:
+			var box: AABB = _boxes[piece]
+			bounds = box if first else bounds.merge(box)
+			first = false
+		# One empty cell of margin all round, where the flood starts.
+		var low := Vector3i((bounds.position / cell).floor()) - Vector3i.ONE
+		var high := Vector3i((bounds.end / cell).ceil()) + Vector3i.ONE
+		var span := high - low
+		var total := span.x * span.y * span.z
+		if total <= 0 or total > MAX_AIR_CELLS:
+			continue
+		var solid := PackedByteArray()
+		solid.resize(total)
+		for piece in pieces:
+			var box: AABB = _boxes[piece]
+			var from := Vector3i((box.position / cell + Vector3(0.001, 0.001, 0.001)).floor()) - low
+			var to := Vector3i((box.end / cell - Vector3(0.001, 0.001, 0.001)).ceil()) - low
+			for x in range(maxi(from.x, 0), mini(to.x, span.x)):
+				for y in range(maxi(from.y, 0), mini(to.y, span.y)):
+					var row := (x * span.y + y) * span.z
+					for z in range(maxi(from.z, 0), mini(to.z, span.z)):
+						solid[row + z] = 1
+		# Flood the outside: 2 marks a cell the outside water could reach.
+		var stack := PackedInt32Array([0])
+		solid[0] = 2
+		var step_x := span.y * span.z
+		var step_y := span.z
+		while not stack.is_empty():
+			var at: int = stack[stack.size() - 1]
+			stack.resize(stack.size() - 1)
+			var x := at / step_x
+			var y := (at % step_x) / step_y
+			var z := at % step_y
+			if x > 0 and solid[at - step_x] == 0:
+				solid[at - step_x] = 2
+				stack.append(at - step_x)
+			if x < span.x - 1 and solid[at + step_x] == 0:
+				solid[at + step_x] = 2
+				stack.append(at + step_x)
+			if y > 0 and solid[at - step_y] == 0:
+				solid[at - step_y] = 2
+				stack.append(at - step_y)
+			if y < span.y - 1 and solid[at + step_y] == 0:
+				solid[at + step_y] = 2
+				stack.append(at + step_y)
+			if z > 0 and solid[at - 1] == 0:
+				solid[at - 1] = 2
+				stack.append(at - 1)
+			if z < span.z - 1 and solid[at + 1] == 0:
+				solid[at + 1] = 2
+				stack.append(at + 1)
+		# What is left at 0 is sealed air. Gather it into cubes inside the body.
+		var origin_in_grid: Vector3 = to_grid * body.global_position
+		var cubes: Dictionary = {}
+		var cell_volume := cell * cell * cell
+		for index in total:
+			if solid[index] != 0:
+				continue
+			var x := index / step_x
+			var y := (index % step_x) / step_y
+			var z := index % step_y
+			var middle := (Vector3(low + Vector3i(x, y, z)) + Vector3(0.5, 0.5, 0.5)) * cell
+			_add_to_cube(cubes, middle - origin_in_grid, cell_volume)
+		if cubes.is_empty():
+			continue
+		var points := PackedVector3Array()
+		var volumes := PackedFloat32Array()
+		for key in cubes:
+			var cube: Array = cubes[key]
+			points.append((cube[1] as Vector3) / float(cube[0]))
+			volumes.append(float(cube[0]))
+		_air[body] = [points, volumes]
+		_rebuild_floats(body)
+
+
+## Water holds up whatever is in it with the weight of the water it pushes
+## aside (Archimedes), and drags on whatever moves through it. Each float is
+## treated as a cube; the share of it below the surface is what counts.
+func _run_buoyancy(delta: float) -> void:
+	if terrain == null:
+		return
+	var surface := MapInfo.LAKE_Y
+	for key in _floats:
+		var body: RigidBody3D = key
+		if not is_instance_valid(body) or body.freeze:
+			continue
+		var data: Array = _floats[body]
+		var reach: float = data[2]
+		var place := body.global_transform
+		if place.origin.y - reach > surface:
+			continue   # well clear of the water
+		if not terrain.lake_at(place.origin):
+			continue
+		var points: PackedVector3Array = data[0]
+		var volumes: PackedFloat32Array = data[1]
+		var centre := place * body.center_of_mass
+		var count := points.size()
+		var drag_cap := body.mass / maxf(float(count), 1.0) / delta * 0.5
+		for index in count:
+			var at: Vector3 = place * points[index]
+			var depth := surface - at.y
+			var volume: float = volumes[index]
+			var height := clampf(pow(volume, 1.0 / 3.0), 0.1, FLOAT_CELL)
+			var under := clampf(depth / height + 0.5, 0.0, 1.0)
+			if under <= 0.0:
+				continue
+			var force := Vector3(0.0, WATER_DENSITY * 9.81 * volume * under, 0.0)
+			var moving: Vector3 = body.linear_velocity + body.angular_velocity.cross(at - centre)
+			var speed := moving.length()
+			if speed > 0.0001:
+				var area := pow(volume, 2.0 / 3.0)
+				var drag := 0.5 * WATER_DENSITY * WATER_DRAG * area * speed * under
+				drag = minf(drag, drag_cap)   # never more than stops it in one step
+				force -= moving * drag
+			body.apply_force(force, at - place.origin)
 
 
 ## A thruster pushes its body along the thruster's own -Z, at the thruster.

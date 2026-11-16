@@ -26,6 +26,7 @@ uniform float lake_y;
 uniform float base_elevation;
 uniform vec4 inner_box;     // the finer grid's square: centre x, centre z, half size, and 1 if there is one
 uniform float vertex_step;  // this grid's vertex spacing, in metres
+uniform vec2 map_offset;    // map = world + map_offset (see origin.gd)
 
 uniform vec3 grass_dark : source_color = vec3(0.22, 0.44, 0.17);
 uniform vec3 grass_mid : source_color = vec3(0.33, 0.58, 0.25);
@@ -83,7 +84,7 @@ float surface_byte(vec2 xz) {
 }
 
 void vertex() {
-	vec2 xz = VERTEX.xz;
+	vec2 xz = VERTEX.xz + map_offset;
 	float e = vertex_step;
 	VERTEX.y = terrain_height(xz);
 	float slope_x = terrain_height(xz + vec2(e, 0.0)) - terrain_height(xz - vec2(e, 0.0));
@@ -94,7 +95,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 xz = world_position.xz;
+	vec2 xz = world_position.xz + map_offset;
 	if (inner_box.w > 0.5 && abs(xz.x - inner_box.x) < inner_box.z && abs(xz.y - inner_box.y) < inner_box.z) {
 		discard;
 	}

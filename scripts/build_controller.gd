@@ -340,8 +340,8 @@ func _on_rotate_key(axis: Vector3) -> void:
 
 ## A rotation matrix with exact 0 / +1 / -1 entries, so quarter turns never drift.
 static func _quarter_turn(axis: Vector3) -> Basis:
-	var turn := Basis(axis, PI * 0.5)
-	return Basis(turn.x.round(), turn.y.round(), turn.z.round())
+	var quarter := Basis(axis, PI * 0.5)
+	return Basis(quarter.x.round(), quarter.y.round(), quarter.z.round())
 
 
 ## Arrow keys move along the ground relative to the camera; Page Up / Down move vertically.
@@ -486,16 +486,16 @@ func move_selection(step_units: Vector3i) -> void:
 func rotate_selection(axis: Vector3) -> void:
 	if selection.is_empty():
 		return
-	var turn: Basis = _quarter_turn(axis)
+	var quarter: Basis = _quarter_turn(axis)
 	var pivot: Vector3i = _selection_pivot()
 	var updates: Dictionary = {}
 	for uid in selection:
 		var record: Dictionary = grid.get_part(uid)
 		var pos: Vector3i = record["pos"]
 		var rot: Basis = record["rot"]
-		var arm: Vector3 = turn * Vector3(pos - pivot)
+		var arm: Vector3 = quarter * Vector3(pos - pivot)
 		record["pos"] = pivot + Vector3i(arm.round())
-		var turned: Basis = turn * rot
+		var turned: Basis = quarter * rot
 		record["rot"] = Basis(turned.x.round(), turned.y.round(), turned.z.round())
 		updates[uid] = record
 	_apply(updates)
@@ -554,6 +554,7 @@ func copy_selection() -> void:
 	_clipboard = []
 	var first: Dictionary = grid.get_part(selection[0])
 	var first_pos: Vector3i = first["pos"]
+	@warning_ignore("integer_division")
 	var anchor: Vector3i = grid.cell_center_units(first_pos / Units.UNITS_PER_CELL)
 	_clipboard_anchor = anchor
 	_clipboard_low = Vector3(INF, INF, INF)
@@ -1013,6 +1014,14 @@ func _leave_seat() -> void:
 	player.stand_up(exit_point)
 
 
+## Sends the character back to `at` (world position), facing `heading`,
+## standing up first if it is seated.
+func respawn(at: Vector3, heading: float) -> void:
+	if seat_uid != 0:
+		_leave_seat()
+	player.teleport(at, heading)
+
+
 ## Where the character's feet go on standing up: on top of the seat if there
 ## is head room, otherwise beside it, trying the front first.
 func _seat_exit(frame: Array) -> Vector3:
@@ -1215,7 +1224,6 @@ func _fit_marker(marker: MeshInstance3D, record: Dictionary, color: Color, infla
 	var size_m: Vector3 = Units.to_metres(size_units) * inflate
 	var rot: Basis = record["rot"]
 	var pos: Vector3i = record["pos"]
-	var type: String = record["type"]
 	var shape_basis := Basis(rot.x * size_m.x, rot.y * size_m.y, rot.z * size_m.z)
 	marker.mesh = PartLibrary.mesh_for_record(record)
 	marker.material_override = PartLibrary.overlay_material(color)

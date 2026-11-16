@@ -13,8 +13,10 @@ Working now:
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
+- **Respawn** (button at the top, or P) puts you back at the build pad from anywhere
+- **Settings** (button at the top): frame rate (VSync, a limit from 1 to 240, or unlimited), how far away trees are drawn, and whether to show frames per second. Saved between runs.
 - A mini map in the top-right corner, north up, drawn over the real lake, with the islands, airports and buildings labelled. It zooms out as you speed up, from 600 m across standing still to 12 km across in a fast plane.
-- Grass round the pad, and about 240,000 pines across the islands and the lakeshore
+- Grass round the pad, and about 600,000 pines across the islands and the land inside the wall, built near the camera as you go
 - All five tools: Place, Delete, Config, Transform and Paint
 - A parts menu that stays out of the way: category tabs up the left edge, with the parts list opening beside them only while a tab is open
 - A placement ghost that shows the part's own X, Y and Z axes in red, green and blue, so you can see which way it faces as you turn it
@@ -73,7 +75,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 14"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 15"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -110,17 +112,23 @@ Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. 
 
 ## The map
 
-The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25 km wide. Its real shoreline and every island come from USGS elevation data. The edge of the world is a stone wall about 500 m inland from the shore all the way round; above it an unseen barrier goes up 12 km, so nothing can fly out. The mountains beyond the wall are drawn as scenery.
+The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25 km wide. Its real shoreline and every island come from USGS elevation data. The edge of the world is a straight-sided rectangle, 29 km east to west and 50 km north to south, square to north and 2 km beyond the lake's furthest reach on every side, so it takes in a stretch of the rivers too. It is a stone wall with an unseen barrier above it up to 12 km, so nothing can fly out, and its corners are all right angles, so nothing snags on it. The land beyond the wall is still drawn, out to the mountains.
 
 - **Wild Horse Island** is where you start. The pad and garage sit on the flat bench above Skeeko Bay, near the north centre of the island, 901 m above sea level and 20 m above the lake. The island is Palouse grassland with pine on the north-facing slopes.
 - **Wild Horse Island airport:** a 1,200 m × 30 m asphalt runway running north and south, west of the pad, with a 2 % slope, a parking apron, a hangar and a tower. Its runway is at 90° to Melita's.
 - **Melita Island:** a bush-plane strip as long as the real island allows (803 m of gravel, east and west), starting at the camp dock on the west shore. The island is thick with trees except along the strip and in the open middle, where the Camp Melita lodge serves as the terminal.
-- **Cromwell Island:** forested, with the unfinished four-storey stone villa in a clearing at its centre, facing east toward Wild Horse, and a tower crane still standing behind it.
+- **Cromwell Island:** forested, with the unfinished four-storey stone villa in a clearing at its centre, facing east toward Wild Horse, and a tower crane still standing behind it. A 1.3 km gravel airstrip crosses the gentler south half of the island.
+- **Airstrips on the other islands**, gravel, each as long as the island's gentle ground allows and graded no steeper than 6 %: Bird (683 m), Bull (609 m), Cedar (425 m), Shelter (366 m) and Little Bull (295 m). **Helipads** on the islands too small for a strip: Dream, Rock, Mary B, Douglas, Goose and Invitation.
+- **Shelter Island mansion:** a modern lake house of stone, timber and glass beside the island's strip.
 - **The aircraft carrier**, 333 m long with its deck 18 m above the water, is moored at a random spot on open water each time the game starts. Check the mini map to find it.
 - Every other island is at its real place: Dream, Shelter, Cedar, Rock, Mary B, Douglas, Goose, Bird, Bull, Little Bull and Invitation.
 - **Altitude** on screen is real, in metres above sea level, and the air thins with real altitude, so wings lose a little lift at the lake's 881 m.
 
-The water is a flat surface with no buoyancy yet: things sink to the lake bed, and the character can walk along the bottom. The lake bed is shaped from the distance to shore, down to the real 113 m deepest point.
+**Water.** Spawned builds float. Each part pushes aside water equal to its own solid volume (its mass over its material's density), so wood floats and steel sinks; and air sealed inside a build (empty grid cells that cannot be reached from outside without passing through a part) floats it too, so a closed steel hull floats as a real one does. If any part of a hull is destroyed, its sealed air floods. Water also drags on whatever moves through it. The character swims, with head and shoulders out of the water; Space swims up. The lake bed is shaped from the distance to shore, down to the real 113 m deepest point.
+
+**Re-centring.** Whenever the character gets 1.5 km from the middle of the world, everything is moved back by whole kilometres so that positions stay small and physics stays precise anywhere on the lake. Nothing changes that you can see or feel.
+
+**Solid ground and trees.** The ground and tree trunks are solid around the character and every spawned body (out to 200 to 320 m, and further ahead of anything moving fast). Bullets and cannon shells also stop at the ground however far away they land.
 
 **How it is built.** `tools/fetch_terrain.py` downloads the elevation data on your own computer into `map/`. `tools/bake_map.py` turns it into the game's map in `map_data/` and writes `scripts/map_info.gd`. It resamples the data to a metre grid, levels the pad, runways, lodge and villa sites, shapes the lake bed, traces the wall and places every tree. Both scripts only need running again to change the map; their output is already in the repository. Elevation data: Mapzen Terrain Tiles on AWS Open Data, from USGS 3DEP and others.
 
@@ -164,6 +172,9 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/terrain.gd` | The map: ground drawn round the camera, solid ground near the character and spawned bodies, the lake and the wall |
 | `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
 | `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
+| `scripts/origin.gd` | Re-centring the world on the player |
+| `scripts/settings.gd` | Loading, saving and applying the settings |
+| `scripts/settings_panel.gd` | The settings window |
 | `scripts/map_info.gd` | Where the baked map data sits; written by `tools/bake_map.py` |
 | `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |
 | `shaders/water.gdshader` | The lake surface |
