@@ -8,12 +8,13 @@ Early development. **Milestone 1: Build mode** is mostly in place, and **Milesto
 
 Working now:
 
+- **The map: Flathead Lake, Montana, at true size**, built from real elevation data. You start on Wild Horse Island, with the build pad and garage on the flat bench above Skeeko Bay. See [The map](#the-map).
 - A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
-- A mini map in the top-right corner showing the garage, the pad, nearby trees and where you are
-- Grass and groves of trees, starting well back from the pad and garage
+- A mini map in the top-right corner, north up, drawn over the real lake, with the islands, airports and buildings labelled. It zooms out as you speed up, from 600 m across standing still to 12 km across in a fast plane.
+- Grass round the pad, and about 240,000 pines across the islands and the lakeshore
 - All five tools: Place, Delete, Config, Transform and Paint
 - A parts menu that stays out of the way: category tabs up the left edge, with the parts list opening beside them only while a tab is open
 - A placement ghost that shows the part's own X, Y and Z axes in red, green and blue, so you can see which way it faces as you turn it
@@ -72,7 +73,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 13"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 14"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -106,6 +107,22 @@ This is the basic version. What it does so far:
 - A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** is invisible and has no collision once spawned, but still welds.
 
 Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. Belts are not drawn. A piston's Pressure output reads 0, and the crankshaft's throw and rod length settings are not used yet (build the linkage from linkage bars). There is no drag on anything but aero panels yet. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
+
+## The map
+
+The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25 km wide. Its real shoreline and every island come from USGS elevation data. The edge of the world is a stone wall about 500 m inland from the shore all the way round; above it an unseen barrier goes up 12 km, so nothing can fly out. The mountains beyond the wall are drawn as scenery.
+
+- **Wild Horse Island** is where you start. The pad and garage sit on the flat bench above Skeeko Bay, near the north centre of the island, 901 m above sea level and 20 m above the lake. The island is Palouse grassland with pine on the north-facing slopes.
+- **Wild Horse Island airport:** a 1,200 m × 30 m asphalt runway running north and south, west of the pad, with a 2 % slope, a parking apron, a hangar and a tower. Its runway is at 90° to Melita's.
+- **Melita Island:** a bush-plane strip as long as the real island allows (803 m of gravel, east and west), starting at the camp dock on the west shore. The island is thick with trees except along the strip and in the open middle, where the Camp Melita lodge serves as the terminal.
+- **Cromwell Island:** forested, with the unfinished four-storey stone villa in a clearing at its centre, facing east toward Wild Horse, and a tower crane still standing behind it.
+- **The aircraft carrier**, 333 m long with its deck 18 m above the water, is moored at a random spot on open water each time the game starts. Check the mini map to find it.
+- Every other island is at its real place: Dream, Shelter, Cedar, Rock, Mary B, Douglas, Goose, Bird, Bull, Little Bull and Invitation.
+- **Altitude** on screen is real, in metres above sea level, and the air thins with real altitude, so wings lose a little lift at the lake's 881 m.
+
+The water is a flat surface with no buoyancy yet: things sink to the lake bed, and the character can walk along the bottom. The lake bed is shaped from the distance to shore, down to the real 113 m deepest point.
+
+**How it is built.** `tools/fetch_terrain.py` downloads the elevation data on your own computer into `map/`. `tools/bake_map.py` turns it into the game's map in `map_data/` and writes `scripts/map_info.gd`. It resamples the data to a metre grid, levels the pad, runways, lodge and villa sites, shapes the lake bed, traces the wall and places every tree. Both scripts only need running again to change the map; their output is already in the repository. Elevation data: Mapzen Terrain Tiles on AWS Open Data, from USGS 3DEP and others.
 
 ## Saves
 
@@ -143,10 +160,19 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/save_manager.gd` | Saving and loading builds |
 | `scripts/hud.gd` | The on-screen interface |
 | `scripts/minimap.gd` | The mini map |
-| `scripts/scenery.gd` | Grass and trees |
+| `scripts/scenery.gd` | Grass round the pad |
+| `scripts/terrain.gd` | The map: ground drawn round the camera, solid ground near the character and spawned bodies, the lake and the wall |
+| `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
+| `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
+| `scripts/map_info.gd` | Where the baked map data sits; written by `tools/bake_map.py` |
+| `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |
+| `shaders/water.gdshader` | The lake surface |
+| `map/` | The downloaded elevation data |
+| `map_data/` | The baked map: heights, trees, buildings, wall, mini map picture |
+| `tools/fetch_terrain.py` | Downloads the elevation data (run on your own computer) |
+| `tools/bake_map.py` | Turns the elevation data into the game's map |
 | `saves/` | Saved builds, the format guide and an example |
 | `shaders/pad_grid.gdshader` | Draws the grid lines on the build pad |
-| `shaders/ground.gdshader` | The grass on the open ground |
 
 ## Roadmap
 

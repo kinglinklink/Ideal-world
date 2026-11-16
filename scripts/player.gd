@@ -40,6 +40,7 @@ var _floor_body: RigidBody3D = null   # the loose body being stood on, if any
 var _floor_point := Vector3.ZERO      # where the feet rest on it, in world space
 var _floor_grip := GROUND_GRIP        # friction coefficient of whatever is underfoot
 var ride_velocity := Vector3.ZERO     # while seated: the velocity of the seat, for the speed readout
+var terrain: Node3D = null            # terrain.gd, for the height of the ground under the camera
 var g_force := 1.0                    # the acceleration the character feels, in g: 1 standing still, 0 in free fall
 var _g_velocity := Vector3.ZERO       # the velocity at the last tick, for measuring acceleration
 var _g_skip := true                   # skip one measurement after sitting down or standing up
@@ -84,7 +85,7 @@ func _ready() -> void:
 
 	_camera = Camera3D.new()
 	_camera.near = 0.05
-	_camera.far = 6000.0
+	_camera.far = 60000.0   # the far side of the lake and the mountains beyond
 	_camera.fov = 75.0
 	_pivot.add_child(_camera)
 	_camera.make_current()
@@ -446,11 +447,15 @@ func _process(delta: float) -> void:
 	_pivot.position.y = EYE_HEIGHT + _step_offset
 	_pivot.rotation = Vector3(pitch, yaw, 0.0)
 	_camera.position = Vector3(0.0, 0.0, zoom)
-	# Keep a third-person camera from dipping under the ground plane.
-	if not is_first_person() and _camera.global_position.y < 0.2:
+	# Keep a third-person camera from dipping under the ground.
+	if not is_first_person():
 		var lifted := _camera.global_position
-		lifted.y = 0.2
-		_camera.global_position = lifted
+		var ground := 0.0
+		if terrain != null:
+			ground = terrain.height_at(lifted.x, lifted.z)
+		if lifted.y < ground + 0.2:
+			lifted.y = ground + 0.2
+			_camera.global_position = lifted
 
 	_model.visible = not is_first_person()
 

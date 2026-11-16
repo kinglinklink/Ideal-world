@@ -11,12 +11,13 @@ const SaveManager = preload("res://scripts/save_manager.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Minimap = preload("res://scripts/minimap.gd")
+const MapInfo = preload("res://scripts/map_info.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 13"
+const VERSION := "Build 14"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -115,9 +116,9 @@ func set_garage_open(open: bool) -> void:
 	_garage_button.text = "Close garage" if open else "Open garage"
 
 
-## Where the trees stand, as (x, z) points, for the mini map to dot in.
-func set_map_trees(spots: PackedVector2Array) -> void:
-	_minimap.tree_spots = spots
+## The map of the lake behind the mini map, and the places to label on it.
+func set_world_map(world: Dictionary, places: Array) -> void:
+	_minimap.set_world(world, places)
 
 
 # --- Small builders ----------------------------------------------------------
@@ -1118,8 +1119,9 @@ func _process(delta: float) -> void:
 		return
 	_fps_label.text = "FPS  %d" % int(Engine.get_frames_per_second())
 	var moving: Vector3 = player.ride_velocity if player.seated else player.velocity
-	_speed_label.text = "Speed  %.1f m/s    %.1f g    Altitude  %.1f m" % [
-		moving.length(), float(player.g_force), player.global_position.y,
+	# Altitude is real: metres above sea level. The lake is at 881 m.
+	_speed_label.text = "Speed  %.1f m/s    %.1f g    Altitude  %.0f m" % [
+		moving.length(), float(player.g_force), player.global_position.y + MapInfo.BASE_ELEVATION,
 	]
 	_crosshair.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	_seat_label.text = controller.seat_prompt()
