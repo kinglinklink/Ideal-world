@@ -38,6 +38,10 @@ const CRANE := Color(0.86, 0.66, 0.12)
 const NAVY_GREY := Color(0.42, 0.45, 0.48)
 const DECK := Color(0.23, 0.24, 0.26)
 const WINDSOCK := Color(0.95, 0.45, 0.10)
+const TRAVERTINE := Color(0.87, 0.81, 0.69)
+const TERRACOTTA := Color(0.71, 0.35, 0.22)
+const MAHOGANY := Color(0.36, 0.17, 0.11)
+const CARRIER_SCALE := 3.0     # times the size of a real Nimitz-class carrier
 
 ## Places for the mini map: [Vector2 x and z, label].
 var map_points: Array = []
@@ -47,7 +51,7 @@ func setup(world: Dictionary) -> void:
 	for item in world.get("runways", []):
 		var runway: Dictionary = item
 		if str(runway.get("surface", "")) == "asphalt":
-			_wild_horse_airport(runway)
+			_paved_airport(runway)
 		else:
 			_bush_strip(runway)
 	for item in world.get("docks", []):
@@ -59,6 +63,8 @@ func setup(world: Dictionary) -> void:
 				_lodge(building)
 			"cromwell_mansion":
 				_mansion(building)
+			"cromwell_guest_villa":
+				_guest_villa(building)
 			"shelter_mansion":
 				_shelter_mansion(building)
 	for item in world.get("helipads", []):
@@ -82,19 +88,22 @@ static func _point(value: Variant) -> Vector2:
 
 # --- Wild Horse Island airport -------------------------------------------------
 
-func _wild_horse_airport(runway: Dictionary) -> void:
+func _paved_airport(runway: Dictionary) -> void:
 	var centre := _point(runway["centre"])
 	var heading := float(runway["heading"])
 	var length := float(runway["length"])
 	var width := float(runway["width"])
 	var mid := float(runway["height_mid"])
 	var slope := float(runway.get("slope", 0.0))
-	map_points.append([centre, "Wild Horse airport"])
+	var airport_name := str(runway.get("name", "Airport"))
+	if not airport_name.ends_with("airport"):
+		airport_name = airport_name.trim_suffix(" Island") + " airport"
+	map_points.append([centre, airport_name])
 
 	# The runway follows the bake's straight grade.
 	var place := frame(centre, mid, heading)
 	place.basis = place.basis * Basis(Vector3.RIGHT, atan(slope))
-	var strip := Builder.new(self, "WildHorseRunway", place, 0.9)
+	var strip := Builder.new(self, airport_name.replace(" ", "") + "Runway", place, 0.9)
 	var half := length * 0.5
 	strip.box(Vector3(0.0, -0.19, 0.0), Vector3(width, 0.5, length + 2.0), ASPHALT)
 	strip.box(Vector3(-width * 0.5 + 1.0, 0.065, 0.0), Vector3(0.9, 0.02, length - 4.0), PAINT, false)
@@ -105,7 +114,7 @@ func _wild_horse_airport(runway: Dictionary) -> void:
 		t += 60.0
 	for end in [-1.0, 1.0]:
 		var sign_end: float = end
-		for bar in 6:
+		for bar in maxi(2, int((width * 0.5 - 3.0) / 2.2)):   # as many stripes as the width holds
 			for side in [-1.0, 1.0]:
 				var x: float = side * (2.6 + bar * 2.2)
 				strip.box(Vector3(x, 0.065, sign_end * (half - 22.0)), Vector3(1.6, 0.02, 30.0), PAINT, false)
@@ -126,7 +135,7 @@ func _wild_horse_airport(runway: Dictionary) -> void:
 	var apron: Dictionary = runway["apron"]
 	var apron_place := frame(_point(apron["centre"]), mid, heading)
 	var apron_side := float(apron.get("side", 1.0))
-	var yard := Builder.new(self, "WildHorseApron", apron_place, 0.9)
+	var yard := Builder.new(self, airport_name.replace(" ", "") + "Apron", apron_place, 0.9)
 	var apron_width := float(apron["width"])
 	var apron_length := float(apron["length"])
 	yard.box(Vector3(0.0, -0.19, 0.0), Vector3(apron_width, 0.5, apron_length), ASPHALT)
@@ -147,7 +156,7 @@ func _wild_horse_airport(runway: Dictionary) -> void:
 	yard.box(tower + Vector3(0.0, 17.2, 0.0), Vector3(7.0, 0.4, 7.0), HANGAR_ROOF)
 	_windsock(yard, Vector3(-apron_side * (apron_width * 0.5 - 4.0), 0.0, -apron_length * 0.5 + 6.0))
 	yard.finish()
-	var sign_label := _label(yard.body, "WILD HORSE ISLAND", 0.03)
+	var sign_label := _label(yard.body, str(apron.get("label", "WILD HORSE ISLAND")), 0.03)
 	sign_label.position = Vector3(front - apron_side * 0.3, 10.5, 0.0)
 	sign_label.rotation = Vector3(0.0, -apron_side * PI * 0.5, 0.0)
 
@@ -227,20 +236,90 @@ func _bush_strip(runway: Dictionary) -> void:
 	markers.finish()
 
 
+## A dock. "landing" is the plain timber landing at the end of the Melita
+## strip; "marina" is Camp Melita's main dock on the island's south face, a
+## wide walkway on rock-filled cribbing with finger piers, a T-head and the
+## camp's fleet; "yacht" is Cromwell's five-slip dock with a 70 ft yacht and
+## the estate's 60 ft barge.
 func _dock(dock: Dictionary) -> void:
 	var start := _point(dock["start"])
 	var deck := float(dock["deck"])
 	var length := float(dock["length"])
 	var width := float(dock["width"])
-	var pier := Builder.new(self, "MelitaDock", frame(start, deck, float(dock["heading"])), 0.6)
-	# The deck runs from a few metres up the bank out over the water.
+	var kind := str(dock.get("kind", "landing"))
+	var pier := Builder.new(self, str(dock.get("name", "Dock")).replace(" ", ""), frame(start, deck, float(dock["heading"])), 0.6)
+	# The walkway, from a few metres up the bank out over the water.
 	pier.box(Vector3(0.0, -0.15, -(length * 0.5 - 4.0)), Vector3(width, 0.3, length + 8.0), WOOD)
 	var z := 0.0
 	while z <= length:
 		for side in [-1.0, 1.0]:
-			pier.cylinder(Vector3(side * (width * 0.5 - 0.2), -5.0, -z), 0.15, 10.0, LOG_SEAM)
+			pier.cylinder(Vector3(float(side) * (width * 0.5 - 0.3), -5.0, -z), 0.18, 10.0, LOG_SEAM)
 		z += 6.0
+	if kind == "marina":
+		map_points.append([start, "Melita dock"])
+		# Rock-filled cribs under the first stretch.
+		var crib := 0.0
+		while crib <= 30.0:
+			pier.box(Vector3(0.0, -2.0, -crib - 3.0), Vector3(width + 1.0, 3.4, 5.0), STONE)
+			crib += 9.0
+		# The T-head across the end, and finger piers along both sides.
+		pier.box(Vector3(0.0, -0.15, -length - 4.0), Vector3(60.0, 0.3, 8.0), WOOD)
+		var finger := 34.0
+		while finger <= length - 10.0:
+			for side in [-1.0, 1.0]:
+				var sx: float = side
+				pier.box(Vector3(sx * (width * 0.5 + 7.0), -0.15, -finger), Vector3(14.0, 0.3, 2.0), WOOD)
+			finger += 9.0
+		# The fleet: pontoon "arks" along the T-head, sailboats and fishing
+		# boats in the slips, canoes pulled up on the walkway.
+		for index in 3:
+			_boat(pier, Vector3(-20.0 + index * 20.0, -0.9, -length - 13.0), Vector3(4.5, 1.2, 12.0), Color(0.82, 0.82, 0.80), true)
+		var slip := 38.5
+		var count := 0
+		while slip <= length - 10.0:
+			for side in [-1.0, 1.0]:
+				var sx: float = side
+				var sail := count % 2 == 0
+				_boat(pier, Vector3(sx * (width * 0.5 + 7.0), -0.9, -slip), Vector3(12.0 if sail else 9.0, 1.0, 3.0),
+						PAINT if sail else Color(0.70, 0.18, 0.15), false)
+				if sail:
+					pier.cylinder(Vector3(sx * (width * 0.5 + 7.0), 5.0, -slip), 0.1, 11.0, PAINT, false)
+				count += 1
+			slip += 9.0
+		for index in 6:
+			pier.box(Vector3(-width * 0.5 + 1.0, 0.25, -6.0 - index * 1.2), Vector3(0.8, 0.4, 4.5),
+					[Color(0.85, 0.35, 0.12), Color(0.15, 0.40, 0.70)][index % 2], false)
+	elif kind == "yacht":
+		map_points.append([start, "Cromwell dock"])
+		# Five slips of different sizes along one side.
+		var slip_z := 10.0
+		for slip_size in [24.0, 16.0, 12.0, 10.0, 8.0]:
+			var size: float = slip_size
+			pier.box(Vector3(width * 0.5 + size * 0.5, -0.15, -slip_z - 4.0), Vector3(size, 0.3, 2.0), WOOD)
+			slip_z += 13.0
+		# A 70 ft yacht in the big slip, and the 60 ft barge with its crane.
+		var yacht := Vector3(width * 0.5 + 12.0, -0.6, -16.5)
+		pier.box(yacht, Vector3(5.5, 2.6, 21.0), PAINT)
+		pier.box(yacht + Vector3(0.0, 2.2, 1.0), Vector3(4.6, 2.0, 11.0), PAINT)
+		pier.box(yacht + Vector3(0.0, 2.2, -4.6), Vector3(4.7, 1.2, 0.2), GLASS, false)
+		pier.box(yacht + Vector3(0.0, 3.5, 2.0), Vector3(4.0, 0.3, 7.0), Color(0.15, 0.17, 0.22), false)
+		var barge := Vector3(-width * 0.5 - 4.5, -0.8, -40.0)
+		pier.box(barge, Vector3(7.0, 1.6, 18.0), Color(0.45, 0.47, 0.42))
+		pier.box(barge + Vector3(0.0, 2.0, 6.0), Vector3(3.0, 2.4, 3.0), Color(0.80, 0.80, 0.78))
+		pier.box(barge + Vector3(0.0, 3.0, -5.0), Vector3(0.5, 4.5, 0.5), CRANE)
+		pier.box(barge + Vector3(0.0, 5.0, -7.0), Vector3(0.4, 0.4, 4.5), CRANE)
+		# The hospitality cabin by the shore end.
+		pier.box(Vector3(-width * 0.5 - 6.0, 1.8, 6.0), Vector3(8.0, 3.6, 6.0), LOGS)
+		pier.box(Vector3(-width * 0.5 - 6.0, 4.0, 6.0), Vector3(9.0, 0.6, 7.0), GREEN_ROOF)
 	pier.finish()
+
+
+## A moored boat: a hull, and for a pontoon ark a railing round its deck.
+func _boat(pier: Builder, at: Vector3, size: Vector3, color: Color, ark: bool) -> void:
+	pier.box(at, size, color)
+	if ark:
+		for side in [-1.0, 1.0]:
+			pier.box(at + Vector3(float(side) * (size.x * 0.5 - 0.1), 1.1, 0.0), Vector3(0.1, 1.0, size.z), PAINT, false)
 
 
 ## The Camp Melita lodge, serving as the airstrip's terminal: a log lodge with
@@ -284,65 +363,124 @@ func _lodge(lodge: Dictionary) -> void:
 
 # --- Cromwell Island villa ---------------------------------------------------
 
-## The unfinished four-storey stone villa at the centre of Cromwell Island,
-## facing east across the lake toward Wild Horse Island. A tower crane still
-## stands behind it.
+## The unfinished villa at the centre of Cromwell Island, built from the
+## sale listing's description: a 16th-century French château in battered
+## travertine with terracotta tile roofs, round towers with conical roofs (a
+## helical stair winds up the north one), mahogany windows, and twin
+## symmetrical staircases curving up to the main entrance. Built much larger
+## than life. It faces east, toward Wild Horse Island, and a tower crane still
+## stands behind it. The real one is 45,000 sq ft; this one is several times that.
 func _mansion(villa: Dictionary) -> void:
 	var place := frame(_point(villa["centre"]), float(villa["ground"]), float(villa["heading"]))
 	map_points.append([_point(villa["centre"]), "Cromwell villa"])
 	var house := Builder.new(self, "CromwellVilla", place, 0.8)
-	var base := 1.2
-	house.box(Vector3(0.0, base * 0.5, -2.0), Vector3(70.0, base, 42.0), PALE_STONE)
-	# Main block, centre pavilion and two end pavilions, all flush at the back.
-	house.box(Vector3(0.0, base + 9.0, 0.0), Vector3(56.0, 18.0, 24.0), SANDSTONE)
-	house.box(Vector3(0.0, base + 10.5, -3.0), Vector3(18.0, 21.0, 30.0), SANDSTONE)
+	var floors := 4
+	var storey := 6.5
+	var wall_top := 2.0 + floors * storey      # the eaves, above the terrace
+	# The terrace it all stands on, with tile decks in front.
+	house.box(Vector3(0.0, 1.0, -4.0), Vector3(176.0, 2.0, 120.0), PALE_STONE)
+	house.box(Vector3(0.0, 2.02, -52.0), Vector3(120.0, 0.06, 20.0), Color(0.76, 0.66, 0.52), false)
+	# The main block and its steep terracotta roof.
+	house.box(Vector3(0.0, 2.0 + floors * storey * 0.5, 0.0), Vector3(120.0, floors * storey, 40.0), TRAVERTINE)
+	_hip_roof(house, Vector3(0.0, wall_top, 0.0), 124.0, 44.0, 22.0)
+	# The centre pavilion, standing forward of the block and above it.
+	house.box(Vector3(0.0, 2.0 + 16.5, -24.0), Vector3(34.0, 33.0, 12.0), TRAVERTINE)
+	_hip_roof(house, Vector3(0.0, 35.0, -24.0), 36.0, 14.0, 12.0)
+	# Corner pavilions, each with a round tower on its outer corner.
 	for side in [-1.0, 1.0]:
-		house.box(Vector3(side * 23.0, base + 9.75, -2.0), Vector3(10.0, 19.5, 28.0), SANDSTONE)
-	# Slate mansard roofs.
-	house.box(Vector3(0.0, base + 20.5, 0.0), Vector3(54.0, 5.0, 22.0), SLATE)
-	house.box(Vector3(0.0, base + 24.5, -3.0), Vector3(16.0, 7.0, 28.0), SLATE)
+		var sx: float = side
+		house.box(Vector3(sx * 68.0, 2.0 + 15.0, -4.0), Vector3(28.0, 30.0, 52.0), TRAVERTINE)
+		_hip_roof(house, Vector3(sx * 68.0, 32.0, -4.0), 30.0, 54.0, 18.0)
+		for end in [-1.0, 1.0]:
+			var tower := Vector3(sx * 82.0, 2.0, -4.0 + float(end) * 26.0)
+			house.cylinder(tower + Vector3(0.0, 19.0, 0.0), 9.0, 38.0, TRAVERTINE)
+			house.cone(tower + Vector3(0.0, 38.0, 0.0), 10.5, 20.0, TERRACOTTA)
+			for ring in 4:
+				house.box(tower + Vector3(0.0, 8.0 + ring * 7.5, -9.05), Vector3(2.0, 3.4, 0.2), GLASS, false)
+	# Chimneys and dormers on the main roof.
+	for x in [-45.0, -15.0, 15.0, 45.0]:
+		house.box(Vector3(float(x), wall_top + 20.0, 6.0), Vector3(3.0, 14.0, 3.0), TRAVERTINE)
+	for x in [-50.0, -38.0, -26.0, 26.0, 38.0, 50.0]:
+		house.box(Vector3(float(x), wall_top + 4.0, -17.5), Vector3(4.0, 5.0, 4.0), TRAVERTINE)
+		house.box(Vector3(float(x), wall_top + 4.0, -19.56), Vector3(2.2, 3.0, 0.12), GLASS, false)
+	# Tall windows in mahogany frames on every floor, front and back.
+	for floor_index in floors:
+		var y := 2.0 + storey * 0.55 + floor_index * storey
+		var x := -54.0
+		while x <= 54.0:
+			if absf(x) > 18.0:
+				_window(house, Vector3(x, y, -20.06), false)
+			_window(house, Vector3(x, y, 20.06), false)
+			x += 6.0
+		for x2 in [-12.0, -6.0, 6.0, 12.0]:
+			_window(house, Vector3(float(x2), y, -30.06), false)
+		for side in [-1.0, 1.0]:
+			var sx: float = side
+			for x3 in [62.0, 68.0, 74.0]:
+				_window(house, Vector3(sx * x3, y, -30.06), false)
+	# The main entrance: tall doors, and twin staircases that curve up from
+	# either side to a landing at the first floor.
+	house.box(Vector3(0.0, 2.0 + 4.5, -30.06), Vector3(6.0, 9.0, 0.12), MAHOGANY, false)
+	house.box(Vector3(0.0, 2.0 + storey - 0.3, -33.0), Vector3(14.0, 0.6, 6.0), PALE_STONE)
 	for side in [-1.0, 1.0]:
-		house.box(Vector3(side * 23.0, base + 22.0, -2.0), Vector3(9.0, 5.0, 26.0), SLATE)
-	# Windows on every floor.
-	for floor_index in 4:
-		var y := base + 2.4 + floor_index * 4.4
-		for x in [-16.5, -13.0, -10.5, 10.5, 13.0, 16.5]:
-			house.box(Vector3(float(x), y, -12.06), Vector3(1.6, 2.6, 0.12), GLASS, false)
-		for x in [-6.0, -2.0, 2.0, 6.0]:
-			if floor_index == 0 and absf(float(x)) < 3.0:
-				continue
-			house.box(Vector3(float(x), y, -18.06), Vector3(1.6, 2.6, 0.12), GLASS, false)
-		for side in [-1.0, 1.0]:
-			for x in [20.5, 23.0, 25.5]:
-				house.box(Vector3(side * float(x), y, -16.06), Vector3(1.6, 2.6, 0.12), GLASS, false)
-		var bx := -26.0
-		while bx <= 26.0:
-			house.box(Vector3(bx, y, 12.06), Vector3(1.6, 2.6, 0.12), GLASS, false)
-			bx += 4.0
-		for side in [-1.0, 1.0]:
-			var bz := -12.0
-			while bz <= 10.0:
-				house.box(Vector3(side * 28.06, y, bz), Vector3(0.12, 2.6, 1.6), GLASS, false)
-				bz += 4.0
-	# The entrance: a columned portico and steps.
-	var column := -6.0
-	while column <= 6.0:
-		house.cylinder(Vector3(column, base + 4.75, -19.6), 0.55, 9.5, PALE_STONE)
-		column += 2.4
-	house.box(Vector3(0.0, base + 10.0, -19.8), Vector3(16.0, 1.0, 4.2), PALE_STONE)
-	house.box(Vector3(0.0, 2.2, -18.1), Vector3(3.0, 4.4, 0.12), GLASS, false)
-	house.box(Vector3(0.0, 0.6, -24.0), Vector3(14.0, 1.2, 4.0), PALE_STONE)
+		var sx: float = side
+		var climb := Basis(Vector3.BACK, -sx * atan2(storey, 18.0))
+		house.box(Vector3(sx * 16.0, 2.0 + storey * 0.5, -38.0), Vector3(19.0, 0.6, 4.0), PALE_STONE, true, climb)
+		house.box(Vector3(sx * 16.0, 2.0 + storey * 0.5 + 1.0, -40.0), Vector3(19.0, 1.2, 0.3), MAHOGANY, false, climb)
 	# Still under construction: a tower crane behind the house.
-	var crane := Vector3(34.0, 0.0, 12.0)
-	house.box(crane + Vector3(0.0, 24.0, 0.0), Vector3(2.0, 48.0, 2.0), CRANE)
-	house.box(crane + Vector3(-17.0, 48.8, 0.0), Vector3(40.0, 1.6, 1.6), CRANE)
-	house.box(crane + Vector3(8.0, 48.8, 0.0), Vector3(12.0, 1.6, 1.6), CRANE)
-	house.box(crane + Vector3(11.0, 47.0, 0.0), Vector3(3.0, 2.0, 2.4), STONE)
-	house.box(crane + Vector3(0.0, 46.5, 0.0), Vector3(2.4, 2.4, 2.4), GLASS)
+	var crane := Vector3(70.0, 2.0, 50.0)
+	house.box(crane + Vector3(0.0, 40.0, 0.0), Vector3(3.0, 80.0, 3.0), CRANE)
+	house.box(crane + Vector3(-30.0, 81.2, 0.0), Vector3(70.0, 2.4, 2.4), CRANE)
+	house.box(crane + Vector3(14.0, 81.2, 0.0), Vector3(20.0, 2.4, 2.4), CRANE)
+	house.box(crane + Vector3(18.0, 78.5, 0.0), Vector3(5.0, 3.0, 3.6), STONE)
+	house.box(crane + Vector3(0.0, 78.0, 0.0), Vector3(3.6, 3.6, 3.6), GLASS)
 	house.finish()
 
 
-# --- Shelter Island mansion and helipads ---------------------------------------
+## The guest villa, a short way down the road toward the dock: a smaller
+## château of the same stone and tile, two storeys, with two towers.
+func _guest_villa(villa: Dictionary) -> void:
+	var place := frame(_point(villa["centre"]), float(villa["ground"]), float(villa["heading"]))
+	map_points.append([_point(villa["centre"]), "Cromwell guest villa"])
+	var house := Builder.new(self, "CromwellGuestVilla", place, 0.8)
+	house.box(Vector3(0.0, 0.5, 0.0), Vector3(56.0, 1.0, 40.0), PALE_STONE)
+	house.box(Vector3(0.0, 1.0 + 6.5, 0.0), Vector3(44.0, 13.0, 22.0), TRAVERTINE)
+	_hip_roof(house, Vector3(0.0, 14.0, 0.0), 46.0, 24.0, 11.0)
+	for side in [-1.0, 1.0]:
+		var tower := Vector3(float(side) * 23.0, 1.0, -11.0)
+		house.cylinder(tower + Vector3(0.0, 9.0, 0.0), 4.5, 18.0, TRAVERTINE)
+		house.cone(tower + Vector3(0.0, 18.0, 0.0), 5.5, 10.0, TERRACOTTA)
+	for floor_index in 2:
+		var y := 1.0 + 3.6 + floor_index * 6.5
+		var x := -18.0
+		while x <= 18.0:
+			_window(house, Vector3(x, y, -11.06), true)
+			_window(house, Vector3(x, y, 11.06), true)
+			x += 6.0
+	house.box(Vector3(0.0, 1.0 + 2.8, -11.06), Vector3(3.0, 5.6, 0.12), MAHOGANY, false)
+	house.finish()
+
+
+## A tall window: glass in a mahogany frame, set in a wall facing -Z (or +Z).
+func _window(house: Builder, at: Vector3, small: bool) -> void:
+	var height := 3.2 if small else 4.2
+	var facing := -1.0 if at.z < 0.0 else 1.0
+	house.box(at, Vector3(2.6, height + 0.5, 0.12), MAHOGANY, false)
+	house.box(at + Vector3(0.0, 0.0, facing * 0.03), Vector3(2.0, height, 0.12), GLASS, false)
+
+
+## A steep hipped roof of terracotta tile over a block `width` (X) by `depth`
+## (Z), starting at `base`, rising `height`: built as stepped tiers that
+## narrow toward the ridge.
+func _hip_roof(house: Builder, base: Vector3, width: float, depth: float, height: float) -> void:
+	var tiers := 6
+	for tier in tiers:
+		var share := float(tier) / tiers
+		var tier_width := width - (depth * 0.9) * share
+		var tier_depth := depth * (1.0 - share * 0.92)
+		house.box(base + Vector3(0.0, height * (share + 0.5 / tiers), 0.0),
+				Vector3(maxf(tier_width, 1.0), height / tiers, maxf(tier_depth, 1.0)), TERRACOTTA)
+
 
 ## The modern lake house on Shelter Island: two long storeys of stone and
 ## timber in an L, a tall glass great room where the wings meet, low dark
@@ -398,8 +536,10 @@ func _helipad(pad: Dictionary) -> void:
 
 # --- Aircraft carrier ----------------------------------------------------------
 
-## A carrier the size of a Nimitz-class ship, moored at a random spot on open
-## water: 333 m flight deck, 18 m above the water.
+## The aircraft carrier: shaped like a Nimitz-class ship but three times the
+## size, far larger than any real one. Its flight deck is a kilometre long,
+## 230 m wide and 54 m above the water. It is moored at a random spot on open
+## water each time the game starts.
 func _carrier(spots: Array) -> void:
 	if spots.is_empty():
 		return
@@ -408,22 +548,28 @@ func _carrier(spots: Array) -> void:
 	var spot := _point(spots[rng.randi_range(0, spots.size() - 1)])
 	var heading := rng.randf_range(0.0, 360.0)
 	map_points.append([spot, "Carrier"])
+	var k := CARRIER_SCALE
 	var ship := Builder.new(self, "Carrier", frame(spot, MapInfo.LAKE_Y, heading), 0.8)
-	ship.box(Vector3(0.0, 3.5, 0.0), Vector3(40.0, 29.0, 320.0), NAVY_GREY)
-	ship.box(Vector3(0.0, 5.0, -168.0), Vector3(28.0, 26.0, 18.0), NAVY_GREY)
-	ship.box(Vector3(0.0, 7.0, -181.0), Vector3(14.0, 22.0, 10.0), NAVY_GREY)
-	ship.box(Vector3(-6.0, 18.5, -8.0), Vector3(76.0, 1.0, 333.0), DECK)
+	ship.box(Vector3(0.0, 3.5, 0.0) * k, Vector3(40.0, 29.0, 320.0) * k, NAVY_GREY)
+	ship.box(Vector3(0.0, 5.0, -168.0) * k, Vector3(28.0, 26.0, 18.0) * k, NAVY_GREY)
+	ship.box(Vector3(0.0, 7.0, -181.0) * k, Vector3(14.0, 22.0, 10.0) * k, NAVY_GREY)
+	ship.box(Vector3(-6.0, 18.5, -8.0) * k, Vector3(76.0, 1.0, 333.0) * k, DECK)
 	# The island, on the starboard side.
-	ship.box(Vector3(27.0, 27.0, 30.0), Vector3(10.0, 16.0, 30.0), NAVY_GREY)
-	ship.box(Vector3(27.0, 33.0, 22.0), Vector3(10.4, 2.0, 12.0), GLASS, false)
-	ship.cylinder(Vector3(27.0, 41.0, 32.0), 0.6, 12.0, NAVY_GREY)
-	ship.box(Vector3(27.0, 45.0, 32.0), Vector3(6.0, 1.5, 1.5), NAVY_GREY)
-	# Deck markings: the bow line and the angled landing deck.
-	ship.box(Vector3(4.0, 19.02, -60.0), Vector3(0.8, 0.02, 200.0), PAINT, false)
-	ship.box(Vector3(-16.0, 19.02, 40.0), Vector3(0.8, 0.02, 230.0), Color(0.95, 0.85, 0.20), false,
-			Basis(Vector3.UP, deg_to_rad(9.0)))
-	ship.box(Vector3(-16.0, 19.02, 40.0), Vector3(24.0, 0.02, 230.0), Color(0.26, 0.27, 0.29), false,
-			Basis(Vector3.UP, deg_to_rad(9.0)))
+	ship.box(Vector3(27.0, 27.0, 30.0) * k, Vector3(10.0, 16.0, 30.0) * k, NAVY_GREY)
+	ship.box(Vector3(27.0, 33.0, 22.0) * k, Vector3(10.4, 2.0, 12.0) * k, GLASS, false)
+	ship.cylinder(Vector3(27.0, 41.0, 32.0) * k, 0.6 * k, 12.0 * k, NAVY_GREY)
+	ship.box(Vector3(27.0, 45.0, 32.0) * k, Vector3(6.0, 1.5, 1.5) * k, NAVY_GREY)
+	# Deck markings: the bow line, the angled landing deck and its centre line,
+	# and four elevators along the edges.
+	var deck_top := 19.0 * k + 0.02
+	ship.box(Vector3(4.0 * k, deck_top, -60.0 * k), Vector3(0.8 * k, 0.04, 200.0 * k), PAINT, false)
+	var angled := Basis(Vector3.UP, deg_to_rad(9.0))
+	ship.box(Vector3(-16.0 * k, deck_top - 0.01, 40.0 * k), Vector3(24.0 * k, 0.04, 230.0 * k), Color(0.26, 0.27, 0.29), false, angled)
+	ship.box(Vector3(-16.0 * k, deck_top + 0.01, 40.0 * k), Vector3(0.8 * k, 0.04, 230.0 * k), Color(0.95, 0.85, 0.20), false, angled)
+	for spot_z in [-100.0, -40.0, 60.0]:
+		ship.box(Vector3(30.0 * k, deck_top, float(spot_z) * k), Vector3(16.0 * k, 0.04, 16.0 * k), Color(0.30, 0.31, 0.33), false)
+	ship.box(Vector3(-40.0 * k, deck_top, 90.0 * k), Vector3(14.0 * k, 0.04, 16.0 * k), Color(0.30, 0.31, 0.33), false)
+	_painted_number(ship.body, "77", Vector3(-6.0 * k, deck_top + 0.02, -140.0 * k), PI)
 	ship.finish()
 
 
@@ -481,6 +627,18 @@ class Builder:
 			var collider := CollisionShape3D.new()
 			collider.shape = shape
 			collider.transform = Transform3D(turn, centre)
+			body.add_child(collider)
+
+	## A cone standing on `base`, as for a tower roof.
+	func cone(base: Vector3, radius: float, height: float, color: Color, solid: bool = true) -> void:
+		MeshKit.add_frustum(_surface(color), base + Vector3(0.0, height * 0.5, 0.0), 1, radius, 0.0, height, 16)
+		if solid:
+			var shape := CylinderShape3D.new()
+			shape.radius = radius * 0.55
+			shape.height = height * 0.8
+			var collider := CollisionShape3D.new()
+			collider.shape = shape
+			collider.position = base + Vector3(0.0, height * 0.4, 0.0)
 			body.add_child(collider)
 
 	func cylinder(centre: Vector3, radius: float, height: float, color: Color, solid: bool = true) -> void:

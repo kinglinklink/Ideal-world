@@ -42,6 +42,8 @@ TILE = 128.0      # collision squares
 CELL = 1024.0     # tree drawing squares
 PAD_REF = np.array([-477.0, -781.0])   # the pad's corner in the reference frame of map_common
 HOME = (-15.0, -43.0, 47.0, 79.0)      # pad, gap and garage, with a margin: x0, z0, x1, z1
+VILLA_SITE = (90.0, 110.0)             # half the levelled ground round the Cromwell villa: east-west, north-south
+CARRIER_CLEARANCE = 1900.0             # metres of open water all round the carrier's spot
 BORDER_MARGIN = 2000.0                 # metres of land between the lake's furthest reach and the wall
 NEAR_SHORE = 600.0                     # woods are thicker this close to the water
 MAX_DEPTH = 113.0
@@ -269,7 +271,7 @@ def main():
                   "side": side},
     })
 
-    # --- Melita bush strip, from the dock at its west end ---
+    # --- Melita bush strip, from the landing at its west end ---
     m_half = float(np.linalg.norm(melita_vec)) * 0.5
     m_centre = (melita_a + melita_b) * 0.5
     m_along, m_across = direction(melita_heading)
@@ -294,8 +296,8 @@ def main():
     })
     dock_start = m_centre - m_along * m_half
     features["docks"].append({
-        "name": "Camp Melita dock", "start": [float(dock_start[0]), float(dock_start[1])],
-        "heading": (melita_heading + 180.0) % 360.0, "length": 50.0, "width": 4.0,
+        "name": "Melita airstrip landing", "kind": "landing", "start": [float(dock_start[0]), float(dock_start[1])],
+        "heading": (melita_heading + 180.0) % 360.0, "length": 50.0, "width": 8.0,
         "deck": float(max(prof[0] + 0.05, lake + 1.2)) - base,   # flush with the end of the strip
     })
 
@@ -314,27 +316,88 @@ def main():
     clearing_centre = m_centre + m_along * along_pos + m_across * lodge_side * 30.0
     clearings.append(("rect", lodge_centre, melita_heading, 32.0, 24.0))
     clearings.append(("circle", clearing_centre, 90.0))
+
+    # The camp's main dock, on the sheltered south face of the island, where
+    # the real one is: a wide walkway on rock-filled cribbing with moorings
+    # for the camp's fleet. Found by walking south from the island's middle.
+    south_z = float(centroid[1])
+    while south_z < centroid[1] + 1500.0:
+        r, c = detail.cell(float(centroid[0]), south_z)
+        if detail_water[r, c]:
+            break
+        south_z += 4.0
+    marina = np.array([float(centroid[0]), south_z - 6.0])
+    marina_ground = float(max(detail.sample(raw_detail, np.array([marina[0]]), np.array([marina[1]]))[0], lake + 1.5))
+    for grid in (detail, coarse):
+        grade(grid, marina, 0.0, 14.0, 20.0, lambda tt: np.full_like(tt, marina_ground), 12.0, SITE, (12.0, 18.0))
+    clearings.append(("circle", marina, 40.0))
+    features["docks"].append({
+        "name": "Camp Melita main dock", "kind": "marina", "start": [float(marina[0]), float(marina[1]) + 6.0],
+        "heading": 180.0, "length": 90.0, "width": 8.0, "deck": lake + 1.3 - base,
+    })
     features["buildings"].append({
         "kind": "melita_lodge", "name": "Camp Melita lodge (terminal)",
         "centre": [float(lodge_centre[0]), float(lodge_centre[1])], "heading": melita_heading,
         "facing": -lodge_side, "ground": lodge_height - base,
     })
 
-    # --- Cromwell Island mansion ---
-    cx, cz = game_point(-114.267201, 47.850731)
-    mansion_height = float(np.median(detail.sample(raw_detail, cx + np.array([-20, 0, 20, 0]),
-                                                   cz + np.array([0, -15, 0, 15]))))
+    # --- Cromwell Island: the villa, the guest villa, the dock and the road ---
+    # The real layout: a barge crosses the 650 ft channel from the mainland to
+    # the dock on the west shore; the road climbs past the guest villa to the
+    # villa at the centre, which faces east toward Wild Horse Island. All of it
+    # is built big, larger than life.
+    # Sources put the villa at the centre of the island, so it goes on the
+    # island's middle (the listing's map point is the property, not the house).
+    cromwell = island_at(*game_point(-114.2636, 47.8503))
+    rows, cols = np.nonzero(cromwell)
+    cx = float(detail.x0 + cols.mean() * DETAIL)
+    cz = float(detail.z0 + rows.mean() * DETAIL)
+    mansion_height = float(np.median(detail.sample(raw_detail, cx + np.array([-40, 0, 40, 0]),
+                                                   cz + np.array([0, -40, 0, 40]))))
     for grid in (detail, coarse):
-        grade(grid, (cx, cz), 90.0, 60.0, 45.0, lambda tt: np.full_like(tt, mansion_height), 30.0,
-              SITE, (55.0, 40.0))
-    clearings.append(("rect", (cx, cz), 90.0, 85.0, 70.0))
+        grade(grid, (cx, cz), 90.0, VILLA_SITE[0], VILLA_SITE[1], lambda tt: np.full_like(tt, mansion_height), 40.0,
+              SITE, (VILLA_SITE[0] - 8.0, VILLA_SITE[1] - 8.0))
+    clearings.append(("rect", (cx, cz), 90.0, VILLA_SITE[0] + 25.0, VILLA_SITE[1] + 25.0))
     features["buildings"].append({
         "kind": "cromwell_mansion", "name": "Cromwell Island villa",
         "centre": [cx, cz], "heading": 90.0, "ground": mansion_height - base,
     })
+    # The west shore, straight west of the villa.
+    shore_x = cx
+    while shore_x > cx - 1500.0:
+        r, c = detail.cell(shore_x, cz)
+        if detail_water[r, c]:
+            break
+        shore_x -= 4.0
+    dock_at = np.array([shore_x + 6.0, cz])
+    guest = np.array([cx - VILLA_SITE[0] - 90.0, cz + 30.0])
+    guest_height = float(np.median(detail.sample(raw_detail, guest[0] + np.array([-15, 0, 15]), guest[1] + np.array([-10, 0, 10]))))
+    for grid in (detail, coarse):
+        grade(grid, guest, 90.0, 32.0, 26.0, lambda tt: np.full_like(tt, guest_height), 20.0, SITE, (28.0, 22.0))
+    clearings.append(("rect", guest, 90.0, 45.0, 38.0))
+    features["buildings"].append({
+        "kind": "cromwell_guest_villa", "name": "Cromwell guest villa",
+        "centre": [float(guest[0]), float(guest[1])], "heading": 90.0, "ground": guest_height - base,
+    })
+    landing = float(max(detail.sample(raw_detail, np.array([dock_at[0]]), np.array([dock_at[1]]))[0], lake + 1.5))
+    for grid in (detail, coarse):
+        grade(grid, dock_at, 90.0, 14.0, 20.0, lambda tt: np.full_like(tt, landing), 12.0, SITE, (12.0, 18.0))
+    features["docks"].append({
+        "name": "Cromwell Island dock", "kind": "yacht", "start": [float(dock_at[0]) - 8.0, float(dock_at[1])],
+        "heading": 270.0, "length": 70.0, "width": 6.0, "deck": lake + 1.4 - base,
+    })
+    lay_road(detail, coarse, raw_detail, [dock_at + np.array([10.0, 0.0]), guest - np.array([0.0, 30.0]),
+                                          np.array([cx - VILLA_SITE[0] + 4.0, cz])], lake, clearings)
 
     # --- Airstrips, helipads and the Shelter Island mansion on the other islands ---
-    island_features(coarse, detail, coarse_water, detail_water, lake, base, features, clearings, (cx, cz))
+    keep_away = [((cx, cz), 200.0), ((guest[0], guest[1]), 70.0)]
+    island_features(coarse, detail, coarse_water, detail_water, lake, base, features, clearings, keep_away)
+
+    # --- Airports on the mainland: Polson's real one, and some in the mountains ---
+    polson_a = np.array(game_point(-114.182578, 47.700894))
+    polson_b = np.array(game_point(-114.187994, 47.689992))
+    paved_airport(coarse, detail, "Polson", polson_a, polson_b, 23.0, base, features, clearings)
+    mountain_airports(coarse, detail, coarse_water, land_to_water, inbounds, lake, base, features, clearings)
 
     # --- Join the detailed area smoothly onto the rest ---
     from_coarse = coarse.sample(coarse.h, detail.X, detail.Z)
@@ -360,7 +423,7 @@ def main():
     walls = [[[bounds[0], bounds[1]], [bounds[2], bounds[1]], [bounds[2], bounds[3]], [bounds[0], bounds[3]]]]
 
     # --- Carrier spots: deep open water, far from land ---
-    open_water = coarse_water & (water_to_land >= 1500.0) & inbounds
+    open_water = coarse_water & (water_to_land >= CARRIER_CLEARANCE) & inbounds
     rr, cc = np.nonzero(open_water)
     pick = RNG.choice(len(rr), size=min(300, len(rr)), replace=False)
     carrier_spots = [[float(coarse.x0 + cc[i] * COARSE), float(coarse.z0 + rr[i] * COARSE)] for i in pick]
@@ -570,7 +633,7 @@ def limit_grade(profile, step, grade):
     return prof
 
 
-def island_features(coarse, detail, coarse_water, detail_water, lake, base, features, clearings, villa):
+def island_features(coarse, detail, coarse_water, detail_water, lake, base, features, clearings, keep_away):
     """Gives each small island an airstrip as long as fits on it, or a helipad
     if no strip fits, and Shelter Island its mansion."""
     c_land = ~coarse_water
@@ -615,8 +678,8 @@ def island_features(coarse, detail, coarse_water, detail_water, lake, base, feat
         # Only gentle ground, so a strip does not carve a trench through a hill.
         sy, sx = np.gradient(ndimage.gaussian_filter(h, 2.0), 4.0)
         usable &= np.hypot(sx, sy) < MAX_GROUND_SLOPE
-        if name == "Cromwell":
-            usable &= np.hypot(gx - villa[0], gz - villa[1]) > 110.0
+        for spot, radius in keep_away:
+            usable &= np.hypot(gx - spot[0], gz - spot[1]) > radius
         strip = longest_line(gx[usable], gz[usable])
         if strip is not None and strip[0] >= MIN_STRIP:
             length, heading, a, b = strip
@@ -675,6 +738,151 @@ def island_features(coarse, detail, coarse_water, detail_water, lake, base, feat
                                           "centre": [float(spot[0]), float(spot[1])], "heading": float(heading),
                                           "ground": ground - base})
             print("  Shelter mansion at %.0f, %.0f (%.1f m from the inner edge)" % (spot[0], spot[1], room[rr, cc]))
+
+
+TOWNS = [
+    ("Polson", -114.1631, 47.6932), ("Bigfork", -114.0726, 48.0633), ("Lakeside", -114.2246, 48.0194),
+    ("Somers", -114.2340, 48.0802), ("Rollins", -114.1940, 47.9122), ("Dayton", -114.2796, 47.8644),
+    ("Elmo", -114.3528, 47.8258), ("Big Arm", -114.3093, 47.7969), ("Woods Bay", -114.0632, 47.9497),
+    ("Yellow Bay", -114.0280, 47.8770), ("Finley Point", -114.0820, 47.7500),
+]
+MOUNTAIN_AIRPORTS = 6
+MOUNTAIN_LENGTH = 900.0
+MOUNTAIN_SPACING = 7000.0   # metres between mountain airports
+MOUNTAIN_ABOVE_LAKE = 450.0  # metres; only ground at least this high counts as the mountains
+MOUNTAIN_MAX_EARTHWORK = 20.0   # metres of average cut and fill allowed
+
+
+def lay_road(detail, coarse, raw, points, lake, clearings, width=8.0):
+    """A gravel road through the given points, graded to the ground with no
+    stretch steeper than 10 %."""
+    for a, b in zip(points[:-1], points[1:]):
+        a = np.asarray(a, dtype=float)
+        b = np.asarray(b, dtype=float)
+        length = float(np.linalg.norm(b - a))
+        if length < 1.0:
+            continue
+        heading = math.degrees(math.atan2(b[0] - a[0], -(b[1] - a[1]))) % 360.0
+        centre = (a + b) * 0.5
+        along, _ = direction(heading)
+        t = np.linspace(-length * 0.5, length * 0.5, max(int(length / 4.0), 2) + 1)
+        pts = centre[None, :] + t[:, None] * along[None, :]
+        prof = detail.sample(raw, pts[:, 0], pts[:, 1])
+        prof = limit_grade(ndimage.gaussian_filter1d(prof, 3.0, mode="nearest"), t[1] - t[0], 0.10)
+        prof = np.maximum(prof, lake + 1.0)
+        for grid in (detail, coarse):
+            grade(grid, centre, heading, length * 0.5 + width * 0.5, width * 0.5 + 2.0,
+                  lambda tt, t=t, prof=prof: np.interp(tt, t, prof), 10.0, SITE, (length * 0.5, width * 0.5))
+        clearings.append(("rect", centre, heading, length * 0.5 + 6.0, width * 0.5 + 6.0))
+
+
+def _profile_heights(grid, centre, heading, half, offsets=(0.0,), step=10.0):
+    along, across = direction(heading)
+    t = np.arange(-half, half + 0.001, step)
+    rows = []
+    for off in offsets:
+        pts = centre[None, :] + t[:, None] * along[None, :] + off * across[None, :]
+        rows.append(grid.sample(grid.h, pts[:, 0], pts[:, 1]))
+    return t, np.array(rows)
+
+
+def paved_airport(coarse, detail, name, end_a, end_b, width, base, features, clearings, max_slope=0.02):
+    """An asphalt runway from `end_a` to `end_b` on a straight grade, with an
+    apron, hangar and tower beside its middle on the less hilly side."""
+    vec = end_b - end_a
+    length = float(np.linalg.norm(vec))
+    heading = math.degrees(math.atan2(vec[0], -vec[1])) % 360.0
+    centre = (end_a + end_b) * 0.5
+    half = length * 0.5
+    t, rows = _profile_heights(coarse, centre, heading, half, (0.0, -width, width))
+    slope, mid = np.polyfit(t, rows.mean(axis=0), 1)
+    slope = float(np.clip(slope, -max_slope, max_slope))
+    mid = float(np.mean(rows.mean(axis=0) - slope * t))
+    shoulder = max(width, 20.0)
+    for grid in (coarse, detail):
+        grade(grid, centre, heading, half + 30.0, width * 0.5 + shoulder, lambda tt: mid + slope * tt, 60.0,
+              ASPHALT, (half, width * 0.5))
+    along, across = direction(heading)
+    offset = width * 0.5 + shoulder + 50.0
+    best_side, best_cost = 1.0, None
+    for side in (1.0, -1.0):
+        spot = centre + across * side * offset
+        _, apron_rows = _profile_heights(coarse, spot, heading, 90.0, (-40.0, 0.0, 40.0))
+        cost = float(np.mean(np.abs(apron_rows - mid)))
+        if best_cost is None or cost < best_cost:
+            best_side, best_cost = side, cost
+    apron = centre + across * best_side * offset
+    for grid in (coarse, detail):
+        grade(grid, apron, heading, 90.0, 45.0, lambda tt: np.full_like(tt, mid), 50.0, ASPHALT, (90.0, 45.0))
+    clearings.append(("rect", centre, heading, half + 150.0, width * 0.5 + shoulder + 50.0))
+    clearings.append(("rect", apron, heading, 130.0, 80.0))
+    features["runways"].append({
+        "name": "%s airport" % name, "surface": "asphalt",
+        "centre": [float(centre[0]), float(centre[1])], "heading": heading,
+        "length": length, "width": width, "height_mid": mid - base, "slope": slope,
+        "apron": {"centre": [float(apron[0]), float(apron[1])], "length": 180.0, "width": 90.0,
+                  "side": best_side, "label": name.upper()},
+    })
+    print("  %s airport: %.0f m, heading %.0f, %.0f m above sea level" % (name, length, heading, mid))
+
+
+def mountain_airports(coarse, detail, coarse_water, land_to_water, inbounds, lake, base, features, clearings):
+    """Finds the flattest long lines high in the hills inside the wall and puts
+    an airport on each, well apart from one another and from the towns."""
+    towns = [np.array(game_point(lon, lat)) for _, lon, lat in TOWNS]
+    taken = [np.array(r["centre"]) for r in features["runways"]]
+    half = MOUNTAIN_LENGTH * 0.5
+    candidates = []
+    xs = np.arange(coarse.x0 + 2000.0, coarse.x0 + coarse.cols * COARSE - 2000.0, 500.0)
+    zs = np.arange(coarse.z0 + 2000.0, coarse.z0 + coarse.rows * COARSE - 2000.0, 500.0)
+    for x in xs:
+        for z in zs:
+            r, c = coarse.cell(x, z)
+            if not inbounds[r, c] or coarse_water[r, c] or land_to_water[r, c] < 1500.0:
+                continue
+            if coarse.h[r, c] < lake + MOUNTAIN_ABOVE_LAKE:
+                continue
+            centre = np.array([x, z])
+            if any(np.linalg.norm(centre - t) < 2500.0 for t in towns):
+                continue
+            for heading in np.arange(0.0, 180.0, 15.0):
+                along, across = direction(heading)
+                ends_ok = True
+                for e in (-1.0, 1.0):
+                    p = centre + along * e * (half + 100.0)
+                    rr, cc = coarse.cell(p[0], p[1])
+                    if not (0 <= rr < coarse.rows and 0 <= cc < coarse.cols) or not inbounds[rr, cc] or coarse_water[rr, cc]:
+                        ends_ok = False
+                if not ends_ok:
+                    continue
+                t, rows = _profile_heights(coarse, centre, heading, half, (-30.0, 0.0, 30.0), 20.0)
+                line = rows.mean(axis=0)
+                slope, mid = np.polyfit(t, line, 1)
+                slope = float(np.clip(slope, -0.03, 0.03))
+                mid = float(np.mean(line - slope * t))
+                cost = float(np.mean(np.abs(rows - (mid + slope * t)[None, :])))
+                candidates.append((cost, x, z, heading))
+    candidates.sort()
+    chosen = []
+    for cost, x, z, heading in candidates:
+        if cost > MOUNTAIN_MAX_EARTHWORK or len(chosen) >= MOUNTAIN_AIRPORTS:
+            break
+        spot = np.array([x, z])
+        if any(np.linalg.norm(spot - np.array([c[1], c[2]])) < MOUNTAIN_SPACING for c in chosen):
+            continue
+        if any(np.linalg.norm(spot - t) < 4000.0 for t in taken):
+            continue
+        chosen.append((cost, x, z, heading))
+    for cost, x, z, heading in chosen:
+        spot = np.array([x, z])
+        nearest = min(TOWNS, key=lambda town: np.linalg.norm(spot - np.array(game_point(town[1], town[2]))))
+        name = "%s Mountain" % nearest[0]
+        if any(r["name"] == "%s airport" % name for r in features["runways"]):
+            name = "%s Ridge" % nearest[0]
+        along, _ = direction(heading)
+        paved_airport(coarse, detail, name, spot - along * half, spot + along * half, 30.0, base, features, clearings,
+                      max_slope=0.03)
+        print("    (cut and fill about %.1f m on average)" % cost)
 
 
 def longest_line(px, pz, step=4.0):
