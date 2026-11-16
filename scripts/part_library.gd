@@ -48,7 +48,7 @@ const PARTS := {
 	"rack": ["Rack", "Mechanical", Vector3(1, 0.5, 0.5), 0.5, Vector3(0, 0, 0), "box"],
 	"pulley": ["Belt pulley", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"crankshaft": ["Crankshaft", "Mechanical", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
-	"wheel": ["Wheel", "Mechanical", Vector3(0.5, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
+	"wheel": ["Wheel", "Mechanical", Vector3(0.5, 1, 1), 0.5, Vector3(0, 0, 0), "convex"],
 	"linkage_bar": ["Linkage bar", "Mechanical", Vector3(1, 0.25, 0.25), 0.5, Vector3(0, 0, 0), "box"],
 	"clutch": ["Clutch", "Mechanical", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"brake": ["Brake", "Mechanical", Vector3(1, 0.375, 1), 0.5, Vector3(0, 0, 0), "box"],

@@ -6,3 +6,6 @@ export_presets.cfg
 # Exported builds
 /build/
 /export/
+
+# Downloaded elevation tiles (tools/fetch_terrain.py)
+tools/terrain_cache/

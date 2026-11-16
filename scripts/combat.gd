@@ -1,0 +1,547 @@
+extends Node3D
+## Combat: guns, cannon shells, ammo generators and explosives.
+##
+## The spawner holds the parts and their health; this script fires, flies
+## and explodes things, and tells the spawner how much damage each part takes.
+## Every number follows the design document:
+##   machine gun     4 HP per bullet, fired straight along the gun's -Z
+##   large cannon    propellant pushes the shell down the barrel at 100 MPa,
+##                   so muzzle energy = 100 MPa x bore area x barrel length.
+##                   The shell is steel (or whatever is set), three bores long.
+##                   A hit does 1 HP per kJ the shell still carries, and the
+##                   shell goes through any part it destroys, slowed by the
+##                   energy that took. One shot per 0.5 s per metre of barrel.
+##   ammo generator  makes its rate per second, up to its storage, and weighs
+##                   more as it fills. A gun linked to one spends from it.
+##   explosive       damage = D0 x (1 - distance / radius), D0 = 1000 HP per
+##                   metre of blast radius, and a push of 1 N s per HP dealt.
+##                   An explosive destroyed by anything goes off one tick later,
+##                   so chains of them ripple outward.
+
+const Units = preload("res://scripts/units.gd")
+const BuildGrid = preload("res://scripts/build_grid.gd")
+const MaterialLibrary = preload("res://scripts/material_library.gd")
+
+const BULLET_DAMAGE := 4.0          # HP per machine gun round
+const BULLET_MASS := 0.01           # kg, the bullet itself
+const BULLET_SPEED := 850.0         # m/s, for the push a hit gives and the gun's recoil
+const ROUND_MASS := 0.025           # kg, a whole stored cartridge
+const MAX_SHOTS_PER_TICK := 20
+const CANNON_PRESSURE := 100000000.0   # Pa, the average push of the propellant
+const HP_PER_JOULE := 0.001         # 1 HP per kJ
+const BLAST_HP_PER_METRE := 1000.0  # D0 = this x blast radius
+const BLAST_PUSH := 1.0             # N s of push per HP of blast damage
+const SHELL_LIFE := 30.0            # s before a shell that hit nothing is dropped
+const TRACER_LIFE := 0.05           # s
+const FLASH_LIFE := 0.35            # s
+const MAX_TRACERS := 96
+const RAY_MASK := Units.LAYER_WORLD | Units.LAYER_BODIES
+
+var spawner: Node3D = null   # spawner.gd
+
+var _generation := -1
+var _guns: Dictionary = {}         # gun uid -> {"cooldown": s}
+var _generators: Dictionary = {}   # generator uid -> {"stored", "rate", "storage", "kind", "base_mass", "unit_mass", "shown_mass", "refresh"}
+var _explosives: Array = []        # uids of explosive blocks
+var _shells: Array = []            # {"node", "at", "speed", "mass", "life", "skip"}
+var _pending_blasts: Array = []    # [where, radius] to set off next tick
+var _tracers: Array = []           # [node, time left]
+var _flashes: Array = []           # [node, time left, full size]
+
+var _tracer_mesh: Mesh = null
+var _shell_mesh: Mesh = null
+var _flash_mesh: Mesh = null
+
+
+func setup(the_spawner: Node3D) -> void:
+	spawner = the_spawner
+	spawner.connect("part_destroyed", _on_part_destroyed)
+
+
+# --- Ballistics --------------------------------------------------------------
+
+## What a cannon of this size fires: {"bore" m, "barrel" m, "mass" kg,
+## "energy" J, "speed" m/s, "interval" s}.
+static func cannon_ballistics(record: Dictionary) -> Dictionary:
+	var size_units: Vector3i = record["size"]
+	var size_m: Vector3 = Units.to_metres(size_units)
+	var bore: float = 0.2 * minf(size_m.x, size_m.y)
+	var barrel: float = size_m.z
+	var props: Dictionary = record.get("props", {})
+	var projectile_name := str(props.get("projectile_material", "Steel"))
+	var density: float = MaterialLibrary.density(MaterialLibrary.id_for_name(projectile_name))
+	var bore_area: float = PI * bore * bore * 0.25
+	var mass: float = density * bore_area * bore * 3.0
+	var energy: float = CANNON_PRESSURE * bore_area * barrel
+	var speed := 0.0
+	if mass > 0.0:
+		speed = sqrt(2.0 * energy / mass)
+	return {"bore": bore, "barrel": barrel, "mass": mass, "energy": energy, "speed": speed,
+			"interval": maxf(0.5 * barrel, 0.05)}
+
+
+# --- Every tick --------------------------------------------------------------
+
+func _physics_process(delta: float) -> void:
+	if spawner == null:
+		return
+	if not bool(spawner.spawned):
+		if _generation != -1:
+			_clear()
+		return
+	if int(spawner.generation) != _generation:
+		_clear()
+		_start()
+	_set_off_blasts()
+	_run_generators(delta)
+	_run_explosives()
+	_run_guns(delta)
+	_run_shells(delta)
+	_fade_effects(delta)
+
+
+## Notes the combat parts of a new spawn.
+func _start() -> void:
+	_generation = int(spawner.generation)
+	var records: Dictionary = spawner.all_records()
+	var cannon_shell_mass: Dictionary = {}   # generator uid -> heaviest shell a linked cannon fires
+	for key in records:
+		var uid: int = key
+		var record: Dictionary = records[uid]
+		var type: String = record["type"]
+		if type == "machine_gun" or type == "large_cannon":
+			_guns[uid] = {"cooldown": 0.0}
+			if type == "large_cannon":
+				var source: int = spawner.link_source(record.get("links", {}), "ammo")
+				if source != 0:
+					var shell: float = float(cannon_ballistics(record)["mass"])
+					cannon_shell_mass[source] = maxf(float(cannon_shell_mass.get(source, 0.0)), shell)
+		elif type == "explosive_block":
+			_explosives.append(uid)
+	for key in records:
+		var uid: int = key
+		var record: Dictionary = records[uid]
+		if record["type"] != "ammo_generator":
+			continue
+		var props: Dictionary = record.get("props", {})
+		var kind := str(props.get("ammo_type", "Machine gun rounds"))
+		var unit_mass: float = ROUND_MASS
+		if kind == "Cannon shells":
+			unit_mass = float(cannon_shell_mass.get(uid, 10.0))
+		var base_mass: float = BuildGrid.mass_of(record)
+		_generators[uid] = {
+			"stored": 0.0, "kind": kind,
+			"rate": maxf(float(props.get("rate", 5.0)), 0.0),
+			"storage": maxf(float(props.get("storage", 200.0)), 0.0),
+			"base_mass": base_mass, "unit_mass": unit_mass,
+			"shown_mass": base_mass, "refresh": 0.0,
+		}
+
+
+## Forgets everything from the last spawn and removes what is still flying.
+func _clear() -> void:
+	_generation = -1
+	_guns.clear()
+	_generators.clear()
+	_explosives.clear()
+	_pending_blasts.clear()
+	for shell in _shells:
+		var node: Node = shell["node"]
+		if is_instance_valid(node):
+			node.queue_free()
+	_shells.clear()
+	for item in _tracers:
+		var node: Node = item[0]
+		if is_instance_valid(node):
+			node.queue_free()
+	_tracers.clear()
+	for item in _flashes:
+		var node: Node = item[0]
+		if is_instance_valid(node):
+			node.queue_free()
+	_flashes.clear()
+
+
+# --- Ammo --------------------------------------------------------------------
+
+func _run_generators(delta: float) -> void:
+	for key in _generators:
+		var uid: int = key
+		var generator: Dictionary = _generators[uid]
+		if spawner.record_of(uid).is_empty():
+			continue   # destroyed
+		var stored: float = generator["stored"]
+		stored = minf(stored + float(generator["rate"]) * delta, float(generator["storage"]))
+		generator["stored"] = stored
+		spawner.set_outputs(uid, {"ammo": floorf(stored), "stored": floorf(stored)})
+		# Its weight follows what it holds, brought up to date a few times a second.
+		generator["refresh"] = float(generator["refresh"]) - delta
+		if float(generator["refresh"]) <= 0.0:
+			generator["refresh"] = 0.25
+			var mass: float = float(generator["base_mass"]) + floorf(stored) * float(generator["unit_mass"])
+			if absf(mass - float(generator["shown_mass"])) > 0.0001:
+				generator["shown_mass"] = mass
+				spawner.set_part_mass(uid, mass)
+
+
+## Takes one round for a gun. True if it may fire.
+func _take_round(uid: int, record: Dictionary) -> bool:
+	var props: Dictionary = record.get("props", {})
+	if bool(props.get("unlimited_ammo", true)):
+		return true
+	var source: int = spawner.link_source(record.get("links", {}), "ammo")
+	if not _generators.has(source) or spawner.record_of(source).is_empty():
+		return false
+	var generator: Dictionary = _generators[source]
+	var wanted := "Machine gun rounds" if record["type"] == "machine_gun" else "Cannon shells"
+	if generator["kind"] != wanted or float(generator["stored"]) < 1.0:
+		return false
+	generator["stored"] = float(generator["stored"]) - 1.0
+	generator["refresh"] = 0.0   # weigh it again now
+	return true
+
+
+# --- Guns --------------------------------------------------------------------
+
+func _run_guns(delta: float) -> void:
+	for key in _guns:
+		var uid: int = key
+		var gun: Dictionary = _guns[uid]
+		var record: Dictionary = spawner.record_of(uid)
+		if record.is_empty():
+			continue   # destroyed
+		var cooldown: float = maxf(float(gun["cooldown"]) - delta, -delta)
+		var links: Dictionary = record.get("links", {})
+		var firing: bool = spawner.input_value(links, "fire", 0.0) != 0.0
+		if not firing:
+			gun["cooldown"] = maxf(cooldown, 0.0)
+			continue
+		var props: Dictionary = record.get("props", {})
+		var interval: float
+		if record["type"] == "machine_gun":
+			var rate: float = float(props.get("fire_rate", 10.0))
+			if rate <= 0.0:
+				gun["cooldown"] = 0.0
+				continue
+			interval = 1.0 / rate
+		else:
+			interval = float(cannon_ballistics(record)["interval"])
+		var shots := 0
+		while cooldown <= 0.0 and shots < MAX_SHOTS_PER_TICK:
+			if not _take_round(uid, record):
+				cooldown = 0.0
+				break
+			if record["type"] == "machine_gun":
+				_fire_bullet(uid, record)
+			else:
+				_fire_shell(uid, record)
+			cooldown += interval
+			shots += 1
+		gun["cooldown"] = cooldown
+
+
+## The gun's muzzle and the way it points, and its body: [muzzle, direction,
+## body]. Empty if the gun is gone.
+func _muzzle(uid: int, record: Dictionary) -> Array:
+	var frame: Array = spawner.part_frame(uid)
+	if frame.is_empty():
+		return []
+	var place: Transform3D = frame[0]
+	var size_units: Vector3i = record["size"]
+	var length: float = Units.to_metres(size_units).z
+	var direction: Vector3 = -place.basis.z.normalized()
+	# Just clear of the gun's own front face.
+	return [place.origin + direction * (length * 0.5 + 0.01), direction, frame[1]]
+
+
+## A machine gun round: an instant line out to the gun's range. The first
+## part on the line takes the damage and the bullet's push.
+func _fire_bullet(uid: int, record: Dictionary) -> void:
+	var muzzle: Array = _muzzle(uid, record)
+	if muzzle.is_empty():
+		return
+	var from: Vector3 = muzzle[0]
+	var direction: Vector3 = muzzle[1]
+	var body: RigidBody3D = muzzle[2]
+	var props: Dictionary = record.get("props", {})
+	var reach: float = maxf(float(props.get("range", 500.0)), 1.0)
+	var to: Vector3 = from + direction * reach
+	var hit: Dictionary = _cast(from, to)
+	if not hit.is_empty():
+		to = hit["position"]
+		var target := hit["collider"] as RigidBody3D
+		if target != null and not target.freeze:
+			target.sleeping = false
+			target.apply_impulse(direction * BULLET_MASS * BULLET_SPEED, to - target.global_position)
+		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
+		if part != 0:
+			spawner.damage_part(part, BULLET_DAMAGE)
+	if body != null and not body.freeze:
+		body.apply_impulse(-direction * BULLET_MASS * BULLET_SPEED, from - body.global_position)
+	_add_tracer(from, to)
+
+
+## A cannon shell: it leaves the muzzle at the speed its energy gives, plus
+## the speed of the gun, and flies under gravity until it hits something.
+func _fire_shell(uid: int, record: Dictionary) -> void:
+	var muzzle: Array = _muzzle(uid, record)
+	if muzzle.is_empty():
+		return
+	var from: Vector3 = muzzle[0]
+	var direction: Vector3 = muzzle[1]
+	var body: RigidBody3D = muzzle[2]
+	var shot: Dictionary = cannon_ballistics(record)
+	var mass: float = shot["mass"]
+	var speed: float = shot["speed"]
+	if mass <= 0.0 or speed <= 0.0:
+		return
+	var carried := Vector3.ZERO
+	if body != null:
+		carried = body.linear_velocity + body.angular_velocity.cross(
+				from - body.global_transform * body.center_of_mass)
+		if not body.freeze:
+			body.apply_impulse(-direction * mass * speed, from - body.global_position)
+	var node := MeshInstance3D.new()
+	node.mesh = _get_shell_mesh()
+	var bore: float = shot["bore"]
+	node.scale = Vector3.ONE * maxf(bore, 0.02)
+	add_child(node)
+	node.global_position = from
+	_shells.append({"node": node, "at": from, "speed": carried + direction * speed,
+			"mass": mass, "life": SHELL_LIFE, "skip": []})
+	_add_flash(from, maxf(bore * 6.0, 0.3))
+
+
+func _run_shells(delta: float) -> void:
+	var gravity: Vector3 = Vector3.DOWN * float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
+	var alive: Array = []
+	for item in _shells:
+		var shell: Dictionary = item
+		var node: Node3D = shell["node"]
+		shell["life"] = float(shell["life"]) - delta
+		var at: Vector3 = shell["at"]
+		if float(shell["life"]) <= 0.0 or at.y < -500.0:
+			node.queue_free()
+			continue
+		var speed: Vector3 = shell["speed"]
+		speed += gravity * delta
+		var next: Vector3 = at + speed * delta
+		shell["speed"] = speed
+		if _shell_travels(shell, at, next):
+			shell["at"] = next
+			node.global_position = next
+			alive.append(shell)
+		else:
+			node.queue_free()
+	_shells = alive
+
+
+## Moves a shell along one tick's path. Every part it hits takes 1 HP per kJ
+## the shell carries; a part that cannot stand that is destroyed, the energy
+## it took is spent, and the shell goes on. Returns false once it stops.
+func _shell_travels(shell: Dictionary, from: Vector3, to: Vector3) -> bool:
+	var mass: float = shell["mass"]
+	var skip: Array = shell["skip"]   # parts it has already gone through
+	var start := from
+	for _attempt in 8:
+		var hit: Dictionary = _cast(start, to)
+		if hit.is_empty():
+			return true
+		var at: Vector3 = hit["position"]
+		var speed: Vector3 = shell["speed"]
+		var direction: Vector3 = speed.normalized()
+		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
+		if part != 0 and skip.has(part):
+			# Its collision has not been taken out of the world yet; look past it.
+			start = at + direction * 0.002
+			continue
+		var energy: float = 0.5 * mass * speed.length_squared()
+		var target := hit["collider"] as RigidBody3D
+		var health: float = 0.0
+		if part != 0:
+			health = spawner.health_of(part)
+		var spent: float = energy   # joules taken out of the shell here
+		var goes_on := false
+		if part != 0 and health < INF and health * 1000.0 < energy:
+			spent = health * 1000.0
+			goes_on = true
+		var left: float = energy - spent
+		var new_speed: Vector3 = Vector3.ZERO
+		if goes_on and left > 0.0:
+			new_speed = direction * sqrt(2.0 * left / mass)
+		# The part gets the momentum the shell lost.
+		if target != null and not target.freeze:
+			target.sleeping = false
+			target.apply_impulse((speed - new_speed) * mass, at - target.global_position)
+		if part != 0:
+			spawner.damage_part(part, spent * HP_PER_JOULE)
+		if not goes_on or new_speed == Vector3.ZERO:
+			return false
+		skip.append(part)
+		shell["speed"] = new_speed
+		start = at + direction * 0.002
+	return true
+
+
+func _cast(from: Vector3, to: Vector3) -> Dictionary:
+	if from.is_equal_approx(to):
+		return {}
+	var query := PhysicsRayQueryParameters3D.create(from, to, RAY_MASK)
+	return get_world_3d().direct_space_state.intersect_ray(query)
+
+
+# --- Explosives --------------------------------------------------------------
+
+## An explosive block goes off when its Detonate input is on.
+func _run_explosives() -> void:
+	var detonate: Array = []
+	for item in _explosives:
+		var uid: int = item
+		var record: Dictionary = spawner.record_of(uid)
+		if record.is_empty():
+			continue
+		var links: Dictionary = record.get("links", {})
+		if links.has("detonate") and spawner.input_value(links, "detonate", 0.0) != 0.0:
+			detonate.append(uid)
+	for item in detonate:
+		var uid: int = item
+		spawner.destroy_part(uid)   # its blast follows from _on_part_destroyed
+
+
+func _on_part_destroyed(_uid: int, type: String, at: Vector3, props: Dictionary) -> void:
+	if type != "explosive_block":
+		return
+	var radius: float = float(props.get("blast_radius", 2.0))
+	if radius > 0.0:
+		_pending_blasts.append([at, radius])
+	else:
+		_add_flash(at, 0.3)
+
+
+## Sets off the blasts waiting from last tick. Explosives these blasts
+## destroy queue up for the tick after.
+func _set_off_blasts() -> void:
+	if _pending_blasts.is_empty():
+		return
+	var blasts: Array = _pending_blasts
+	_pending_blasts = []
+	var damage: Dictionary = {}   # uid -> HP, all blasts this tick together
+	for item in blasts:
+		var blast: Array = item
+		var centre: Vector3 = blast[0]
+		var radius: float = blast[1]
+		var peak: float = BLAST_HP_PER_METRE * radius
+		_add_flash(centre, radius * 2.0)
+		for key in spawner.live_parts():
+			var uid: int = key
+			var place: Array = spawner.part_place(uid)
+			if place.is_empty():
+				continue
+			var point: Vector3 = place[0]
+			var distance: float = point.distance_to(centre)
+			if distance >= radius:
+				continue
+			var dealt: float = peak * (1.0 - distance / radius)
+			damage[uid] = float(damage.get(uid, 0.0)) + dealt
+			# The push goes on before the damage, so chunks that break off
+			# fly off with it.
+			var body: RigidBody3D = place[1]
+			if body != null and not body.freeze:
+				var away: Vector3 = point - centre
+				if away.length_squared() < 0.000001:
+					away = Vector3.UP
+				body.sleeping = false
+				body.apply_impulse(away.normalized() * dealt * BLAST_PUSH, point - body.global_position)
+	spawner.damage_parts(damage)
+
+
+# --- Effects -----------------------------------------------------------------
+
+func _add_tracer(from: Vector3, to: Vector3) -> void:
+	var length: float = from.distance_to(to)
+	if length < 0.01:
+		return
+	if _tracers.size() >= MAX_TRACERS:
+		var oldest: Array = _tracers.pop_front()
+		var old_node: Node = oldest[0]
+		old_node.queue_free()
+	if _tracer_mesh == null:
+		var box := BoxMesh.new()
+		box.size = Vector3.ONE
+		box.material = _glow(Color(1.0, 0.85, 0.3, 0.9))
+		_tracer_mesh = box
+	var direction: Vector3 = (to - from) / length
+	var up := Vector3.UP if absf(direction.y) < 0.99 else Vector3.RIGHT
+	var look := Basis.looking_at(direction, up)
+	var node := MeshInstance3D.new()
+	node.mesh = _tracer_mesh
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+	node.global_transform = Transform3D(Basis(look.x * 0.02, look.y * 0.02, look.z * length),
+			(from + to) * 0.5)
+	_tracers.append([node, TRACER_LIFE])
+
+
+func _add_flash(at: Vector3, size: float) -> void:
+	if _flash_mesh == null:
+		var ball := SphereMesh.new()
+		ball.radius = 0.5
+		ball.height = 1.0
+		ball.radial_segments = 16
+		ball.rings = 8
+		ball.material = _glow(Color(1.0, 0.55, 0.1, 0.6))
+		_flash_mesh = ball
+	var node := MeshInstance3D.new()
+	node.mesh = _flash_mesh
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+	node.global_position = at
+	node.scale = Vector3.ONE * size * 0.3
+	_flashes.append([node, FLASH_LIFE, size])
+
+
+func _fade_effects(delta: float) -> void:
+	var tracers: Array = []
+	for item in _tracers:
+		var tracer: Array = item
+		tracer[1] = float(tracer[1]) - delta
+		var node: Node = tracer[0]
+		if float(tracer[1]) <= 0.0:
+			node.queue_free()
+		else:
+			tracers.append(tracer)
+	_tracers = tracers
+	var flashes: Array = []
+	for item in _flashes:
+		var flash: Array = item
+		flash[1] = float(flash[1]) - delta
+		var node: Node3D = flash[0]
+		if float(flash[1]) <= 0.0:
+			node.queue_free()
+			continue
+		# It swells to full size as it fades.
+		var done: float = 1.0 - float(flash[1]) / FLASH_LIFE
+		node.scale = Vector3.ONE * float(flash[2]) * lerpf(0.3, 1.0, sqrt(done))
+		flashes.append(flash)
+	_flashes = flashes
+
+
+func _get_shell_mesh() -> Mesh:
+	if _shell_mesh == null:
+		var ball := SphereMesh.new()
+		ball.radius = 0.5
+		ball.height = 1.5
+		ball.radial_segments = 10
+		ball.rings = 5
+		ball.material = _glow(Color(1.0, 0.7, 0.3, 1.0))
+		_shell_mesh = ball
+	return _shell_mesh
+
+
+static func _glow(color: Color) -> StandardMaterial3D:
+	var look := StandardMaterial3D.new()
+	look.albedo_color = color
+	look.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if color.a < 1.0:
+		look.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	return look

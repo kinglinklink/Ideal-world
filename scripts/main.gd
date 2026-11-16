@@ -13,6 +13,7 @@ const Scenery = preload("res://scripts/scenery.gd")
 const PAD_SHADER = preload("res://shaders/pad_grid.gdshader")
 const GROUND_SHADER = preload("res://shaders/ground.gdshader")
 const Spawner = preload("res://scripts/spawner.gd")
+const Combat = preload("res://scripts/combat.gd")
 
 const GROUND_SIZE := 6000.0   # metres across
 
@@ -63,6 +64,13 @@ func _ready() -> void:
 	var spawner: Node3D = Spawner.new()
 	spawner.name = "Spawner"
 	add_child(spawner)
+
+	# Guns, shells and explosives. Added after the spawner, so each tick it
+	# runs once the machines have moved.
+	var combat: Node3D = Combat.new()
+	combat.name = "Combat"
+	add_child(combat)
+	combat.setup(spawner)
 
 	var controller: Node3D = BuildController.new()
 	controller.name = "BuildController"
