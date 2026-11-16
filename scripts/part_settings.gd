@@ -102,6 +102,14 @@ static func _build_table() -> void:
 		_flag("engaged", "Engaged with no input", true),
 	]
 	_table["brake"] = [_number("max_torque", "Max torque", "N·m", 200.0, 0.0, 1000000.0, 1.0)]
+	_table["wheel"] = [
+		_flag("free_spinning", "Spins freely on its own hub", true),
+		_number("friction", "Hub friction torque", "N·m", 0.0, 0.0, 100000.0, 0.1),
+	]
+	_table["pulley"] = [_number("belt", "Belt number (0 for no belt)", "", 1.0, 0.0, 99.0, 1.0)]
+	_table["linkage_bar"] = [
+		_choice("ends", "End joints", ["Ball joints", "Hinges about Y", "Hinges about Z"]),
+	]
 
 	# --- Fluid and engine ---
 	_table["fluid_cylinder"] = [
@@ -188,6 +196,7 @@ static func _build_table() -> void:
 	_table["explosive_block"] = [_number("blast_radius", "Blast radius", "m", 2.0, 0.0, 1000.0, 0.05)]
 	_table["machine_gun"] = [
 		_number("fire_rate", "Fire rate", "rounds/s", 10.0, 0.0, 1000.0, 0.1),
+		_number("range", "Range", "m", 500.0, 1.0, 10000.0, 1.0),
 		_flag("unlimited_ammo", "Unlimited ammo", true),
 	]
 	var material_names: Array = []

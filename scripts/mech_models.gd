@@ -91,32 +91,68 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 				has_detail = false
 		"ball_joint":
 			# Two matching halves, like the hinge, with a ball held between them.
-			Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
-			Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
-			Kit.add_sphere(detail, Vector3.ZERO, 0.27, 16, 8)
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+				Kit.add_sphere(detail, Vector3.ZERO, 0.27, 16, 8)
+			if half != "base":
+				Kit.add_box(body, Vector3(0.0, 0.3125, 0.0), Vector3(1.0, 0.375, 1.0))
+			if half == "top":
+				has_detail = false
 		"bearing":
-			# Flat on four sides; the shaft passes through top to bottom.
-			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 0.875, 1.0))
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.32, 0.9375)
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.14, 1.0)
+			# Flat on four sides; the shaft passes through top to bottom and is
+			# the side that turns. Each end of it carries a key, so turning shows.
+			if half != "top":
+				Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 0.875, 1.0))
+				Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.32, 0.9375)
+			var bearing_shaft: SurfaceTool = body if half == "top" else detail
+			if half != "base":
+				Kit.add_cylinder(bearing_shaft, Vector3.ZERO, Y, 0.14, 0.96)
+				Kit.add_box(bearing_shaft, Vector3(0.0, 0.485, 0.0), Vector3(0.5, 0.03, 0.16))
+				Kit.add_box(bearing_shaft, Vector3(0.0, -0.485, 0.0), Vector3(0.5, 0.03, 0.16))
+			if half == "top":
+				has_detail = false
 		"piston":
-			# A flange, a barrel, a rod and a rod-end plate.
-			Kit.add_box(body, Vector3(0.0, -0.4375, 0.0), Vector3(0.875, 0.125, 0.875))
-			Kit.add_cylinder(body, Vector3(0.0, -0.0625, 0.0), Y, 0.34, 0.625)
-			Kit.add_cylinder(detail, Vector3(0.0, 0.34375, 0.0), Y, 0.11, 0.1875)
-			Kit.add_box(detail, Vector3(0.0, 0.46875, 0.0), Vector3(0.4, 0.0625, 0.4))
+			# A flange, a barrel, a rod and a rod-end plate. "reach" makes the
+			# rod longer, down into the barrel, so there is rod to show when
+			# the piston is run out; it is a share of the part's height.
+			var piston_reach: float = float(options.get("reach", 0.0))
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.4375, 0.0), Vector3(0.875, 0.125, 0.875))
+				Kit.add_cylinder(body, Vector3(0.0, -0.0625, 0.0), Y, 0.34, 0.625)
+			var piston_rod: SurfaceTool = body if half == "top" else detail
+			if half != "base":
+				Kit.add_cylinder(piston_rod, Vector3(0.0, 0.34375 - piston_reach * 0.5, 0.0), Y, 0.11,
+						0.1875 + piston_reach)
+				Kit.add_box(piston_rod, Vector3(0.0, 0.46875, 0.0), Vector3(0.4, 0.0625, 0.4))
+			if half != "":
+				has_detail = false
 		"solenoid":
 			# A frame around a coil, with a plunger out of the top.
-			Kit.add_box(body, Vector3(0.0, -0.1875, 0.0), Vector3(0.625, 0.625, 0.625))
-			Kit.add_cylinder(detail, Vector3(0.0, -0.1875, 0.0), Y, 0.38, 0.4375)
-			Kit.add_cylinder(detail, Vector3(0.0, 0.3125, 0.0), Y, 0.1, 0.375)
+			var plunger_reach: float = float(options.get("reach", 0.0))
+			if half != "top":
+				Kit.add_box(body, Vector3(0.0, -0.1875, 0.0), Vector3(0.625, 0.625, 0.625))
+				Kit.add_cylinder(detail, Vector3(0.0, -0.1875, 0.0), Y, 0.38, 0.4375)
+			var plunger: SurfaceTool = body if half == "top" else detail
+			if half != "base":
+				Kit.add_cylinder(plunger, Vector3(0.0, 0.3125 - plunger_reach * 0.5, 0.0), Y, 0.1,
+						0.375 + plunger_reach)
+			if half == "top":
+				Kit.add_box(plunger, Vector3(0.0, 0.47, 0.0), Vector3(0.35, 0.06, 0.35))
+				has_detail = false
 		"spring":
-			# Two end plates with six coils on a thin core.
-			Kit.add_box(body, Vector3(0.0, -0.46875, 0.0), Vector3(0.75, 0.0625, 0.75))
-			Kit.add_box(body, Vector3(0.0, 0.46875, 0.0), Vector3(0.75, 0.0625, 0.75))
-			for coil in 6:
-				Kit.add_cylinder(detail, Vector3(0.0, -0.3125 + 0.125 * float(coil), 0.0), Y, 0.3, 0.0625)
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.07, 0.875)
+			# Two end plates with six coils on a thin core. Spawned, the plates
+			# are the two sides and the coils are stretched between them.
+			if half == "" or half == "base":
+				Kit.add_box(body, Vector3(0.0, -0.46875, 0.0), Vector3(0.75, 0.0625, 0.75))
+			if half == "" or half == "top":
+				Kit.add_box(body, Vector3(0.0, 0.46875, 0.0), Vector3(0.75, 0.0625, 0.75))
+			if half == "" or half == "coils":
+				var coil_surface: SurfaceTool = body if half == "coils" else detail
+				for coil in 6:
+					Kit.add_cylinder(coil_surface, Vector3(0.0, -0.3125 + 0.125 * float(coil), 0.0), Y, 0.3, 0.0625)
+				Kit.add_cylinder(coil_surface, Vector3.ZERO, Y, 0.07, 0.875)
+			if half != "":
+				has_detail = false
 		"gear":
 			Kit.add_gear(body, Vector3.ZERO, Y, 0.4, 0.5, 0.8, teeth)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.15, 1.0)
@@ -139,31 +175,69 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.14, 1.0)
 		"crankshaft":
 			# Runs along X: two journals, two webs and an offset crank pin.
-			Kit.add_cylinder(detail, Vector3(-0.375, 0.0, 0.0), X, 0.12, 0.25)
-			Kit.add_cylinder(detail, Vector3(0.375, 0.0, 0.0), X, 0.12, 0.25)
-			Kit.add_box(body, Vector3(-0.1875, 0.0625, 0.0), Vector3(0.125, 0.75, 0.35))
-			Kit.add_box(body, Vector3(0.1875, 0.0625, 0.0), Vector3(0.125, 0.75, 0.35))
-			Kit.add_cylinder(detail, Vector3(0.0, 0.3, 0.0), X, 0.1, 0.25)
+			# The journals stay put; the webs and pin turn.
+			if half != "top":
+				var journal: SurfaceTool = body if half == "base" else detail
+				Kit.add_cylinder(journal, Vector3(-0.375, 0.0, 0.0), X, 0.12, 0.25)
+				Kit.add_cylinder(journal, Vector3(0.375, 0.0, 0.0), X, 0.12, 0.25)
+			if half != "base":
+				Kit.add_box(body, Vector3(-0.1875, 0.0625, 0.0), Vector3(0.125, 0.75, 0.35))
+				Kit.add_box(body, Vector3(0.1875, 0.0625, 0.0), Vector3(0.125, 0.75, 0.35))
+				Kit.add_cylinder(detail, Vector3(0.0, 0.3, 0.0), X, 0.1, 0.25)
+			if half == "base":
+				has_detail = false
 		"wheel":
 			# The axle runs along X. The body is the tyre; the detail is the rim.
-			Kit.add_cylinder(body, Vector3.ZERO, X, 0.5, 0.9, 24)
-			Kit.add_cylinder(detail, Vector3.ZERO, X, 0.3, 1.0)
+			# Spawned free-spinning, the hub stays put and the tyre and rim turn.
+			if half == "base":
+				Kit.add_cylinder(body, Vector3.ZERO, X, 0.12, 1.0)
+				has_detail = false
+			else:
+				Kit.add_cylinder(body, Vector3.ZERO, X, 0.5, 0.9, 24)
+				Kit.add_cylinder(detail, Vector3.ZERO, X, 0.3, 1.0)
+				# Four spokes on each face of the rim, so turning shows.
+				Kit.add_box(detail, Vector3.ZERO, Vector3(1.02, 0.08, 0.56))
+				Kit.add_box(detail, Vector3.ZERO, Vector3(1.02, 0.56, 0.08))
 		"linkage_bar":
 			# A bar along X with a band at each end where its joints go.
-			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 0.7, 0.7))
-			Kit.add_box(detail, Vector3(-0.42, 0.0, 0.0), Vector3(0.08, 1.0, 1.0))
-			Kit.add_box(detail, Vector3(0.42, 0.0, 0.0), Vector3(0.08, 1.0, 1.0))
+			# Spawned, the bar and its two ends are separate pieces.
+			if half == "" or half == "bar":
+				Kit.add_box(body, Vector3.ZERO, Vector3(0.84, 0.7, 0.7))
+			if half == "":
+				Kit.add_box(detail, Vector3(-0.46, 0.0, 0.0), Vector3(0.08, 1.0, 1.0))
+				Kit.add_box(detail, Vector3(0.46, 0.0, 0.0), Vector3(0.08, 1.0, 1.0))
+			elif half == "end_a":
+				Kit.add_box(body, Vector3(-0.46, 0.0, 0.0), Vector3(0.08, 1.0, 1.0))
+			elif half == "end_b":
+				Kit.add_box(body, Vector3(0.46, 0.0, 0.0), Vector3(0.08, 1.0, 1.0))
+			if half != "":
+				has_detail = false
 		"clutch":
-			# Two plates with a friction disc between them.
-			Kit.add_cylinder(body, Vector3(0.0, -0.3, 0.0), Y, 0.45, 0.35, 24)
-			Kit.add_cylinder(body, Vector3(0.0, 0.3, 0.0), Y, 0.45, 0.35, 24)
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.38, 0.25, 24)
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.12, 1.0)
+			# Two plates with a friction disc between them. Each plate carries
+			# a block on its rim, so it shows when one turns against the other.
+			if half != "top":
+				Kit.add_cylinder(body, Vector3(0.0, -0.3, 0.0), Y, 0.45, 0.35, 24)
+				Kit.add_box(body, Vector3(0.42, -0.3, 0.0), Vector3(0.14, 0.3, 0.14))
+				Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.38, 0.25, 24)
+			if half != "base":
+				Kit.add_cylinder(body, Vector3(0.0, 0.3, 0.0), Y, 0.45, 0.35, 24)
+				Kit.add_box(body, Vector3(0.42, 0.3, 0.0), Vector3(0.14, 0.3, 0.14))
+			if half == "":
+				Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.12, 1.0)
+			if half == "top":
+				has_detail = false
 		"brake":
-			# A disc on a hub, with a caliper gripping one side.
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.5, 0.3, 24)
-			Kit.add_box(body, Vector3(0.3, 0.0, 0.0), Vector3(0.4, 0.9, 0.45))
-			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.14, 1.0)
+			# A disc on a hub, with a caliper gripping one side. The caliper
+			# stays put; the disc and hub turn with the shaft through them.
+			if half != "top":
+				Kit.add_box(body, Vector3(0.3, 0.0, 0.0), Vector3(0.4, 0.9, 0.45))
+			if half != "base":
+				var disc: SurfaceTool = body if half == "top" else detail
+				Kit.add_cylinder(disc, Vector3.ZERO, Y, 0.5, 0.3, 24)
+				Kit.add_cylinder(disc, Vector3.ZERO, Y, 0.14, 1.0)
+				Kit.add_box(disc, Vector3(0.0, 0.47, 0.0), Vector3(0.5, 0.06, 0.16))
+			if half != "":
+				has_detail = false
 		"light_panel":
 			# A thin frame holding a lens that is black while the light is off.
 			Kit.add_box(body, Vector3(0.0, -0.2, 0.0), Vector3(1.0, 0.6, 1.0))
