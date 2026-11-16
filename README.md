@@ -75,7 +75,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 15"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 16"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -116,11 +116,13 @@ The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25
 
 - **Wild Horse Island** is where you start. The pad and garage sit on the flat bench above Skeeko Bay, near the north centre of the island, 901 m above sea level and 20 m above the lake. The island is Palouse grassland with pine on the north-facing slopes.
 - **Wild Horse Island airport:** a 1,200 m × 30 m asphalt runway running north and south, west of the pad, with a 2 % slope, a parking apron, a hangar and a tower. Its runway is at 90° to Melita's.
-- **Melita Island:** a bush-plane strip as long as the real island allows (803 m of gravel, east and west), starting at the camp dock on the west shore. The island is thick with trees except along the strip and in the open middle, where the Camp Melita lodge serves as the terminal.
-- **Cromwell Island:** forested, with the unfinished four-storey stone villa in a clearing at its centre, facing east toward Wild Horse, and a tower crane still standing behind it. A 1.3 km gravel airstrip crosses the gentler south half of the island.
+- **Melita Island:** a bush-plane strip as long as the real island allows (803 m of gravel, east and west), starting at a timber landing on the west shore. The island is thick with trees except along the strip and in the open middle, where the Camp Melita lodge serves as the terminal. The camp's big main dock is where the real one is, on the sheltered south face: a wide walkway on rock-filled cribbing with finger piers, a T-head and the camp's fleet of pontoon arks, sailboats, fishing boats and canoes.
+- **Polson airport**, on its real runway: 1,278 m of asphalt at the south end of the lake, 896 m above sea level.
+- **Six mountain airports**, 900 m asphalt runways high in the hills inside the wall (1,400 to 1,530 m above sea level), on the flattest long stretches of ground the bake could find, each with an apron, hangar and tower.
+- **Cromwell Island:** the estate as the sale listing describes it, built much larger than life. The unfinished villa stands at the centre of the island: a 16th-century French château of battered travertine with terracotta tile roofs, four round towers with conical roofs, mahogany windows and twin staircases curving up to the entrance, facing east toward Wild Horse, with a tower crane still behind it. A gravel road runs from the five-slip dock on the west shore (a 70 ft yacht and the estate's 60 ft barge moored there) past the guest villa to the house. A 1.3 km gravel airstrip crosses the gentler south half of the island.
 - **Airstrips on the other islands**, gravel, each as long as the island's gentle ground allows and graded no steeper than 6 %: Bird (683 m), Bull (609 m), Cedar (425 m), Shelter (366 m) and Little Bull (295 m). **Helipads** on the islands too small for a strip: Dream, Rock, Mary B, Douglas, Goose and Invitation.
 - **Shelter Island mansion:** a modern lake house of stone, timber and glass beside the island's strip.
-- **The aircraft carrier**, 333 m long with its deck 18 m above the water, is moored at a random spot on open water each time the game starts. Check the mini map to find it.
+- **The aircraft carrier**, three times the size of a real one: a kilometre-long flight deck, 230 m wide and 54 m above the water. It is moored at a random spot on open water each time the game starts. Check the mini map to find it.
 - Every other island is at its real place: Dream, Shelter, Cedar, Rock, Mary B, Douglas, Goose, Bird, Bull, Little Bull and Invitation.
 - **Altitude** on screen is real, in metres above sea level, and the air thins with real altitude, so wings lose a little lift at the lake's 881 m.
 
@@ -181,6 +183,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `map/` | The downloaded elevation data |
 | `map_data/` | The baked map: heights, trees, buildings, wall, mini map picture |
 | `tools/fetch_terrain.py` | Downloads the elevation data (run on your own computer) |
+| `tools/fetch_osm.py` | Downloads the real roads and buildings (run on your own computer) |
 | `tools/bake_map.py` | Turns the elevation data into the game's map |
 | `saves/` | Saved builds, the format guide and an example |
 | `shaders/pad_grid.gdshader` | Draws the grid lines on the build pad |

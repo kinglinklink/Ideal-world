@@ -10,3 +10,4 @@ export_presets.cfg
 # Downloaded elevation tiles (tools/fetch_terrain.py)
 tools/terrain_cache/
 tools/__pycache__/
+tools/osm_cache/
