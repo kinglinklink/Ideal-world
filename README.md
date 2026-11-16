@@ -19,8 +19,9 @@ Working now:
 - A placement ghost that shows the part's own X, Y and Z axes in red, green and blue, so you can see which way it faces as you turn it
 - **Basic Spawn:** the build is welded into rigid bodies that fall under gravity, collide, and can be pushed around by the character. Hinges turn.
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
-- Display models for eighteen mechanical parts: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake. They are models only and do nothing until Spawn is built.
-- Display models for every other planned part: 13 fluid and engine parts, 4 aero parts, 11 logic blocks and sensors, 4 combat parts, and the seat, anchor block and dynamic offsetter. Also models only for now. That makes 75 parts in nine categories.
+- All eighteen mechanical parts work once spawned: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake
+- All four combat parts work once spawned: machine gun, large cannon, ammo generator and explosive block. Parts have health, and a body that loses parts breaks into separate chunks.
+- Display models for the remaining planned parts: 13 fluid and engine parts, the propeller and lift-gas tank, and 11 logic blocks and sensors. These are models only for now.
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color, and one ideal material, **Frictionless surface**: nothing grips it, and once spawned it cannot be moved or damaged
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
@@ -29,7 +30,7 @@ Working now:
 - Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
-Not built yet: the behavior of the mechanical, logic and combat parts, apart from the hinge. Once spawned, every other part is simply welded solid.
+Not built yet: the fluid, engine and logic parts, the propeller and the lift-gas tank. Once spawned these are simply welded solid.
 
 ## How to run it
 
@@ -71,7 +72,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 12"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 13"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -85,9 +86,26 @@ This is the basic version. What it does so far:
 - **Motors and servos** work the same way: the housing is the base and the output on top is the side that turns. Whatever touches the top face turns with it. A **motor** turns about its own +Y at up to its max speed, with up to its max torque; link Clockwise or Counterclockwise to input blocks, or link Speed to a number from −1 to 1. A **servo** also turns about its own +Y, and a **door hinge servo** swings its upright leaf about the edge it shares with its base plate. Link Go to positive target and Go to negative target to input blocks, and the servo moves to those angles at its set speed and returns to its default angle, or holds, when neither is on; or link Angle to a number of degrees. Angles are zero as built, and positive is counterclockwise seen from the top looking back at the base. Each drive works through its joint: the physics engine holds the turning speed the drive asks for as part of solving the joint, with at most the drive's max torque, so a servo holds its angle rigidly however light or heavy the thing it turns, and the base feels the opposite torque.
 - **Thrusters** push along their own −Z with the thrust set in Config. With nothing linked a thruster runs flat out from the moment of spawning. Link its On input to an **input block** (Config tool, Signals) to run it from a key, or link Throttle to an input block set to "Number from two keys" to drive it forward and back. Key binds work only while you are sitting in a seat. A running thruster shows a glow.
 - **Aero panels** make lift and drag. Each panel takes the air's speed at its own center, finds its angle of attack, and applies lift = ½ × air density × speed² × area × lift coefficient at right angles to the airflow, and drag along it. The lift coefficient is 4.0 per radian up to the 15° stall and follows a flat plate (sin 2α) beyond it; the drag coefficient is 0.01 + 2 sin²α. A panel is flat, so it makes no lift at zero angle of attack. The **dragless** panels make the same lift with no drag at all. Air density is 1.225 kg/m³ at the ground and thins with height.
+- **Every other mechanical part** comes apart into pieces held by a real joint, and each piece welds to whatever touches it:
+  - **Ball joint:** the top swivels on the base. Settings: an angle limit, and "carries rotation", which stops it twisting so it passes turning through.
+  - **Bearing block:** the housing welds by its four sides and the shaft through it by its two ends (along its own Y). The shaft turns freely, against its friction torque.
+  - **Piston:** the rod end on top slides out along its own +Y. Link Extend to run out to the target length, or link Length to a number of blocks; it moves at its set speed and easing with up to its max force. Outputs its length.
+  - **Solenoid:** link On and the top snaps out by its stroke with its set force, and back when off.
+  - **Spring:** the two plates are pushed apart below the rest length and pulled together above it, by stiffness × stretch, less damping × speed. The coils stretch to match.
+  - **Crankshaft:** the journals weld by the two ends (along its own X) and the webs turn between them. For a working engine linkage, join a linkage bar to the webs.
+  - **Wheel:** set to spin freely (the default), the hub welds by the ends of its axle (along its own X) and the round tyre turns on it, against its friction torque. Turn spin freely off to bolt a solid wheel to a motor.
+  - **Linkage bar:** a bar with a joint at each end (ball joints, or hinges about Y or Z, as set). Each end welds to what touches it.
+  - **Clutch:** the two plates turn together with up to the max torque and slip past it. Link Engage, or Amount (0 to 1) to grip part way.
+  - **Brake:** the caliper welds by its +X face and the disc by its two ends (along its own Y). Link Brake, or Amount (0 to 1), to hold the disc still with up to the max torque.
+  - **Gears, bevel gears, pulleys and racks** are fixed to what they touch, like any block. Spur gears whose shafts are parallel, level and whose rims touch turn together in the ratio of their teeth; bevel gears do the same with shafts at right angles. Pulleys with the same belt number, parallel shafts and level with each other turn together in the ratio of their sizes (belt 0 means no belt). A gear sitting on a rack's teeth with its shaft across the rack drives the rack along. Mount gears on a motor, bearing or wheel axle so they have something to turn on.
+- **Health and damage.** Every part has health = mass × material strength (the Config tool shows it). A part whose health runs out disappears, and if what is left of its body is in separate pieces, each piece becomes a body of its own and flies off with the speed it had.
+- **Machine gun:** fires along its own −Z while its Fire input is on, at its fire rate. Each round is an instant line out to its range and does 4 HP to the first part it hits, with a small push, and the gun feels the recoil.
+- **Large cannon:** fires along its own −Z. Its size sets the shot: the bore is a fifth of its smaller cross size, the shell is three bores long and made of the projectile material, and the propellant pushes it down the barrel at 100 MPa, so muzzle energy = 100 MPa × bore area × barrel length (the Config tool shows the numbers). Shells fly under gravity and do 1 HP per kJ they carry on impact. A shell goes through any part it destroys, slowed by the energy that took. One shot per 0.5 s per metre of barrel, with recoil.
+- **Ammo generator:** makes its set rate per second up to its storage, starting empty, and gets heavier as it fills (25 g per machine gun round; a cannon shell weighs what the heaviest cannon linked to it fires). Turn off a gun's Unlimited ammo and link its Ammo supply input to a generator of the right type, and each shot takes one.
+- **Explosive block:** goes off when its Detonate input is on, or when it is destroyed. Every part within the blast radius takes 1000 HP per metre of radius at the centre, falling to nothing at the edge, and is pushed away by 1 N·s per HP. An explosive caught in a blast goes off one tick later, so chains of them ripple.
 - A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** is invisible and has no collision once spawned, but still welds.
 
-Not yet: apart from hinges, motors, servos, thrusters, aero panels and input blocks, every joint, wheel, engine and logic block is welded solid and does nothing. Gears and belts do not carry motion yet. There is no drag on anything but aero panels yet. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
+Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. Belts are not drawn. A piston's Pressure output reads 0, and the crankshaft's throw and rod length settings are not used yet (build the linkage from linkage bars). There is no drag on anything but aero panels yet. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
 
 ## Saves
 
@@ -114,7 +132,8 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/player.gd` | Character movement, step-up, pushing and camera |
 | `scripts/build_grid.gd` | Stores every part; overlap rules, mass and center of mass |
 | `scripts/build_controller.gd` | The five build tools, sitting, and switching between building and spawned |
-| `scripts/spawner.gd` | Spawn: welds the build into rigid bodies |
+| `scripts/spawner.gd` | Spawn: welds the build into rigid bodies, runs the machines, and handles part health |
+| `scripts/combat.gd` | Guns, cannon shells, ammo generators and explosives |
 | `scripts/part_library.gd` | Part shapes: meshes, collision, volume |
 | `scripts/mech_models.gd` | Display models for the mechanical parts |
 | `scripts/mesh_kit.gd` | Helpers that build meshes from boxes, cylinders and gear discs |
