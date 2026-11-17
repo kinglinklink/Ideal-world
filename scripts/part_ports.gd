@@ -93,6 +93,11 @@ const PORTS := {
 		"inputs": [["setpoint", "Setpoint", "number"], ["measurement", "Measurement", "number"]],
 		"outputs": [["output", "Output", "number"]],
 	},
+	"pwm_generator": {
+		"inputs": [["enable", "Enable", "bool"], ["duty", "Duty (0 to 1)", "number"],
+				["frequency", "Frequency (Hz)", "number"]],
+		"outputs": [["output", "Output", "bool"], ["phase", "Phase (0 to 1)", "number"]],
+	},
 	"speed_sensor": {"inputs": [], "outputs": SPEED_OUT},
 	"altitude_sensor": {"inputs": [], "outputs": [["altitude", "Altitude", "number"]]},
 	"attitude_sensor": {

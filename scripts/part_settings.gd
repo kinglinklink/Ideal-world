@@ -168,6 +168,10 @@ static func _build_table() -> void:
 		_choice("operation", "Gate", ["AND", "OR", "NOT", "XOR", "NAND", "NOR", "Latch", "Timer"]),
 		_number("seconds", "Timer length", "s", 1.0, 0.0, 100000.0, 0.01),
 	]
+	_table["pwm_generator"] = [
+		_number("frequency", "Frequency", "Hz", 2.0, 0.01, 120.0, 0.01),
+		_number("duty", "Duty cycle", "%", 50.0, 0.0, 100.0, 0.1),
+	]
 	_table["number_gate"] = [
 		_choice("operation", "Operation", [
 			"Constant", "Add", "Subtract", "Multiply", "Divide", "Absolute value",

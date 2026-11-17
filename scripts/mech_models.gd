@@ -23,7 +23,7 @@ const IDS := [
 	"aero_panel", "aero_panel_triangle", "aero_panel_dragless", "aero_panel_triangle_dragless",
 	"propeller", "lift_gas_tank",
 	"seat", "anchor_block", "dynamic_offsetter",
-	"input_block", "boolean_gate", "number_gate", "pid_controller",
+	"input_block", "boolean_gate", "number_gate", "pid_controller", "pwm_generator",
 	"speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor",
 ]
 
@@ -433,6 +433,14 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_box(detail, Vector3(-0.38, 0.06, -0.2), Vector3(0.12, 0.12, 0.12))
 			Kit.add_box(detail, Vector3(0.38, 0.06, 0.0), Vector3(0.12, 0.12, 0.12))
 			detail_look = Kit.tinted_material(Color(0.25, 0.5, 0.95))
+		"pwm_generator":
+			# A board with a square wave on it: two high steps and two low.
+			Kit.add_box(body, Vector3(0.0, -0.25, 0.0), Vector3(0.9375, 0.5, 0.9375))
+			for step in 4:
+				var high := step % 2 == 0
+				Kit.add_box(detail, Vector3(-0.3 + 0.2 * float(step), 0.1 if high else 0.03, 0.0),
+						Vector3(0.18, 0.2 if high else 0.06, 0.5))
+			detail_look = Kit.tinted_material(Color(0.95, 0.35, 0.65))
 		"pid_controller":
 			# A board with three bars, one each for P, I and D.
 			Kit.add_box(body, Vector3(0.0, -0.25, 0.0), Vector3(0.9375, 0.5, 0.9375))
