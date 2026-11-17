@@ -19,7 +19,7 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 25"
+const VERSION := "Build 26"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -319,8 +319,9 @@ func _build_interface() -> void:
 
 	# Help text, top left.
 	var help := _outlined(_label(
-			"WASD walk or swim   Shift run   Space jump (swim up)   E sit in a seat   Scroll zoom\n"
-			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the pad   M map\n"
+			"WASD walk or swim   Shift run   Space jump (swim up)   E sit, or talk   Scroll zoom\n"
+			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the hangar   M map\n"
+			+ "Spawned: 0 replay the last 30 s   9 stress view   F2 give up a race or cargo run\n"
 			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint (press again to put away)   Left click use tool\n"
 			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN

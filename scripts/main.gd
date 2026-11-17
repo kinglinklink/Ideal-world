@@ -71,6 +71,8 @@ var _disasters: Node            # disasters.gd
 var _weather_panel: RefCounted  # weather_panel.gd
 var _panel_timer := 0.0
 var _races: Node               # races.gd: races, cargo runs and the people who offer them
+var _recent_hurt := 0.0         # health lost in the last second or so, for the crash replay
+const CRASH_REPLAY_HURT := 35.0 # lose this much in a moment while riding and the replay plays
 const START_HEADING := PI
 
 
@@ -213,7 +215,7 @@ func _ready() -> void:
 	game_hud.player = player
 	_game_hud = game_hud
 	player.died.connect(_on_player_died)
-	player.hurt_taken.connect(func(amount: float) -> void: game_hud.flash_hurt(amount))
+	player.hurt_taken.connect(_on_hurt)
 
 	# The replay: key 0 once something is spawned, and after dying.
 	var replay: Node = Replay.new()
@@ -296,6 +298,17 @@ func _on_player_died(cause: String) -> void:
 		get_tree().create_timer(2.0).timeout.connect(_respawn)
 
 
+## A big crash you live through plays the replay too.
+func _on_hurt(amount: float) -> void:
+	_game_hud.flash_hurt(amount)
+	_recent_hurt += amount
+	if _recent_hurt >= CRASH_REPLAY_HURT and not _player.dead and bool(_player.seated) and not _replay.active:
+		_recent_hurt = 0.0
+		get_tree().create_timer(0.6).timeout.connect(func() -> void:
+			if not _player.dead and not _replay.active:
+				_replay.start("Big crash!"))
+
+
 func _on_replay_finished(_reason: String) -> void:
 	if _respawn_after_replay:
 		_respawn_after_replay = false
@@ -303,6 +316,7 @@ func _on_replay_finished(_reason: String) -> void:
 
 
 func _process(delta: float) -> void:
+	_recent_hurt = maxf(_recent_hurt - delta * 30.0, 0.0)
 	_panel_timer -= delta
 	if _panel_timer <= 0.0 and _weather_panel != null:
 		_panel_timer = 0.5

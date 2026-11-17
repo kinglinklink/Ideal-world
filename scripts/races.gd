@@ -178,6 +178,8 @@ func _add_host(title: String, at: Vector3, airport: String, air: Array, car: Arr
 	sign_label.visibility_range_end = 600.0
 	node.add_child(sign_label)
 	_hosts.append({"name": title, "at": at, "airport": airport, "air": air, "car": car, "road": road, "node": node})
+	if not air.is_empty() or not car.is_empty():
+		terrain.landmarks.map_points.append([Vector2(at.x, at.z), "Air races" if not air.is_empty() else "Car races"])
 
 
 ## A person: blocky, like the character, in a high-visibility vest.

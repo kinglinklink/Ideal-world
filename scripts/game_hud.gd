@@ -101,7 +101,7 @@ func _ready() -> void:
 	side.add_theme_constant_override("separation", 6)
 	root.add_child(side)
 	var under_help := Control.new()
-	under_help.custom_minimum_size = Vector2(0, 96)
+	under_help.custom_minimum_size = Vector2(0, 118)
 	under_help.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(under_help)
 	_stress_label = _label("", 17, Color(1, 1, 1))
