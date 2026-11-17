@@ -67,6 +67,101 @@ static func delete_save(save_name: String) -> bool:
 	return DirAccess.remove_absolute(path_for(save_name)) == OK
 
 
+# --- Modules -------------------------------------------------------------------
+# A module is a piece of a build saved on its own (a wing, an engine pod, a
+# landing gear), in the "modules" folder beside the saves, in the same file
+# format. Its positions are measured from the first part copied. It is put
+# into a build like a paste: the Modules window loads it and the next click
+# in the Transform tool places it.
+
+const MODULE_FORMAT := "ideal-world-module"
+const MODULE_LINK_BASE := 1000000   # stand-in uids for a module's own parts, for re-pointing links
+
+
+static func modules_dir() -> String:
+	return saves_dir().path_join("modules")
+
+
+static func list_modules() -> Array:
+	DirAccess.make_dir_recursive_absolute(modules_dir())
+	var names: Array = []
+	var dir := DirAccess.open(modules_dir())
+	if dir == null:
+		return names
+	for file_name in dir.get_files():
+		if file_name.to_lower().ends_with(EXTENSION):
+			names.append(file_name.substr(0, file_name.length() - EXTENSION.length()))
+	names.sort()
+	return names
+
+
+static func delete_module(module_name: String) -> bool:
+	return DirAccess.remove_absolute(modules_dir().path_join(module_name + EXTENSION)) == OK
+
+
+## Saves copied records (positions relative to an anchor, each with
+## "copied_from", its original uid). Returns "" or the reason it failed.
+static func save_module(records: Array, module_name: String) -> String:
+	DirAccess.make_dir_recursive_absolute(modules_dir())
+	var index_of: Dictionary = {}
+	for index in records.size():
+		index_of[int((records[index] as Dictionary).get("copied_from", -1))] = index
+	var entries: Array = []
+	for item in records:
+		var record: Dictionary = item
+		var entry: Dictionary = _record_to_entry(record)
+		var plain_links: Dictionary = {}
+		var links: Dictionary = record.get("links", {})
+		for input_id in links:
+			var link: Dictionary = links[input_id]
+			var source: int = int(link.get("uid", 0))
+			if index_of.has(source):
+				plain_links[input_id] = {"part": index_of[source], "output": str(link.get("output", ""))}
+		if not plain_links.is_empty():
+			entry["links"] = plain_links
+		entries.append(entry)
+	var data := {"format": MODULE_FORMAT, "version": VERSION, "name": module_name,
+			"block_size_m": Units.CELL, "parts": entries}
+	var file := FileAccess.open(modules_dir().path_join(module_name + EXTENSION), FileAccess.WRITE)
+	if file == null:
+		return "Could not write the module file."
+	file.store_string(JSON.stringify(data, "\t"))
+	return ""
+
+
+## Reads a module back as copied records, ready to paste: positions relative
+## to its anchor, "copied_from" standing in for uids, links among its parts.
+## Empty if the file cannot be read.
+static func load_module(module_name: String) -> Array:
+	var path := modules_dir().path_join(module_name + EXTENSION)
+	if not FileAccess.file_exists(path):
+		return []
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not (parsed is Dictionary) or not ((parsed as Dictionary).get("parts") is Array):
+		return []
+	var records: Array = []
+	var entries: Array = (parsed as Dictionary)["parts"]
+	for index in entries.size():
+		if not (entries[index] is Dictionary):
+			continue
+		var entry: Dictionary = entries[index]
+		var record: Dictionary = _entry_to_record(entry)
+		if record.is_empty():
+			continue
+		record["copied_from"] = MODULE_LINK_BASE + index
+		var links: Dictionary = {}
+		var written: Variant = entry.get("links")
+		if written is Dictionary:
+			for input_id in written:
+				var link: Variant = (written as Dictionary)[input_id]
+				if link is Dictionary and ((link as Dictionary).get("part") is float or (link as Dictionary).get("part") is int):
+					links[str(input_id)] = {"uid": MODULE_LINK_BASE + int((link as Dictionary)["part"]),
+							"output": str((link as Dictionary).get("output", ""))}
+		record["links"] = links
+		records.append(record)
+	return records
+
+
 # --- Saving ------------------------------------------------------------------
 
 static func _in_blocks(units: Vector3i) -> Array:

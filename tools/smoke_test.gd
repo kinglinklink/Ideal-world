@@ -23,6 +23,12 @@ func _initialize() -> void:
 		[30, func() -> void: main.get_node("BuildController").toggle_spawn()],
 		[300, func() -> void: print("SMOKE: spawned bodies ", main.get_node("Spawner").body_motions().size())],
 		[320, func() -> void: main.get_node("BuildController").toggle_spawn()],
+		[330, func() -> void:
+			var controller: Node = main.get_node("BuildController")
+			controller.selection = main.get_node("BuildGrid").all_uids().slice(0, 5)
+			print("SMOKE: module save '", controller.save_selection_as_module("smoke-test-module"), "'")
+			print("SMOKE: module place '", controller.place_module("smoke-test-module"), "' parts ", controller._clipboard.size())
+			SaveManager.delete_module("smoke-test-module")],
 		[340, func() -> void: print("SMOKE: done")],
 	]
 	for item in _extra_steps():
@@ -40,6 +46,11 @@ func _extra_steps() -> Array:
 		[200, func() -> void: main.get_node("Replay").stop()],
 		[260, func() -> void: print("SMOKE: hp after death ", main.get_node("Player").hp)],
 		[270, func() -> void: main.get_node("Spawner").stress.view = true],
+		[280, func() -> void:
+			var rig: Node = main.get_node("Rigging")
+			print("SMOKE: winches ", rig._winches.size(), " magnets ", rig._magnets.size(), " couplers ", rig._couplers.size())
+			for uid in [64, 66, 67]:
+				print("SMOKE: outputs ", uid, " ", main.get_node("Spawner").outputs_of(uid))],
 		[300, func() -> void: print("SMOKE: peak stress ", main.get_node("Spawner").stress.peak_ratio())],
 		[290, func() -> void:
 			var logic: Node = main.get_node("Logic")
@@ -85,4 +96,17 @@ func _build_test_vehicle() -> void:
 	print("SMOKE: graph uid ", screen_uid)
 	if screen_uid != 0:
 		grid.set_links(screen_uid, {"a": {"uid": sensor_uid, "output": "speed"}})
+	var winch: Dictionary = BuildGrid.make_record("winch", Vector3i(47 * c, 3 * c + h, 40 * c + h),
+			Basis.IDENTITY, Vector3i(2 * c, c, c), "steel", Color(0.9, 0.7, 0.1))
+	print("SMOKE: winch uid ", grid.add_part(winch))
+	var post: Dictionary = BuildGrid.make_record("block", Vector3i(46 * c + h, 2 * c, 40 * c + h),
+			Basis.IDENTITY, Vector3i(c, 4 * c, c), "steel", Color(0.5, 0.5, 0.5))
+	grid.add_part(post)
+	var magnet: Dictionary = BuildGrid.make_record("magnet", Vector3i(41 * c, c + c / 4, 48 * c),
+			Basis.IDENTITY, Vector3i(2 * c, c / 2, 2 * c), "steel", Color(0.6, 0.1, 0.1))
+	magnet["props"] = {"strength": 50000.0, "on_unlinked": true, "grabs_ground": false}
+	print("SMOKE: magnet uid ", grid.add_part(magnet))
+	var coupler: Dictionary = BuildGrid.make_record("coupler", Vector3i(43 * c + h, h, 39 * c + c * 3 / 4),
+			Basis.IDENTITY, Vector3i(c, c, c / 2), "steel", Color(0.3, 0.3, 0.3))
+	print("SMOKE: coupler uid ", grid.add_part(coupler))
 	print("SMOKE: parts ", grid.part_count())

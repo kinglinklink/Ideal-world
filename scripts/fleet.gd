@@ -14,6 +14,7 @@ const Spawner = preload("res://scripts/spawner.gd")
 const Logic = preload("res://scripts/logic.gd")
 const Engines = preload("res://scripts/engines.gd")
 const Combat = preload("res://scripts/combat.gd")
+const Rigging = preload("res://scripts/rigging.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
@@ -97,13 +98,18 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 	combat.setup(spawner)
 	combat.terrain = terrain
 	combat.structures = structures
+	var rigging: Node = Rigging.new()
+	add_child(rigging)
+	rigging.setup(spawner)
 	if int(report.get("bodies", 1)) == 0:
 		spawner.queue_free()
 		logic.queue_free()
 		engines.queue_free()
 		combat.queue_free()
+		rigging.queue_free()
 		return "\"%s\" made no bodies when spawned." % save_name
 	vehicles.append({"name": save_name, "spawner": spawner, "logic": logic, "engines": engines, "combat": combat,
+			"rigging": rigging,
 			"parts": int(report.get("parts", 0)), "mass": float(report.get("mass", 0.0))})
 	return "Spawned \"%s\" %.0f m ahead: %d parts, %.0f kg." % [save_name, middle_world.distance_to(near.global_position),
 			int(report.get("parts", 0)), float(report.get("mass", 0.0))]
@@ -157,7 +163,7 @@ func despawn(index: int) -> void:
 	var vehicle: Dictionary = vehicles[index]
 	if is_instance_valid(vehicle["spawner"]):
 		vehicle["spawner"].despawn()
-	for key in ["logic", "engines", "combat", "spawner"]:
+	for key in ["logic", "engines", "combat", "rigging", "spawner"]:
 		if is_instance_valid(vehicle[key]):
 			(vehicle[key] as Node).queue_free()
 	vehicles.remove_at(index)
@@ -238,3 +244,5 @@ func shift_origin(shift: Vector3) -> void:
 			var combat: Node3D = item["combat"]
 			combat.position -= shift
 			combat.shift_origin(shift)
+		if is_instance_valid(item.get("rigging")):
+			item["rigging"].shift_origin(shift)

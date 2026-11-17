@@ -30,6 +30,7 @@ const Fleet = preload("res://scripts/fleet.gd")
 const Replay = preload("res://scripts/replay.gd")
 const GameHud = preload("res://scripts/game_hud.gd")
 const Stress = preload("res://scripts/stress.gd")
+const Rigging = preload("res://scripts/rigging.gd")
 
 # The hangar sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
@@ -59,6 +60,7 @@ var _start := Vector3.ZERO     # where the character starts and respawns, in map
 var _replay: Node               # replay.gd: the last 30 seconds, played back
 var _game_hud: CanvasLayer      # game_hud.gd: health, cash, announcements
 var _respawn_after_replay := false
+var _rigging: Node              # rigging.gd: magnets, winches and couplers of the pad's build
 const START_HEADING := PI
 
 
@@ -112,6 +114,13 @@ func _ready() -> void:
 	engines.name = "Engines"
 	add_child(engines)
 	engines.setup(spawner)
+
+	# Magnets, winches and couplers.
+	var rigging: Node = Rigging.new()
+	rigging.name = "Rigging"
+	add_child(rigging)
+	rigging.setup(spawner)
+	_rigging = rigging
 
 	# The map: ground, lake, forests, airports and the wall round the edge.
 	# Set up before the first physics step, so the ground is solid under the
@@ -272,6 +281,7 @@ func _shift_world(shift: Vector3) -> void:
 			var node: Node3D = child
 			node.position -= shift
 	_combat.shift_origin(shift)
+	_rigging.shift_origin(shift)
 	_terrain.origin_shifted()
 
 

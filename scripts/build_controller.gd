@@ -16,6 +16,7 @@ const BuildGrid = preload("res://scripts/build_grid.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Player = preload("res://scripts/player.gd")
+const SaveManager = preload("res://scripts/save_manager.gd")
 
 ## NONE means every tool is put away: nothing is aimed, placed or selected.
 enum Tool { NONE = -1, PLACE, DELETE, CONFIG, TRANSFORM, PAINT }
@@ -663,6 +664,37 @@ func _paste_at(base: Vector3i) -> bool:
 	selection_changed.emit()
 	_refresh_markers()
 	return true
+
+
+## Saves the selected parts as a module. Returns "" or the problem.
+func save_selection_as_module(module_name: String) -> String:
+	if selection.is_empty():
+		return "Select the parts for the module first, with the Transform tool."
+	copy_selection()
+	return SaveManager.save_module(_clipboard, module_name)
+
+
+## Loads a module in place of the copy, and arms the Transform tool to place
+## it with the next click. Returns "" or the problem.
+func place_module(module_name: String) -> String:
+	var records: Array = SaveManager.load_module(module_name)
+	if records.is_empty():
+		return "Could not read the module \"%s\"." % module_name
+	_clipboard = records
+	_clipboard_anchor = grid.cell_center_units(Vector3i(10, 1, 10))
+	_clipboard_low = Vector3(INF, INF, INF)
+	_clipboard_high = Vector3(-INF, -INF, -INF)
+	for item in records:
+		var record: Dictionary = item
+		var half: Vector3 = BuildGrid.half_extent_units(record)
+		var middle := Vector3(record["pos"] as Vector3i)
+		_clipboard_low = _clipboard_low.min(middle - half)
+		_clipboard_high = _clipboard_high.max(middle + half)
+	set_tool(Tool.TRANSFORM)
+	paste_armed = true
+	selection_changed.emit()
+	_say("Module \"%s\" (%d parts): click where it should go. R / T / Y do not turn it; turn it after with the Transform tool." % [module_name, records.size()])
+	return ""
 
 
 ## Used by the Paste button: the next click in the world pastes there.

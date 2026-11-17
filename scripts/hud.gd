@@ -101,6 +101,10 @@ var _tool_panel: Control             # holds the Delete, Config, Transform and P
 var _build_bar: Control              # search and rotation, beside the Spawn button
 var _build_only: Array = []          # controls that are hidden while the build is spawned
 var _seat_label: Label
+var _modules_panel: PanelContainer
+var _modules_list: ItemList
+var _module_name: LineEdit
+var _modules_status: Label
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -462,11 +466,21 @@ func _build_interface() -> void:
 	redo_button.pressed.connect(_on_redo_button)
 	history.add_child(redo_button)
 	_build_only.append(history)
+	var file_row := _row()
+	file_row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	file_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	readouts.add_child(file_row)
+	_build_only.append(file_row)
+	var modules_button := _button("Modules", 110.0)
+	modules_button.tooltip_text = "Save a selection (a wing, an engine pod) and put it into any build"
+	modules_button.pressed.connect(func() -> void:
+		_modules_panel.visible = not _modules_panel.visible
+		if _modules_panel.visible:
+			_refresh_modules("Select parts with the Transform tool, name the module and save it."))
+	file_row.add_child(modules_button)
 	var saves_button := _button("Saves", 110.0)
-	saves_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	saves_button.pressed.connect(_on_saves_button)
-	readouts.add_child(saves_button)
-	_build_only.append(saves_button)
+	file_row.add_child(saves_button)
 	_speed_label = _readout(readouts)
 	_waypoint_label = _readout(readouts)
 	_clock_label = _readout(readouts)
@@ -493,6 +507,10 @@ func _build_interface() -> void:
 	# Fleet window, screen centre, from the Fleet button.
 	_fleet_panel = _build_fleet_panel()
 	root.add_child(_fleet_panel)
+
+	# Modules window, screen centre, from the Modules button.
+	_modules_panel = _build_modules_panel()
+	root.add_child(_modules_panel)
 
 
 func _readout(parent: Control) -> Label:
@@ -1171,6 +1189,85 @@ func _build_saves_panel() -> PanelContainer:
 	return panel
 
 
+func _build_modules_panel() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.visible = false
+	var margin := MarginContainer.new()
+	for margin_name in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(margin_name, 12)
+	panel.add_child(margin)
+	var box := _column()
+	margin.add_child(box)
+	box.add_child(_label("Modules", 18))
+	var about := _label("A module is part of a build saved on its own: a wing, an engine pod, a landing gear.\n"
+			+ "Place one and it is put in like a paste: click where it goes with the Transform tool.", 13)
+	box.add_child(about)
+	_modules_list = ItemList.new()
+	_modules_list.custom_minimum_size = Vector2(440, 220)
+	_modules_list.focus_mode = Control.FOCUS_NONE
+	_modules_list.item_selected.connect(func(index: int) -> void: _module_name.text = _modules_list.get_item_text(index))
+	_modules_list.item_activated.connect(func(_index: int) -> void: _place_module())
+	box.add_child(_modules_list)
+	var name_row := _row()
+	name_row.add_child(_label("Name"))
+	_module_name = LineEdit.new()
+	_module_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_module_name.placeholder_text = "Type a name for the module"
+	name_row.add_child(_module_name)
+	box.add_child(name_row)
+	var actions := _row()
+	box.add_child(actions)
+	var save_button := _button("Save selection", 140.0)
+	save_button.pressed.connect(func() -> void:
+		var module_name := SaveManager.clean_name(_module_name.text)
+		if module_name == "":
+			_refresh_modules("Type a name first.")
+			return
+		var problem: String = controller.save_selection_as_module(module_name)
+		_refresh_modules(problem if problem != "" else "Saved \"%s\"." % module_name))
+	actions.add_child(save_button)
+	var place_button := _button("Place", 104.0)
+	place_button.pressed.connect(_place_module)
+	actions.add_child(place_button)
+	var delete_button := _button("Delete", 104.0)
+	delete_button.pressed.connect(func() -> void:
+		var module_name := SaveManager.clean_name(_module_name.text)
+		if module_name != "" and _confirmed("delete module " + module_name):
+			SaveManager.delete_module(module_name)
+			_refresh_modules("Deleted \"%s\"." % module_name)
+		elif module_name != "":
+			_modules_status.text = "Click Delete again to delete \"%s\"." % module_name)
+	actions.add_child(delete_button)
+	var close_button := _button("Close", 104.0)
+	close_button.pressed.connect(func() -> void: panel.visible = false)
+	actions.add_child(close_button)
+	_modules_status = _label("", 13)
+	_modules_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_modules_status)
+	return panel
+
+
+func _refresh_modules(status: String) -> void:
+	_modules_list.clear()
+	for module_name in SaveManager.list_modules():
+		_modules_list.add_item(str(module_name))
+	_modules_status.text = status
+
+
+func _place_module() -> void:
+	var module_name := SaveManager.clean_name(_module_name.text)
+	if module_name == "":
+		_refresh_modules("Pick a module first.")
+		return
+	var problem: String = controller.place_module(module_name)
+	if problem != "":
+		_modules_status.text = problem
+	else:
+		_modules_panel.visible = false
+
+
 ## Re-reads the saves folder and shows a status line under the list.
 func _refresh_saves(status: String) -> void:
 	_pending_action = ""
@@ -1500,6 +1597,7 @@ func _refresh() -> void:
 		build_control.visible = not is_spawned
 	if is_spawned:
 		_saves_panel.visible = false
+		_modules_panel.visible = false
 	_apply_part_filter()
 
 	# Place.
