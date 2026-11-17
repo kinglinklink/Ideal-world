@@ -54,6 +54,7 @@ var underground := 0.0
 
 
 func _ready() -> void:
+	add_to_group("daylight")
 	_sky_material = ShaderMaterial.new()
 	_sky_material.shader = SKY_SHADER
 	var sky := Sky.new()

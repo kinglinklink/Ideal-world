@@ -619,13 +619,15 @@ func _process(delta: float) -> void:
 	_camera.position = Vector3(0.0, 0.0, zoom)
 	if camera_shake > 0.001:
 		_camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-0.5, 0.5)) * camera_shake
-	# Keep a third-person camera from dipping under the ground.
+	# Keep a third-person camera from dipping under the ground (but not in a
+	# cave, where the ground is overhead).
 	if not is_first_person():
 		var lifted := _camera.global_position
 		var ground := 0.0
 		if terrain != null:
 			ground = terrain.ground_at(lifted)
-		if lifted.y < ground + 0.2:
+		var in_cave: bool = terrain != null and global_position.y < terrain.ground_at(global_position) - 2.0
+		if lifted.y < ground + 0.2 and not in_cave:
 			lifted.y = ground + 0.2
 			_camera.global_position = lifted
 

@@ -129,7 +129,10 @@ func _rest_height(middle: Vector3, turn: Basis, bounds: AABB, eye_y: float) -> f
 			var along := (float(j) / 4.0 - 0.5) * bounds.size.z
 			var probe := middle + turn * Vector3(across, 0.0, along)
 			var ground: float = terrain.ground_at(probe) if terrain != null else eye_y - 1.0
-			highest = maxf(highest, ground)
+			if ground > eye_y + 3.0:
+				ground = eye_y - 60.0   # in a cave: the ground is overhead, find the floor with the ray
+			else:
+				highest = maxf(highest, ground)
 			var ray := PhysicsRayQueryParameters3D.create(Vector3(probe.x, top, probe.z),
 					Vector3(probe.x, ground - 1.0, probe.z), 1 | 4)   # the world and bodies
 			var hit := space.intersect_ray(ray)

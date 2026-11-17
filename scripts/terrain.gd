@@ -30,6 +30,7 @@ const Landmarks = preload("res://scripts/landmarks.gd")
 const Towns = preload("res://scripts/towns.gd")
 const Towers = preload("res://scripts/towers.gd")
 const Weather = preload("res://scripts/weather.gd")
+const Caves = preload("res://scripts/caves.gd")
 const TERRAIN_SHADER = preload("res://shaders/terrain.gdshader")
 const WATER_SHADER = preload("res://shaders/water.gdshader")
 
@@ -66,6 +67,7 @@ var forest: Node3D = null          # forest.gd
 var landmarks: Node3D = null       # landmarks.gd
 var towns: Node3D = null           # towns.gd
 var towers: Node3D = null          # towers.gd
+var caves: Node3D = null           # caves.gd
 var fleet: Node3D = null           # fleet.gd: vehicles spawned from saves
 
 var _coarse := PackedByteArray()
@@ -122,8 +124,14 @@ func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
 	towers.name = "Towers"
 	add_child(towers)
 	towers.setup(self, world)
+	caves = Caves.new()
+	caves.name = "Caves"
+	add_child(caves)
+	caves.setup(self)
 	forest.clearings = towers.clearings()
+	forest.clearings.append_array(caves.clearings())
 	landmarks.map_points.append_array(towers.map_points)
+	landmarks.map_points.append_array(caves.map_points)
 
 	# Solid ground round the start, before anything can fall.
 	_build_all_needed()
