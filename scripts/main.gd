@@ -244,7 +244,9 @@ func _ready() -> void:
 	_weather.player = player
 	_weather_panel = WeatherPanel.new()
 	_weather_panel.build(game_hud, _weather, disasters)
-	hud.weather_pressed.connect(func() -> void: _weather_panel.toggle())
+	hud.weather_pressed.connect(func() -> void:
+		_weather_panel.toggle()
+		player.cursor_free = true)
 
 	# Cars on the highways and planes in the sky; races and cargo runs.
 	var traffic: Node = Traffic.new()

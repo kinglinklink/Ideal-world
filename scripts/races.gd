@@ -346,6 +346,8 @@ func _open_window(host: Dictionary) -> void:
 	column.add_child(_status)
 	_status.text = _job_text()
 	_window.visible = true
+	if player != null:
+		player.cursor_free = true   # free the mouse in first person, to click
 
 
 static func _clock_text(seconds: float) -> String:

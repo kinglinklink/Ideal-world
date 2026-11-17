@@ -134,6 +134,7 @@ func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
 	landmarks.map_points.append_array(towers.map_points)
 	landmarks.map_points.append_array(caves.map_points)
 	landmarks.map_points.append([VOLCANO, "Volcano"])
+	forest.clearings.append([VOLCANO, CRATER_RADIUS + 40.0])
 
 	# Solid ground round the start, before anything can fall.
 	_build_all_needed()
