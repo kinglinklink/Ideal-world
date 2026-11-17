@@ -184,8 +184,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_hud.toggle_world_map()
 
 
-## Sends the character back to the build pad.
+## Sends the character back to the hangar, in front of its door. The world
+## is first shifted back to where it started, so the spawn point is always
+## the same fixed map position however far away the character was.
 func _respawn() -> void:
+	if Origin.offset != Vector3.ZERO:
+		_shift_world(-Origin.offset)
 	_controller.respawn(Origin.to_world(_start), START_HEADING)
 
 

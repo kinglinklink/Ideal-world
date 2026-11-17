@@ -310,7 +310,11 @@ func _run_machines(source: Node, machines: Array) -> void:
 			sound.play()
 		sound.unit_size = clampf(size, 2.0, 80.0)
 		sound.max_distance = sound.unit_size * 150.0
-		sound.volume_db = linear_to_db(0.25 + 0.75 * minf(level, 1.0))
+		# Fade in from silence over the first tenth of the range, so a shaft or
+		# propeller turning over slowly (say, settling after a spawn) is not a
+		# loud low drone.
+		var fade := clampf((level - 0.02) / 0.1, 0.0, 1.0)
+		sound.volume_db = linear_to_db(maxf(fade * (0.25 + 0.75 * minf(level, 1.0)), 0.0001))
 		if type == "thruster":
 			sound.volume_db -= 10.0   # a steady push should not drown everything else
 		match type:

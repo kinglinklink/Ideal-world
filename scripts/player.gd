@@ -53,7 +53,6 @@ var _g_velocity := Vector3.ZERO       # the velocity at the last tick, for measu
 # After a teleport: ticks left in which a platform the character last stood on
 # (say a plane it walked onto, then flew away in) may not carry it off.
 var _settle_ticks := 0
-var _settle_at := Vector3.ZERO
 var _g_skip := true                   # skip one measurement after sitting down or standing up
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
@@ -156,7 +155,6 @@ func teleport(at: Vector3, heading: float) -> void:
 	# for the first few steps the character is held where it was put.
 	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
 	_settle_ticks = 3
-	_settle_at = at
 	yaw = heading
 	_model.rotation.y = heading
 	_g_skip = true
@@ -288,6 +286,10 @@ func _physics_process(delta: float) -> void:
 		wanted = Vector3(velocity.x, 0.0, velocity.z)
 
 	var pushing := Vector3.ZERO   # the total force put on bodies this tick
+	# Where the character stood before moving, for undoing a stale platform's
+	# carry just after a teleport. Kept relative to this tick only, so it stays
+	# right if the world re-centres in between.
+	var before_move := global_position
 	if grounded and _try_step_up(delta):
 		# The step already moved us forward. Settle onto the new floor.
 		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -299,7 +301,7 @@ func _physics_process(delta: float) -> void:
 		pushing = _push_bodies(wanted, grip_force, delta)
 	if _settle_ticks > 0:
 		_settle_ticks -= 1
-		global_position = Vector3(_settle_at.x, maxf(global_position.y, _settle_at.y - 0.5), _settle_at.z)
+		global_position = Vector3(before_move.x, maxf(global_position.y, before_move.y - 0.5), before_move.z)
 		velocity = Vector3.ZERO
 		_floor_body = null
 		pushing = Vector3.ZERO
