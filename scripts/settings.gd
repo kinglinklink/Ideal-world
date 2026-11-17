@@ -22,6 +22,7 @@ const Sound = preload("res://scripts/sound.gd")
 const Spawner = preload("res://scripts/spawner.gd")
 const Stress = preload("res://scripts/stress.gd")
 const Player = preload("res://scripts/player.gd")
+const Disasters = preload("res://scripts/disasters.gd")
 
 const PATH := "user://settings.cfg"
 const SKIES := ["cycle", "day", "night"]
@@ -43,6 +44,7 @@ const DEFAULTS := {
 	"crash_damage": true,
 	"structural_failure": true,
 	"player_damage": true,
+	"random_disasters": true,
 }
 const MSAA := ["off", "2x", "4x"]
 
@@ -96,3 +98,4 @@ static func apply(values: Dictionary, forest: Node) -> void:
 	Spawner.crash_damage = bool(values["crash_damage"])
 	Stress.failure = bool(values["structural_failure"])
 	Player.damage_enabled = bool(values["player_damage"])
+	Disasters.random_events = bool(values["random_disasters"])

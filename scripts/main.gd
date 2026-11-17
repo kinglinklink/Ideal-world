@@ -31,6 +31,9 @@ const Replay = preload("res://scripts/replay.gd")
 const GameHud = preload("res://scripts/game_hud.gd")
 const Stress = preload("res://scripts/stress.gd")
 const Rigging = preload("res://scripts/rigging.gd")
+const Weather = preload("res://scripts/weather.gd")
+const Disasters = preload("res://scripts/disasters.gd")
+const WeatherPanel = preload("res://scripts/weather_panel.gd")
 
 # The hangar sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
@@ -61,11 +64,22 @@ var _replay: Node               # replay.gd: the last 30 seconds, played back
 var _game_hud: CanvasLayer      # game_hud.gd: health, cash, announcements
 var _respawn_after_replay := false
 var _rigging: Node              # rigging.gd: magnets, winches and couplers of the pad's build
+var _weather: Node              # weather.gd
+var _disasters: Node            # disasters.gd
+var _weather_panel: RefCounted  # weather_panel.gd
+var _panel_timer := 0.0
 const START_HEADING := PI
 
 
 func _ready() -> void:
 	_make_sky_and_sun()
+
+	# Weather, wind, waves and the seasons.
+	var weather: Node = Weather.new()
+	weather.name = "Weather"
+	add_child(weather)
+	weather.daylight = _daylight
+	_weather = weather
 
 	# Sound: effects, machines, wind and the birds and crickets.
 	var sound: Node = Sound.new()
@@ -128,7 +142,8 @@ func _ready() -> void:
 	var terrain: Node3D = Terrain.new()
 	terrain.name = "Terrain"
 	add_child(terrain)
-	terrain.setup(player, spawner, _grass_noise())
+	var noise := _grass_noise()
+	terrain.setup(player, spawner, noise)
 	player.terrain = terrain
 	spawner.terrain = terrain
 	combat.terrain = terrain
@@ -209,6 +224,23 @@ func _ready() -> void:
 	replay.finished.connect(_on_replay_finished)
 	_replay = replay
 
+	# Tornadoes, hurricanes, tsunamis, earthquakes and the volcano, and the
+	# Weather window that sets the weather and starts them.
+	var disasters: Node = Disasters.new()
+	disasters.name = "Disasters"
+	add_child(disasters)
+	disasters.weather = _weather
+	disasters.terrain = terrain
+	disasters.daylight = _daylight
+	disasters.game_hud = game_hud
+	disasters.player = player
+	disasters.noise = noise
+	_disasters = disasters
+	_weather.player = player
+	_weather_panel = WeatherPanel.new()
+	_weather_panel.build(game_hud, _weather, disasters)
+	hud.weather_pressed.connect(func() -> void: _weather_panel.toggle())
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
@@ -249,6 +281,13 @@ func _on_replay_finished(_reason: String) -> void:
 	if _respawn_after_replay:
 		_respawn_after_replay = false
 		_respawn()
+
+
+func _process(delta: float) -> void:
+	_panel_timer -= delta
+	if _panel_timer <= 0.0 and _weather_panel != null:
+		_panel_timer = 0.5
+		_weather_panel.refresh()
 
 
 # --- Keeping the world centred on the player ------------------------------------

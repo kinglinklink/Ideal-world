@@ -13,6 +13,7 @@ const Units = preload("res://scripts/units.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Aero = preload("res://scripts/aero.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 const GATE_PASSES := 4       # chains of up to this many gates settle in one tick
 const GRAVITY := 9.81
@@ -448,7 +449,7 @@ func _run_propellers() -> void:
 		var advance: float = prop["advance"]
 		var radius: float = prop["radius"]
 		var pitch_speed := spin * advance
-		var inflow := _velocity_at(body, frame.origin).dot(axis)
+		var inflow := (_velocity_at(body, frame.origin) - Weather.wind_at(frame.origin)).dot(axis)
 		var density := Aero.air_density(Origin.to_map(frame.origin).y)
 		var disc := PI * radius * radius
 		var thrust: float = density * disc * float(prop["factor"]) * (pitch_speed - inflow) * absf(pitch_speed)

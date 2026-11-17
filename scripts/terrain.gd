@@ -29,6 +29,7 @@ const Forest = preload("res://scripts/forest.gd")
 const Landmarks = preload("res://scripts/landmarks.gd")
 const Towns = preload("res://scripts/towns.gd")
 const Towers = preload("res://scripts/towers.gd")
+const Weather = preload("res://scripts/weather.gd")
 const TERRAIN_SHADER = preload("res://shaders/terrain.gdshader")
 const WATER_SHADER = preload("res://shaders/water.gdshader")
 
@@ -51,6 +52,14 @@ const BARRIER_HEIGHT := 12000.0    # the unseen barrier above it reaches this hi
 const WALL_THICKNESS := 3.0
 const WALL_PIECE := 32.0           # metres: the seen wall follows the ground in pieces this long
 const WATER_KIND := 5              # the surface kind of the lake in the baked pictures
+const NEAR_WATER := 1600.0         # metres across the fine grid of water that carries the waves
+const NEAR_WATER_QUADS := 320
+## The volcano: the tallest mountain inside the wall, on the west side above
+## Lakeside. Its summit is hollowed into a crater when the map loads.
+const VOLCANO := Vector2(-10688.0, -17664.0)
+const CRATER_RADIUS := 280.0
+const CRATER_DEPTH := 150.0
+const MAX_HOLES := 8               # cave mouths the ground shader can open
 
 var world: Dictionary = {}         # world.json
 var forest: Node3D = null          # forest.gd
@@ -67,6 +76,11 @@ var _noise: NoiseTexture2D
 var _levels: Array = []            # [MeshInstance3D, ShaderMaterial, vertex spacing]
 var _water: MeshInstance3D
 var _water_material: ShaderMaterial
+var _near_water: MeshInstance3D
+var _near_water_material: ShaderMaterial
+var _look_timer := 0.0
+var volcano_heat := 0.15           # 0 to 1: how hot the crater glows (disasters.gd raises it)
+var holes: Array = []              # cave mouths: [Vector2 start, Vector2 end, radius], map positions
 var _tiles: Dictionary = {}        # Vector2i square -> [StaticBody3D, time it was last needed]
 var _pending: Array = []           # squares needed but not built yet, nearest first
 var _replan := 0.0
@@ -78,6 +92,7 @@ var _clock := 0.0
 ## Loads the map and builds everything, with solid ground already in place
 ## round `player`. Call before the first physics step.
 func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
+	add_to_group("terrain")
 	_player = player
 	_spawner = spawner
 	_noise = noise
@@ -122,10 +137,48 @@ func _load_heights(path: String, coarse: bool) -> ImageTexture:
 	if image.get_format() != Image.FORMAT_RGB8:
 		image.convert(Image.FORMAT_RGB8)
 	if coarse:
+		_hollow_crater(image)
 		_coarse = image.get_data()
 	else:
 		_detail = image.get_data()
 	return ImageTexture.create_from_image(image)
+
+
+## Hollows the volcano's summit into a bowl CRATER_DEPTH deep, in the coarse
+## heights, so the crater is both drawn and solid.
+func _hollow_crater(image: Image) -> void:
+	var width := image.get_width()
+	var height := image.get_height()
+	var centre := (VOLCANO - MapInfo.COARSE_ORIGIN) / MapInfo.COARSE_SPACING
+	var reach := int(ceil(CRATER_RADIUS / MapInfo.COARSE_SPACING)) + 1
+	var peak := -INF
+	for gz in range(int(centre.y) - reach, int(centre.y) + reach + 1):
+		for gx in range(int(centre.x) - reach, int(centre.x) + reach + 1):
+			if gx >= 0 and gz >= 0 and gx < width and gz < height:
+				peak = maxf(peak, _pixel_height(image, gx, gz))
+	if peak == -INF:
+		return
+	for gz in range(int(centre.y) - reach, int(centre.y) + reach + 1):
+		for gx in range(int(centre.x) - reach, int(centre.x) + reach + 1):
+			if gx < 0 or gz < 0 or gx >= width or gz >= height:
+				continue
+			var r := Vector2(gx, gz).distance_to(centre) * MapInfo.COARSE_SPACING / CRATER_RADIUS
+			if r >= 1.0:
+				continue
+			var floor_height := peak - CRATER_DEPTH * (1.0 - r * r)
+			var old := _pixel_height(image, gx, gz)
+			if floor_height < old:
+				var value := clampi(int(round((floor_height + MapInfo.COARSE_OFFSET) * MapInfo.COARSE_SCALE)), 0, 65535)
+				var pixel := image.get_pixel(gx, gz)
+				pixel.r = float(value >> 8) / 255.0
+				pixel.g = float(value & 255) / 255.0
+				image.set_pixel(gx, gz, pixel)
+
+
+static func _pixel_height(image: Image, gx: int, gz: int) -> float:
+	var pixel := image.get_pixel(gx, gz)
+	var value := int(round(pixel.r * 255.0)) * 256 + int(round(pixel.g * 255.0))
+	return float(value) / MapInfo.COARSE_SCALE - MapInfo.COARSE_OFFSET
 
 
 # --- Heights -----------------------------------------------------------------
@@ -190,6 +243,52 @@ static func _bilinear(data: PackedByteArray, width: int, gx: float, gz: float, v
 
 # --- Drawing -----------------------------------------------------------------
 
+## Opens cave mouths in the ground: drawn as holes, and no ground to stand
+## on there (caves.gd builds the rock round them). Each is a capsule: a line
+## from `start` to `end` (map positions) and a radius.
+func set_holes(mouths: Array) -> void:
+	holes = mouths.slice(0, MAX_HOLES)
+	var segments := PackedVector4Array()
+	var radii := PackedFloat32Array()
+	for index in MAX_HOLES:
+		if index < holes.size():
+			var mouth: Array = holes[index]
+			var a: Vector2 = mouth[0]
+			var b: Vector2 = mouth[1]
+			segments.append(Vector4(a.x, a.y, b.x, b.y))
+			radii.append(float(mouth[2]))
+		else:
+			segments.append(Vector4.ZERO)
+			radii.append(0.0)
+	for entry in _levels:
+		var material: ShaderMaterial = (entry as Array)[1]
+		material.set_shader_parameter("holes", segments)
+		material.set_shader_parameter("hole_radius", radii)
+		material.set_shader_parameter("hole_count", holes.size())
+	# Squares of ground already built get rebuilt with their holes.
+	for key in _tiles.keys():
+		var entry: Array = _tiles[key]
+		(entry[0] as Node).queue_free()
+	_tiles.clear()
+	_build_all_needed()
+
+
+## True if a map position is inside a cave mouth, `margin` metres wider.
+func in_hole(x: float, z: float, margin: float = 0.0) -> bool:
+	var point := Vector2(x, z)
+	for item in holes:
+		var mouth: Array = item
+		var a: Vector2 = mouth[0]
+		var b: Vector2 = mouth[1]
+		var along := b - a
+		var t := 0.0
+		if along.length_squared() > 0.0001:
+			t = clampf((point - a).dot(along) / along.length_squared(), 0.0, 1.0)
+		if point.distance_to(a + along * t) < float(mouth[2]) + margin:
+			return true
+	return false
+
+
 func _shared_uniforms(material: ShaderMaterial) -> void:
 	material.set_shader_parameter("coarse_map", _coarse_texture)
 	material.set_shader_parameter("detail_map", _detail_texture)
@@ -221,6 +320,7 @@ func _build_levels() -> void:
 		material.set_shader_parameter("base_elevation", MapInfo.BASE_ELEVATION)
 		material.set_shader_parameter("vertex_step", spacing)
 		material.set_shader_parameter("inner_box", Vector4.ZERO)
+		material.set_shader_parameter("volcano", Vector4(VOLCANO.x, VOLCANO.y, CRATER_RADIUS, volcano_heat))
 		plane.material = material
 		var ring := MeshInstance3D.new()
 		ring.name = "Ground%d" % level
@@ -263,9 +363,27 @@ func _build_water() -> void:
 	sheet.size = Vector2(80000.0, 80000.0)
 	var material := ShaderMaterial.new()
 	material.shader = WATER_SHADER
-	_shared_uniforms(material)
+	_water_uniforms(material)
 	sheet.material = material
 	_water_material = material
+	# The fine grid near the camera, which carries the waves.
+	var grid := PlaneMesh.new()
+	grid.size = Vector2(NEAR_WATER, NEAR_WATER)
+	grid.subdivide_width = NEAR_WATER_QUADS - 1
+	grid.subdivide_depth = NEAR_WATER_QUADS - 1
+	grid.custom_aabb = AABB(Vector3(-NEAR_WATER, -60.0, -NEAR_WATER), Vector3(NEAR_WATER * 2.0, 120.0, NEAR_WATER * 2.0))
+	var near_material := ShaderMaterial.new()
+	near_material.shader = WATER_SHADER
+	_water_uniforms(near_material)
+	near_material.set_shader_parameter("near_grid", true)
+	grid.material = near_material
+	_near_water_material = near_material
+	_near_water = MeshInstance3D.new()
+	_near_water.name = "LakeWaves"
+	_near_water.mesh = grid
+	_near_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_near_water.position = Vector3(0.0, MapInfo.LAKE_Y, 0.0)
+	add_child(_near_water)
 	_water = MeshInstance3D.new()
 	_water.name = "Lake"
 	_water.mesh = sheet
@@ -344,12 +462,77 @@ func _build_walls() -> void:
 	body.add_child(wall)
 
 
+func _water_uniforms(material: ShaderMaterial) -> void:
+	_shared_uniforms(material)
+	material.set_shader_parameter("coarse_code", Vector2(MapInfo.COARSE_SCALE, MapInfo.COARSE_OFFSET))
+	material.set_shader_parameter("detail_code", Vector2(MapInfo.DETAIL_SCALE, MapInfo.DETAIL_OFFSET))
+	material.set_shader_parameter("lake_y", MapInfo.LAKE_Y)
+	material.set_shader_parameter("tsunami_width", Weather.TSUNAMI_WIDTH)
+
+
 # --- Every frame -------------------------------------------------------------
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var camera := get_viewport().get_camera_3d()
 	if camera != null and not _levels.is_empty():
-		_place_levels(Origin.to_map(camera.global_position))
+		var eye := Origin.to_map(camera.global_position)
+		_place_levels(eye)
+		_place_near_water(eye)
+	_run_water_look()
+	_look_timer -= delta
+	if _look_timer <= 0.0:
+		_look_timer = 0.25
+		_run_ground_look()
+
+
+## The fine water grid follows the camera, in steps of two of its squares so
+## the waves do not swim.
+func _place_near_water(eye: Vector3) -> void:
+	if _near_water == null:
+		return
+	var step := NEAR_WATER / NEAR_WATER_QUADS * 2.0
+	var centre := Vector2(floorf(eye.x / step) * step, floorf(eye.z / step) * step)
+	_near_water.position = Vector3(centre.x, MapInfo.LAKE_Y, centre.y)
+	var box := Vector4(centre.x, centre.y, NEAR_WATER * 0.5, 1.0)
+	_near_water_material.set_shader_parameter("near_box", box)
+	_water_material.set_shader_parameter("near_box", box)
+
+
+## The waves, a tsunami and stormy water, from weather.gd.
+func _run_water_look() -> void:
+	var weather: Node = Weather.instance
+	if weather == null:
+		return
+	var wave: Dictionary = weather.tsunami
+	var surge := Vector4.ZERO
+	if not wave.is_empty():
+		var centre: Vector2 = wave["centre"]
+		surge = Vector4(centre.x, centre.y, float(wave["radius"]), float(wave["amp"]))
+	for material in [_water_material, _near_water_material]:
+		var look := material as ShaderMaterial
+		if look == null:
+			continue
+		look.set_shader_parameter("wave_height", weather.wave_height)
+		look.set_shader_parameter("wind_angle", weather.wind_angle)
+		look.set_shader_parameter("wave_phase", weather.wave_phase)
+		look.set_shader_parameter("tsunami", surge)
+		look.set_shader_parameter("storm", clampf(float(weather.darkness) * 1.3, 0.0, 1.0))
+
+
+## The seasons on the ground, wet ground in the rain, and the volcano's glow.
+func _run_ground_look() -> void:
+	var weather: Node = Weather.instance
+	for entry in _levels:
+		var material: ShaderMaterial = (entry as Array)[1]
+		material.set_shader_parameter("volcano", Vector4(VOLCANO.x, VOLCANO.y, CRATER_RADIUS, volcano_heat))
+		if weather != null:
+			material.set_shader_parameter("snow_line", weather.snow_line)
+			material.set_shader_parameter("autumn", weather.autumn)
+			material.set_shader_parameter("spring_green", weather.spring)
+			material.set_shader_parameter("cold", weather.cold)
+			material.set_shader_parameter("wet", clampf(float(weather.precipitation), 0.0, 1.0) * (1.0 if weather.cold < 0.6 else 0.3))
+	if forest != null and weather != null:
+		forest.set_season(weather.autumn, weather.snow_line - MapInfo.BASE_ELEVATION, weather.cold)
 
 
 ## Called by main.gd after the world has shifted (this node has already moved).
@@ -361,6 +544,8 @@ func origin_shifted() -> void:
 		material.set_shader_parameter("map_offset", offset)
 	if _water_material != null:
 		_water_material.set_shader_parameter("map_offset", offset)
+	if _near_water_material != null:
+		_near_water_material.set_shader_parameter("map_offset", offset)
 	if towers != null:
 		towers.origin_shifted()
 	var camera := get_viewport().get_camera_3d()
@@ -458,6 +643,18 @@ func _want_round(wanted: Dictionary, at: Vector3, reach: float) -> void:
 			wanted[Vector2i(i, k)] = true
 
 
+func _tile_near_hole(x0: float, z0: float, tile: float) -> bool:
+	var middle := Vector2(x0 + tile * 0.5, z0 + tile * 0.5)
+	for item in holes:
+		var mouth: Array = item
+		var a: Vector2 = mouth[0]
+		var b: Vector2 = mouth[1]
+		var reach: float = tile * 0.75 + float(mouth[2]) + a.distance_to(b)
+		if middle.distance_to((a + b) * 0.5) < reach:
+			return true
+	return false
+
+
 ## One solid 128 m square of ground, with its tree trunks.
 func _make_tile(square: Vector2i) -> StaticBody3D:
 	var tile := MapInfo.TILE
@@ -466,10 +663,15 @@ func _make_tile(square: Vector2i) -> StaticBody3D:
 	var z0 := square.y * tile
 	var heights := PackedFloat32Array()
 	heights.resize(TILE_SAMPLES * TILE_SAMPLES)
+	var holed := not holes.is_empty() and _tile_near_hole(x0, z0, tile)
 	for row in TILE_SAMPLES:
 		for col in TILE_SAMPLES:
 			# The shape is scaled up by `step`, so its heights are scaled down.
-			heights[row * TILE_SAMPLES + col] = height_at(x0 + col * step, z0 + row * step) / step
+			# Inside a cave mouth there is no ground: NaN leaves a hole.
+			if holed and in_hole(x0 + col * step, z0 + row * step):
+				heights[row * TILE_SAMPLES + col] = NAN
+			else:
+				heights[row * TILE_SAMPLES + col] = height_at(x0 + col * step, z0 + row * step) / step
 	var shape := HeightMapShape3D.new()
 	shape.map_width = TILE_SAMPLES
 	shape.map_depth = TILE_SAMPLES

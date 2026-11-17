@@ -32,6 +32,7 @@ const TAB_LABELS := {
 }
 
 signal garage_button_pressed
+signal weather_pressed
 signal respawn_pressed
 
 var controller: Node = null          # build_controller.gd
@@ -355,6 +356,10 @@ func _build_interface() -> void:
 		if _fleet_panel.visible:
 			_refresh_fleet())
 	top_buttons.add_child(fleet_button)
+	var weather_button := _button("Weather", 90.0)
+	weather_button.tooltip_text = "The weather, the season, the wind, and disasters to set off"
+	weather_button.pressed.connect(func() -> void: weather_pressed.emit())
+	top_buttons.add_child(weather_button)
 	var guide := _button("Guide (F1)", 110.0)
 	guide.tooltip_text = "What every part does, its settings, inputs and outputs"
 	guide.pressed.connect(func() -> void:

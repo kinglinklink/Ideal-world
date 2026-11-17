@@ -41,6 +41,18 @@ uniform vec3 gravel : source_color = vec3(0.60, 0.55, 0.45);
 uniform vec3 site : source_color = vec3(0.56, 0.54, 0.49);
 uniform vec3 snow : source_color = vec3(0.93, 0.95, 0.98);
 
+// The seasons and the weather (weather.gd), the volcano (disasters.gd) and
+// the cave mouths (caves.gd).
+uniform float snow_line = 2300.0;     // metres above sea level
+uniform float autumn = 0.0;           // 0 to 1
+uniform float spring_green = 0.0;     // 0 to 1
+uniform float cold = 0.0;             // 0 midsummer to 1 midwinter
+uniform float wet = 0.0;              // rain darkens the ground
+uniform vec4 volcano = vec4(0.0);     // crater centre x, z (map), crater radius, heat 0 to 1
+uniform vec4 holes[8];                // cave mouths: a line from xy to zw (map)
+uniform float hole_radius[8];
+uniform int hole_count = 0;
+
 varying vec3 world_position;
 varying vec3 world_normal;
 
@@ -136,6 +148,14 @@ void fragment() {
 	if (inner_box.w > 0.5 && abs(xz.x - inner_box.x) < inner_box.z && abs(xz.y - inner_box.y) < inner_box.z) {
 		discard;
 	}
+	for (int i = 0; i < hole_count; i++) {
+		vec2 a = holes[i].xy;
+		vec2 along = holes[i].zw - a;
+		float t = clamp(dot(xz - a, along) / max(dot(along, along), 0.0001), 0.0, 1.0);
+		if (length(xz - a - along * t) < hole_radius[i]) {
+			discard;
+		}
+	}
 	vec4 made;
 	float wooded;
 	surface_shares(xz, made, wooded);
@@ -151,6 +171,10 @@ void fragment() {
 	vec3 color = mix(grass_dark, grass_mid, smoothstep(0.25, 0.5, shade));
 	color = mix(color, grass_light, smoothstep(0.5, 0.8, shade));
 	color = mix(color, grass_dry, smoothstep(0.5, 0.85, broad) * 0.55);
+	// Fresh green in spring, gold in autumn, dull and dry in winter.
+	color = mix(color, grass_light * 1.08, spring_green * 0.35);
+	color = mix(color, vec3(0.66, 0.54, 0.26) * (0.85 + 0.3 * fine), autumn * 0.7);
+	color = mix(color, vec3(0.52, 0.49, 0.36) * (0.85 + 0.3 * fine), smoothstep(0.55, 0.85, cold) * 0.6);
 
 	// Under the trees, steep rock, beaches, the lake bed and high snow.
 	color = mix(color, forest_floor * (0.85 + 0.3 * fine), smoothstep(0.05, 0.6, wooded));
@@ -160,7 +184,25 @@ void fragment() {
 		color = mix(sand, lake_bed, smoothstep(0.0, 6.0, -above_lake)) * (0.85 + 0.3 * fine);
 	}
 	float real_height = world_position.y + base_elevation;
-	color = mix(color, snow, smoothstep(2150.0, 2300.0, real_height + medium * 120.0) * (1.0 - smoothstep(0.55, 0.8, steep)));
+	float snowy = smoothstep(snow_line - 150.0, snow_line, real_height + medium * 120.0) * (1.0 - smoothstep(0.55, 0.8, steep));
+	if (above_lake < 0.3) {
+		snowy = 0.0;
+	}
+
+	// The volcano: dark rock round the summit, and the crater glowing.
+	vec3 glow = vec3(0.0);
+	if (volcano.z > 0.0) {
+		float from_crater = length(xz - volcano.xy);
+		float rocky = 1.0 - smoothstep(volcano.z * 1.3, volcano.z * 7.0, from_crater);
+		color = mix(color, vec3(0.17, 0.15, 0.14) * (0.8 + 0.4 * fine), rocky);
+		snowy *= 1.0 - rocky * (0.4 + 0.6 * volcano.w);
+		float inside = 1.0 - smoothstep(volcano.z * 0.55, volcano.z * 0.8, from_crater);
+		vec3 lava = mix(vec3(1.0, 0.25, 0.03), vec3(1.0, 0.75, 0.2), fine * medium);
+		color = mix(color, lava * 0.4, inside * volcano.w);
+		glow = lava * inside * volcano.w * 3.0;
+	}
+	color = mix(color, snow, snowy);
+	color *= 1.0 - 0.22 * wet * (1.0 - snowy);
 
 	// Made ground.
 	color *= 1.0 - 0.1 * made.w;   // beyond the wall
@@ -169,7 +211,8 @@ void fragment() {
 	color = mix(color, site * (0.85 + 0.3 * fine), made.z);
 
 	ALBEDO = color;
-	ROUGHNESS = 1.0;
+	EMISSION = glow;
+	ROUGHNESS = 1.0 - 0.4 * wet;
 	SPECULAR = 0.1;
 	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
 }

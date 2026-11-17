@@ -9,6 +9,7 @@ extends CharacterBody3D
 
 const Units = preload("res://scripts/units.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 const WALK_SPEED := 4.0       # m/s
 const RUN_SPEED := 7.5        # m/s
@@ -42,6 +43,9 @@ const REGEN_RATE := 4.0       # HP per second coming back
 
 ## Whether the character can be hurt. The settings change it.
 static var damage_enabled := true
+## How hard the camera shakes, in metres (earthquakes, eruptions). Set by disasters.gd.
+static var camera_shake := 0.0
+const WIND_PUSH := 0.5 * 1.2 * 1.0 * 0.7 / MASS   # ½ ρ Cd A / m: how the wind pushes a standing person
 
 signal died(cause: String)
 signal hurt_taken(amount: float)
@@ -304,6 +308,11 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 		wanted = Vector3(velocity.x, 0.0, velocity.z)
 
+	# The wind pushes on the body: nothing on a calm day, a stagger in a gale,
+	# and a tornado picks you up.
+	var air := Weather.wind_at(global_position + Vector3(0.0, 1.0, 0.0)) - velocity
+	if air.length() > 12.0:
+		velocity += air * air.length() * WIND_PUSH * delta
 	var pushing := Vector3.ZERO   # the total force put on bodies this tick
 	# Where the character stood before moving, for undoing a stale platform's
 	# carry just after a teleport. Kept relative to this tick only, so it stays
@@ -354,7 +363,7 @@ func _physics_process(delta: float) -> void:
 func _in_deep_water() -> bool:
 	if terrain == null:
 		return false
-	var depth := MapInfo.LAKE_Y - global_position.y
+	var depth := Weather.water_height(global_position) - global_position.y
 	if depth < FLOAT_DEPTH * 0.8:
 		return false
 	return terrain.lake_at(global_position)
@@ -366,7 +375,7 @@ func _in_deep_water() -> bool:
 ## out of the water, for climbing onto a dock or a boat.
 func _swim(direction: Vector3, typing: bool, delta: float) -> void:
 	_floor_body = null
-	var depth := MapInfo.LAKE_Y - global_position.y
+	var depth := Weather.water_height(global_position) - global_position.y
 	# Buoyancy: the deeper the body, the harder the water pushes it up,
 	# balancing gravity at FLOAT_DEPTH.
 	var lift := GRAVITY * clampf(depth / FLOAT_DEPTH, 0.0, 2.0)
@@ -608,6 +617,8 @@ func _process(delta: float) -> void:
 	_pivot.position.y = EYE_HEIGHT + _step_offset
 	_pivot.rotation = Vector3(pitch, yaw, 0.0)
 	_camera.position = Vector3(0.0, 0.0, zoom)
+	if camera_shake > 0.001:
+		_camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-0.5, 0.5)) * camera_shake
 	# Keep a third-person camera from dipping under the ground.
 	if not is_first_person():
 		var lifted := _camera.global_position

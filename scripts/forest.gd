@@ -18,6 +18,7 @@ extends Node3D
 const MapInfo = preload("res://scripts/map_info.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Kit = preload("res://scripts/mesh_kit.gd")
+const CROWN_SHADER = preload("res://shaders/tree_crown.gdshader")
 
 const FLOATS := 4               # per tree in the file
 const TRUNK_RADIUS := 0.3       # metres, for a tree of size 1; solid up into the crown
@@ -37,6 +38,7 @@ var _built: Dictionary = {}     # Vector2i square -> [trunk MultiMeshInstance3D,
 var _trunk_shapes: Dictionary = {}
 var _trunk_mesh: ArrayMesh
 var _crown_mesh: ArrayMesh
+var _crown_look: ShaderMaterial
 var _check := 0.0
 
 
@@ -52,6 +54,15 @@ func setup(world: Dictionary) -> void:
 		_cells.append([Vector2i(int(cell[0]), int(cell[1])), int(cell[2]), int(cell[3])])
 	_trunk_mesh = _make_trunk_mesh()
 	_crown_mesh = _make_crown_mesh()
+
+
+## The season on the trees: gold larches in autumn, snow above the snow line.
+func set_season(autumn: float, snow_line_y: float, cold: float) -> void:
+	if _crown_look == null:
+		return
+	_crown_look.set_shader_parameter("autumn", autumn)
+	_crown_look.set_shader_parameter("snow_line_y", snow_line_y)
+	_crown_look.set_shader_parameter("cold", cold)
 
 
 ## Sets how far trees are drawn, and applies it to the squares already built.
@@ -232,8 +243,7 @@ func _make_crown_mesh() -> ArrayMesh:
 	Kit.add_frustum(surface, Vector3(0.0, 6.6, 0.0), 1, 0.8, 0.0, 1.8, 8)
 	surface.generate_normals()
 	var mesh: ArrayMesh = surface.commit()
-	var needles := StandardMaterial3D.new()
-	needles.vertex_color_use_as_albedo = true
-	needles.roughness = 1.0
-	mesh.surface_set_material(0, needles)
+	_crown_look = ShaderMaterial.new()
+	_crown_look.shader = CROWN_SHADER
+	mesh.surface_set_material(0, _crown_look)
 	return mesh

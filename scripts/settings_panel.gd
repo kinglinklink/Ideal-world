@@ -204,6 +204,7 @@ func _build() -> void:
 	world.add_child(_crash)
 	_check(world, "structural_failure", "Structural failure (overloaded parts break; see the stress view, key 9)")
 	_check(world, "player_damage", "You can be hurt (crashes, falls, blasts, too many g)")
+	_check(world, "random_disasters", "Random disasters (a tornado, hurricane, tsunami or eruption every 20 to 40 minutes)")
 	world.add_child(_note("A day lasts 20 minutes: 10 of daylight, 10 of night.\nRunway lights come on after dusk.\nCrash damage: a body whose speed changes faster than 20 g (over 50 ms) damages\nevery part in it, by its mass: heavy, weak parts break first."))
 
 	# --- Controls ---

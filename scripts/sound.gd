@@ -27,13 +27,23 @@ const FILES := {
 	"click": "res://sounds/click.wav", "place": "res://sounds/place.wav",
 	"remove": "res://sounds/remove.wav", "spawn": "res://sounds/spawn.wav",
 	"splash": "res://sounds/splash.wav",
+	"rain_loop": "res://sounds/rain_loop.wav", "tornado_loop": "res://sounds/tornado_loop.wav",
+	"car_loop": "res://sounds/car_loop.wav", "plane_loop": "res://sounds/plane_loop.wav",
+	"thunder": "res://sounds/thunder.wav", "rumble": "res://sounds/rumble.wav",
+	"eruption": "res://sounds/eruption.wav", "wave_crash": "res://sounds/wave_crash.wav",
+	"beep": "res://sounds/beep.wav", "go": "res://sounds/go.wav",
+	"checkpoint": "res://sounds/checkpoint.wav", "cash": "res://sounds/cash.wav",
 }
-const LOOPS := ["motor_loop", "jet_loop", "rocket_loop", "thruster_loop", "prop_loop", "wind_loop", "day_loop", "night_loop"]
+const LOOPS := ["motor_loop", "jet_loop", "rocket_loop", "thruster_loop", "prop_loop", "wind_loop", "day_loop",
+		"night_loop", "rain_loop", "tornado_loop", "car_loop", "plane_loop"]
 const VOICES := 24            # one-shots that can sound at once; the oldest gives way
 const MAX_MACHINES := 32      # machine sounds on one build
 const GUN_GAP := 0.03         # s: shots from guns closer together than this share one sound
 
 static var instance: Node = null
+## How hard it is raining, 0 to 1, and how windy, in m/s: set by weather.gd.
+static var rain_amount := 0.0
+static var wind_speed := 0.0
 
 var spawner: Node = null      # spawner.gd
 var player: Node3D = null     # player.gd
@@ -47,6 +57,7 @@ var _flat: AudioStreamPlayer  # interface sounds, not placed in the world
 var _wind: AudioStreamPlayer
 var _day: AudioStreamPlayer
 var _night: AudioStreamPlayer
+var _rain: AudioStreamPlayer
 var _generation := -1
 var _machines: Array = []     # {"uid", "type", "player", "full"}
 var _last_gun := -1.0
@@ -87,6 +98,7 @@ func _ready() -> void:
 	_wind = _ambient("wind_loop")
 	_day = _ambient("day_loop")
 	_night = _ambient("night_loop")
+	_rain = _ambient("rain_loop")
 
 
 func _ambient(key: String) -> AudioStreamPlayer:
@@ -130,6 +142,18 @@ static func apply_volumes(values: Dictionary) -> void:
 static func play_at(key: String, where: Vector3, loudness: float = 0.0, reach: float = 20.0, pitch: float = 1.0) -> void:
 	if instance != null:
 		instance._play_at(key, where, loudness, reach, pitch)
+
+
+## A looping sound to carry on a node of your own (a tornado, a car), not
+## yet playing. Null if the sound is missing. `bus` is one of BUSES.
+static func make_loop(key: String, bus: String = "Effects") -> AudioStreamPlayer3D:
+	if instance == null or not instance._streams.has(key):
+		return null
+	var sound := AudioStreamPlayer3D.new()
+	sound.stream = instance._streams[key]
+	sound.bus = bus
+	sound.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	return sound
 
 
 ## Plays a sound with no place: the interface.
@@ -216,8 +240,16 @@ func _run_ambience() -> void:
 	if daylight != null:
 		night = float(daylight.night_amount())
 	var quiet := 1.0 - clampf(speed / 30.0, 0.0, 0.9)
-	_day.volume_db = linear_to_db(maxf((1.0 - night) * quiet * 0.6, 0.0001))
-	_night.volume_db = linear_to_db(maxf(night * quiet * 0.6, 0.0001))
+	# Birds and crickets hush in the rain; the rain itself, and the wind on a
+	# stormy day even standing still.
+	var dry := 1.0 - clampf(rain_amount * 1.5, 0.0, 0.95)
+	_day.volume_db = linear_to_db(maxf((1.0 - night) * quiet * 0.6 * dry, 0.0001))
+	_night.volume_db = linear_to_db(maxf(night * quiet * 0.6 * dry, 0.0001))
+	_rain.volume_db = linear_to_db(maxf(rain_amount * 0.8, 0.0001))
+	var weather_gust := clampf((wind_speed - 6.0) / 30.0, 0.0, 1.0)
+	if weather_gust > gust:
+		_wind.volume_db = linear_to_db(maxf(weather_gust * 0.8, 0.0001)) + 2.0
+		_wind.pitch_scale = 0.7 + weather_gust * 0.4
 
 
 ## Gives every machine on a newly spawned build a looping sound, carried on
