@@ -527,7 +527,21 @@ func _set_off_blasts() -> void:
 			var structure: Node = item_structure
 			for spot in structure.blast(centre, radius, peak):
 				_add_dust(spot)
+		_hurt_player(centre, radius)
 	spawner.damage_parts(damage)
+
+
+## A blast hurts the character too, out to half again its radius plus a
+## metre: up to 120 HP at the middle.
+func _hurt_player(centre: Vector3, radius: float) -> void:
+	var someone: Node = get_tree().get_first_node_in_group("player")
+	if someone == null or not someone.has_method("hurt"):
+		return
+	var body := someone as Node3D
+	var reach := radius * 1.5 + 1.0
+	var distance := (body.global_position + Vector3(0.0, 0.9, 0.0)).distance_to(centre)
+	if distance < reach:
+		someone.hurt(120.0 * (1.0 - distance / reach), "an explosion")
 
 
 # --- Buildings and towers ------------------------------------------------------

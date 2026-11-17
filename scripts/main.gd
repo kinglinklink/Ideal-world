@@ -27,6 +27,8 @@ const Daylight = preload("res://scripts/daylight.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Menus = preload("res://scripts/menus.gd")
 const Fleet = preload("res://scripts/fleet.gd")
+const Replay = preload("res://scripts/replay.gd")
+const GameHud = preload("res://scripts/game_hud.gd")
 
 # The hangar sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
@@ -53,6 +55,9 @@ var _controller: Node3D
 var _daylight: Node3D          # daylight.gd: sun, moon, sky and the time of day
 var _fleet: Node3D             # fleet.gd: saved builds spawned out as vehicles
 var _start := Vector3.ZERO     # where the character starts and respawns, in map positions
+var _replay: Node               # replay.gd: the last 30 seconds, played back
+var _game_hud: CanvasLayer      # game_hud.gd: health, cash, announcements
+var _respawn_after_replay := false
 const START_HEADING := PI
 
 
@@ -173,6 +178,27 @@ func _ready() -> void:
 	sound.player = player
 	sound.daylight = _daylight
 
+	# Health, cash and announcements.
+	var game_hud: CanvasLayer = GameHud.new()
+	game_hud.name = "GameHud"
+	add_child(game_hud)
+	game_hud.player = player
+	_game_hud = game_hud
+	player.died.connect(_on_player_died)
+	player.hurt_taken.connect(func(amount: float) -> void: game_hud.flash_hurt(amount))
+
+	# The replay: key 0 once something is spawned, and after dying.
+	var replay: Node = Replay.new()
+	replay.name = "Replay"
+	add_child(replay)
+	replay.spawner = spawner
+	replay.fleet = _fleet
+	replay.player = player
+	replay.controller = controller
+	replay.screens = [hud, game_hud]
+	replay.finished.connect(_on_replay_finished)
+	_replay = replay
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
@@ -191,6 +217,24 @@ func _respawn() -> void:
 	if Origin.offset != Vector3.ZERO:
 		_shift_world(-Origin.offset)
 	_controller.respawn(Origin.to_world(_start), START_HEADING)
+	_player.heal_full()
+
+
+## Dying: whatever race was on is lost, the replay shows how it happened,
+## and the character comes back at the hangar when it ends.
+func _on_player_died(cause: String) -> void:
+	_game_hud.announce("YOU DIED", "Killed by %s" % cause, 3.0, Color(1.0, 0.3, 0.25))
+	get_tree().call_group("races", "player_died")
+	_respawn_after_replay = true
+	if not _replay.start("You died: %s" % cause):
+		_respawn_after_replay = false
+		get_tree().create_timer(2.0).timeout.connect(_respawn)
+
+
+func _on_replay_finished(_reason: String) -> void:
+	if _respawn_after_replay:
+		_respawn_after_replay = false
+		_respawn()
 
 
 # --- Keeping the world centred on the player ------------------------------------
