@@ -397,6 +397,42 @@ func _update_tank_masses() -> void:
 			spawner.set_part_mass(uid, mass)
 
 
+# --- Fuel for couplers (rigging.gd) -------------------------------------------------
+
+## Litres of fuel in every tank of the build.
+func total_fuel() -> float:
+	var held := 0.0
+	for key in _tanks:
+		if _alive(key):
+			held += float(_tanks[key]["fuel"])
+	return held
+
+
+## Takes up to `litres` from every tank alike. Returns what it took.
+func take_fuel(litres: float) -> float:
+	var live: Array = []
+	for key in _tanks:
+		if _alive(key):
+			live.append(key)
+	return _draw_fuel(live, litres)
+
+
+## Pours up to `litres` into tanks with room. Returns what went in.
+func add_fuel(litres: float) -> float:
+	var left := maxf(litres, 0.0)
+	for key in _tanks:
+		if left <= 0.0:
+			break
+		if not _alive(key):
+			continue
+		var tank: Dictionary = _tanks[key]
+		var room := maxf(float(tank["capacity"]) - float(tank["fuel"]), 0.0)
+		var poured := minf(room, left)
+		tank["fuel"] = float(tank["fuel"]) + poured
+		left -= poured
+	return maxf(litres, 0.0) - left
+
+
 # --- Called by the spawner -------------------------------------------------------
 
 ## A hydraulic cylinder's drive: [speed out in m/s, most force in N]. `out`
@@ -552,6 +588,7 @@ func _run_jet(members: Array, by_type: Dictionary, delta: float) -> void:
 		if thrust > 0.0 and not body.freeze:
 			body.sleeping = false
 			body.apply_force(forward * thrust, frame.origin - body.global_position)
+			spawner.note_force(uid * 8, forward * thrust)
 
 
 func _show_flame(uid: int, thrust: float) -> void:
@@ -609,3 +646,4 @@ func _run_rockets(delta: float) -> void:
 			continue
 		body.sleeping = false
 		body.apply_force(-frame.basis.z.normalized() * thrust, frame.origin - body.global_position)
+		spawner.note_force(uid * 8, -frame.basis.z.normalized() * thrust)

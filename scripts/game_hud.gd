@@ -5,6 +5,8 @@ extends CanvasLayer
 ## cargo runs and the weather to open in. hud.gd keeps the build tools.
 
 const Profile = preload("res://scripts/profile.gd")
+const GraphView = preload("res://scripts/graph_view.gd")
+const Stress = preload("res://scripts/stress.gd")
 
 var player: Node = null          # player.gd
 
@@ -20,6 +22,9 @@ var _flash: ColorRect
 var _flash_amount := 0.0
 var _shown_cash := -1
 var side: VBoxContainer          # top-left column for race and graph readouts
+var _graph_views: Array = []     # graph_view.gd, one per graph screen shown
+var _stress_label: Label
+var _graph_check := 0.0
 
 
 func _ready() -> void:
@@ -99,6 +104,8 @@ func _ready() -> void:
 	under_help.custom_minimum_size = Vector2(0, 96)
 	under_help.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(under_help)
+	_stress_label = _label("", 17, Color(1, 1, 1))
+	side.add_child(_stress_label)
 
 
 func _label(text: String, font_size: int, color: Color) -> Label:
@@ -144,6 +151,42 @@ func _process(delta: float) -> void:
 			_sub.text = ""
 	_flash_amount = maxf(_flash_amount - delta * 0.8, 0.0)
 	_flash.color = Color(0.8, 0.0, 0.0, _flash_amount)
+	_graph_check -= delta
+	if _graph_check <= 0.0:
+		_graph_check = 0.25
+		_update_graphs()
+		_update_stress()
+
+
+## While the stress view is on: the most loaded part of each spawned build.
+func _update_stress() -> void:
+	if not Stress.view:
+		_stress_label.text = ""
+		return
+	var peak := 0.0
+	for node in get_tree().get_nodes_in_group("logic"):
+		var spawner: Node = node.spawner
+		if spawner != null and bool(spawner.spawned) and spawner.stress != null:
+			peak = maxf(peak, spawner.stress.peak_ratio())
+	_stress_label.text = "Stress view (9)   most loaded part: %d %% of its strength" % int(round(peak * 100.0))
+	_stress_label.add_theme_color_override("font_color", Stress.ratio_color(peak))
+
+
+## Shows the graph screens of the vehicle the character sits in.
+func _update_graphs() -> void:
+	var wanted: Array = []
+	for node in get_tree().get_nodes_in_group("logic"):
+		wanted.append_array(node.graphs_for_screen())
+	wanted = wanted.slice(0, 3)
+	while _graph_views.size() > wanted.size():
+		var view: Control = _graph_views.pop_back()
+		view.queue_free()
+	while _graph_views.size() < wanted.size():
+		var view: Control = GraphView.new()
+		side.add_child(view)
+		_graph_views.append(view)
+	for index in wanted.size():
+		_graph_views[index].graph = wanted[index]
 
 
 ## A window in the middle of the screen with a title and a close button.

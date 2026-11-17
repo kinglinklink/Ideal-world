@@ -39,6 +39,11 @@ func _extra_steps() -> Array:
 		[140, func() -> void: main.get_node("Player").hurt(500.0, "a test")],
 		[200, func() -> void: main.get_node("Replay").stop()],
 		[260, func() -> void: print("SMOKE: hp after death ", main.get_node("Player").hp)],
+		[270, func() -> void: main.get_node("Spawner").stress.view = true],
+		[300, func() -> void: print("SMOKE: peak stress ", main.get_node("Spawner").stress.peak_ratio())],
+		[290, func() -> void:
+			var logic: Node = main.get_node("Logic")
+			print("SMOKE: graphs ", logic._graphs.size(), " samples ", (logic._graphs[0]["times"] as PackedFloat32Array).size() if logic._graphs.size() > 0 else -1)],
 	]
 
 
@@ -69,4 +74,15 @@ func _build_test_vehicle() -> void:
 	var seat: Dictionary = BuildGrid.make_record("seat", Vector3i(43 * c + h, 2 * c + h, 45 * c + h),
 			Basis.IDENTITY, Vector3i(3 * c, 3 * c, 3 * c), "steel", Color(0.3, 0.3, 0.3))
 	print("SMOKE: seat uid ", grid.add_part(seat))
+	var sensor: Dictionary = BuildGrid.make_record("speed_sensor", Vector3i(41 * c + h, c + h, 41 * c + h),
+			Basis.IDENTITY, Vector3i(c, c, c), "steel", Color(0.3, 0.3, 0.3))
+	var sensor_uid: int = grid.add_part(sensor)
+	var screen: Dictionary = BuildGrid.make_record("graph_display", Vector3i(44 * c, c * 2 + c / 2, 41 * c + c / 8),
+			Basis.IDENTITY, Vector3i(4 * c, 3 * c, c / 4), "steel", Color(0.2, 0.2, 0.2))
+	screen["props"] = {"window": 5.0, "low": 0.0, "high": 0.0, "label_a": "Speed", "label_b": "B",
+			"label_c": "C", "label_d": "D", "on_screen": true}
+	var screen_uid: int = grid.add_part(screen)
+	print("SMOKE: graph uid ", screen_uid)
+	if screen_uid != 0:
+		grid.set_links(screen_uid, {"a": {"uid": sensor_uid, "output": "speed"}})
 	print("SMOKE: parts ", grid.part_count())

@@ -28,6 +28,7 @@ const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const Aero = preload("res://scripts/aero.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
+const Stress = preload("res://scripts/stress.gd")
 
 ## Emitted when a part's health runs out and it is removed.
 signal part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary)
@@ -166,6 +167,8 @@ var _parked: Dictionary = {}       # body -> [linear velocity, angular velocity]
 var parked := false
 var gear_conflicts := 0            # gear trains whose ratios disagree, found at spawn
 var _belt_mesh: MeshInstance3D = null
+var applied: Dictionary = {}       # piece -> force put on it this check (world), for stress.gd
+var stress: Node = null            # stress.gd
 ## Damage from hard knocks (Settings): on unless switched off.
 static var crash_damage := true
 var _body_pieces: Dictionary = {}  # body -> Array of the pieces in it
@@ -290,6 +293,13 @@ static func _piece_centre(piece: int, record: Dictionary) -> Vector3:
 ## {"parts", "bodies", "mass" (kg), "hinges" (joints free to move), "locked"
 ## (joints whose two sides ended up welded to the same body, so they cannot
 ## move), "thrusters", "panels"}.
+func _ready() -> void:
+	stress = Stress.new()
+	stress.name = "Stress"
+	stress.spawner = self
+	add_child(stress)
+
+
 func spawn(grid: Node3D) -> Dictionary:
 	despawn()
 	_grid_frame = grid.global_transform
@@ -580,6 +590,9 @@ func despawn() -> void:
 	_belt_mesh = null
 	occupied_seat = 0
 	spawned = false
+	applied.clear()
+	if stress != null:
+		stress.clear()
 
 
 ## The body a piece is in, or null if the piece is gone.
@@ -849,6 +862,8 @@ func _new_body(fixed: bool) -> RigidBody3D:
 	# character: see the note on layers in units.gd.
 	body.collision_layer = Units.LAYER_BODIES
 	body.collision_mask = Units.LAYER_WORLD | Units.LAYER_BODIES
+	# Contacts are reported so the stress check knows where the body rests.
+	body.max_contacts_reported = 8
 	body.name = "Body%d" % _body_count
 	_body_count += 1
 	return body
@@ -2454,6 +2469,70 @@ func record_of(uid: int) -> Dictionary:
 	return _records[uid]
 
 
+# --- For stress.gd, rigging.gd and the replay ------------------------------------
+
+## Notes a force put straight on a piece (world space), for the stress view.
+func note_force(piece: int, force: Vector3) -> void:
+	if not Stress.view and not Stress.failure:
+		return
+	applied[piece] = (applied.get(piece, Vector3.ZERO) as Vector3) + force
+
+
+func all_bodies() -> Array:
+	return _bodies
+
+
+func body_pieces(body: RigidBody3D) -> Array:
+	return _body_pieces.get(body, [])
+
+
+func piece_boxes() -> Dictionary:
+	return _boxes
+
+
+func welds(a: int, b: int) -> bool:
+	return _boxes.has(a) and _boxes.has(b) and _welds(a, b, _boxes)
+
+
+func contact_area(a: int, b: int) -> float:
+	return _contact(_boxes[a], _boxes[b])
+
+
+## Where a body's own origin sits in the grid's space (bodies keep the
+## grid's axes, moved to their centre of mass when made).
+func body_origin_in_grid(body: RigidBody3D) -> Vector3:
+	for item in _body_pieces.get(body, []):
+		var piece: int = item
+		var entry: Dictionary = _pieces[piece]
+		return _piece_centre(piece, _records[_uid_of(piece)]) - (entry["centre"] as Vector3)
+	return Vector3.ZERO
+
+
+## A piece's centre of mass in its body's own space.
+func piece_centre(piece: int) -> Vector3:
+	var entry: Dictionary = _pieces.get(piece, {})
+	return entry.get("centre", Vector3.ZERO)
+
+
+func piece_mass(piece: int) -> float:
+	var entry: Dictionary = _pieces.get(piece, {})
+	return float(entry.get("mass", 0.0))
+
+
+func piece_material(piece: int) -> String:
+	var record: Dictionary = _records.get(_uid_of(piece), {})
+	return str(record.get("material", "steel"))
+
+
+func piece_mesh(piece: int) -> MeshInstance3D:
+	var entry: Dictionary = _pieces.get(piece, {})
+	return entry.get("mesh") as MeshInstance3D
+
+
+func piece_body(piece: int) -> RigidBody3D:
+	return _piece_body(piece)
+
+
 ## Changes the mass of a part that is in one piece, such as an ammo
 ## generator as it fills. Its body is brought up to date.
 func set_part_mass(uid: int, mass: float) -> void:
@@ -2480,6 +2559,7 @@ func _physics_process(delta: float) -> void:
 	_run_buoyancy(delta)
 	_alive_time += delta
 	_run_crash_damage(delta)
+	stress.run(_alive_time)
 
 
 func _process(_delta: float) -> void:
@@ -2899,7 +2979,9 @@ func _run_thrusters() -> void:
 			continue
 		var frame: Basis = body.global_transform.basis
 		body.sleeping = false
-		body.apply_force(frame * (place.basis * Vector3(0.0, 0.0, -push)), frame * place.origin)
+		var thrust_force: Vector3 = frame * (place.basis * Vector3(0.0, 0.0, -push))
+		body.apply_force(thrust_force, frame * place.origin)
+		note_force(thruster[0], thrust_force)
 	_thrusters = alive
 
 
@@ -2955,4 +3037,5 @@ func _run_aero(delta: float) -> void:
 		# tick's force. Never push harder than would stop it dead in two ticks.
 		force = force.limit_length(0.5 * body.mass * moving.length() / delta)
 		body.apply_force(force, arm)
+		note_force(panel[0], force)
 	_panels = alive

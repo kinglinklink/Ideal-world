@@ -187,6 +187,16 @@ static func _build_table() -> void:
 		_number("output_max", "Highest output", "", 1.0, -1000000000.0, 1000000000.0, 0.001),
 	]
 	_table["distance_sensor"] = [_number("range", "Range", "m", 100.0, 0.0, 100000.0, 0.1)]
+	_table["graph_display"] = [
+		_number("window", "Time shown", "s", 10.0, 1.0, 600.0, 0.5),
+		_number("low", "Bottom of the scale (same as top: automatic)", "", 0.0, -1000000000.0, 1000000000.0, 0.001),
+		_number("high", "Top of the scale", "", 0.0, -1000000000.0, 1000000000.0, 0.001),
+		_text("label_a", "Name of line A", "A"),
+		_text("label_b", "Name of line B", "B"),
+		_text("label_c", "Name of line C", "C"),
+		_text("label_d", "Name of line D", "D"),
+		_flag("on_screen", "Also show on screen while seated", true),
+	]
 	_table["impact_detector"] = [
 		_number("threshold", "Trigger above", "g", 10.0, 0.0, 100000.0, 0.1),
 		_number("pulse", "Signal length", "s", 0.1, 0.0, 1000.0, 0.01),
@@ -221,6 +231,23 @@ static func _build_table() -> void:
 	]
 
 	# --- Misc ---
+	_table["magnet"] = [
+		_number("strength", "Holding force", "N", 50000.0, 0.0, 1000000000.0, 100.0),
+		_flag("on_unlinked", "On with no input", false),
+		_flag("grabs_ground", "Grabs the ground and buildings too", false),
+	]
+	_table["winch"] = [
+		_number("start_length", "Starting rope length", "m", 4.0, 0.5, 500.0, 0.1),
+		_number("max_length", "Longest rope", "m", 40.0, 0.5, 500.0, 0.1),
+		_number("reel_speed", "Reel speed", "m/s", 2.0, 0.0, 100.0, 0.1),
+		_number("strength", "Breaking tension", "N", 100000.0, 0.0, 1000000000.0, 100.0),
+		_flag("grabs_unlinked", "Hook grabs with no input", true),
+	]
+	_table["coupler"] = [
+		_flag("couples_unlinked", "Couples with no input", true),
+		_choice("fuel", "Fuel through the coupling", ["None", "Give fuel", "Take fuel"]),
+		_number("fuel_rate", "Fuel flow", "L/s", 5.0, 0.0, 10000.0, 0.1),
+	]
 	_table["dynamic_offsetter"] = [
 		_number("shift_x", "Shift X", "blocks", 0.0, -5.0, 5.0, 0.005),
 		_number("shift_y", "Shift Y", "blocks", 0.0, -5.0, 5.0, 0.005),

@@ -112,6 +112,11 @@ const PORTS := {
 		],
 	},
 	"distance_sensor": {"inputs": [], "outputs": [["distance", "Distance", "number"]]},
+	"graph_display": {
+		"inputs": [["a", "Line A", "number"], ["b", "Line B", "number"],
+				["c", "Line C", "number"], ["d", "Line D", "number"]],
+		"outputs": [],
+	},
 	"impact_detector": {
 		"inputs": [],
 		"outputs": [["triggered", "Triggered", "bool"], ["acceleration", "Acceleration", "number"]],
@@ -134,6 +139,16 @@ const PORTS := {
 	},
 	# Misc
 	"seat": {"inputs": [], "outputs": [["occupied", "Occupied", "bool"]]},
+	"magnet": {"inputs": [["on", "On", "bool"]], "outputs": [["holding", "Holding", "bool"]]},
+	"winch": {
+		"inputs": [["reel", "Reel (+1 in, -1 out)", "number"], ["grab", "Hook grabs", "bool"]],
+		"outputs": [["length", "Rope length (m)", "number"], ["tension", "Tension (N)", "number"],
+				["holding", "Hook holding", "bool"]],
+	},
+	"coupler": {
+		"inputs": [["couple", "Couple", "bool"]],
+		"outputs": [["coupled", "Coupled", "bool"], ["fuel_moved", "Fuel moved (L)", "number"]],
+	},
 }
 
 

@@ -24,7 +24,8 @@ const CONTROLS := [
 	"  Scroll         zoom from first person out to third person",
 	"  Right mouse    hold to turn the camera",
 	"  Esc            free the cursor (first person); again for the pause menu",
-	"  P              back to the build pad      M   full map",
+	"  P              back to the hangar         M   full map",
+	"  E              also talks to race hosts and cargo agents at airports",
 	"",
 	"Building",
 	"  1 to 5         Place, Delete, Config, Transform, Paint (again to put away)",
@@ -38,6 +39,8 @@ const CONTROLS := [
 	"",
 	"Spawned",
 	"  Keys you bind in input blocks work while you sit in a seat.",
+	"  0              replay the last 30 seconds (Space or Esc skips)",
+	"  9              stress view: parts coloured by load, blue to red",
 	"  F1 or the Guide button: what every part does.",
 ]
 
@@ -54,6 +57,7 @@ var _trees_label: Label
 var _fps: CheckBox
 var _sky: OptionButton
 var _crash: CheckBox
+var _checks: Dictionary = {}   # setting key -> CheckBox, for the simple on/off settings
 var _volume_sliders: Dictionary = {}
 var _volume_labels: Dictionary = {}
 
@@ -198,6 +202,8 @@ func _build() -> void:
 		values["crash_damage"] = on
 		_commit())
 	world.add_child(_crash)
+	_check(world, "structural_failure", "Structural failure (overloaded parts break; see the stress view, key 9)")
+	_check(world, "player_damage", "You can be hurt (crashes, falls, blasts, too many g)")
 	world.add_child(_note("A day lasts 20 minutes: 10 of daylight, 10 of night.\nRunway lights come on after dusk.\nCrash damage: a body whose speed changes faster than 20 g (over 50 ms) damages\nevery part in it, by its mass: heavy, weak parts break first."))
 
 	# --- Controls ---
@@ -211,6 +217,19 @@ func _build() -> void:
 	close.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close.pressed.connect(func() -> void: visible = false)
 	column.add_child(close)
+
+
+## A check box for an on/off setting.
+func _check(parent: Control, key: String, text: String) -> CheckBox:
+	var box := CheckBox.new()
+	box.text = text
+	box.focus_mode = Control.FOCUS_NONE
+	box.toggled.connect(func(on: bool) -> void:
+		values[key] = on
+		_commit())
+	parent.add_child(box)
+	_checks[key] = box
+	return box
 
 
 func _page(tabs: TabContainer, title: String) -> VBoxContainer:
@@ -292,6 +311,8 @@ func _show_values() -> void:
 	_fps.set_pressed_no_signal(bool(values["show_fps"]))
 	_sky.select(Settings.SKIES.find(str(values["sky"])))
 	_crash.set_pressed_no_signal(bool(values["crash_damage"]))
+	for key in _checks:
+		(_checks[key] as CheckBox).set_pressed_no_signal(bool(values.get(key, true)))
 	for key in _volume_sliders:
 		var slider: HSlider = _volume_sliders[key]
 		slider.set_value_no_signal(int(values[key]))

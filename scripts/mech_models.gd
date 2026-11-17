@@ -25,6 +25,7 @@ const IDS := [
 	"seat", "anchor_block", "dynamic_offsetter",
 	"input_block", "boolean_gate", "number_gate", "pid_controller", "pwm_generator",
 	"speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor",
+	"graph_display", "magnet", "winch", "coupler",
 ]
 
 
@@ -471,6 +472,28 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_cylinder(detail, Vector3(-0.1, -0.2, -0.3), Z, 0.16, 0.25)
 			Kit.add_cylinder(detail, Vector3(0.22, -0.2, -0.28), Z, 0.08, 0.2)
 			detail_look = Kit.tinted_material(Color(0.95, 0.8, 0.2))
+		"graph_display":
+			# A frame round a dark screen, the screen on both big faces.
+			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 1.0, 0.6))
+			Kit.add_box(detail, Vector3.ZERO, Vector3(0.92, 0.88, 1.0))
+			detail_look = Kit.lens_material()
+		"magnet":
+			# A red housing with a steel pole face on top (+Y), which grabs.
+			Kit.add_box(body, Vector3(0.0, -0.15, 0.0), Vector3(1.0, 0.7, 1.0))
+			Kit.add_box(detail, Vector3(0.0, 0.35, 0.0), Vector3(0.94, 0.3, 0.94))
+			detail_look = Kit.tinted_material(Color(0.75, 0.77, 0.80))
+		"winch":
+			# A frame holding a drum along X; the rope comes out of the bottom (-Y).
+			Kit.add_box(body, Vector3(-0.44, 0.0, 0.0), Vector3(0.12, 1.0, 1.0))
+			Kit.add_box(body, Vector3(0.44, 0.0, 0.0), Vector3(0.12, 1.0, 1.0))
+			Kit.add_box(body, Vector3(0.0, 0.44, 0.0), Vector3(1.0, 0.12, 1.0))
+			Kit.add_cylinder(detail, Vector3(0.0, -0.05, 0.0), X, 0.32, 0.76, 20)
+			Kit.add_cylinder(detail, Vector3(0.0, -0.4, 0.0), Y, 0.05, 0.2)
+		"coupler":
+			# A plate with a coupling cone sticking out of its -Z face.
+			Kit.add_box(body, Vector3(0.0, 0.0, 0.3), Vector3(1.0, 1.0, 0.4))
+			Kit.add_frustum(detail, Vector3(0.0, 0.0, -0.2), Z, 0.26, 0.42, 0.6, 20)
+			detail_look = Kit.tinted_material(Color(0.95, 0.72, 0.10))
 		_:
 			Kit.add_box(body, Vector3.ZERO, Vector3.ONE)
 			Kit.add_cylinder(detail, Vector3.ZERO, Y, 0.1, 1.0)

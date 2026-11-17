@@ -87,9 +87,13 @@ const PARTS := {
 	"altitude_sensor": ["Altitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"attitude_sensor": ["Attitude sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"distance_sensor": ["Distance sensor", "Logic", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
+	"graph_display": ["Graph screen", "Logic", Vector3(4, 3, 0.25), 0.6, Vector3(0, 0, 0), "box"],
 	"seat": ["Seat", "Misc", Vector3(3, 3, 3), 0.4, Vector3(0, 0, 0), "box"],
 	"anchor_block": ["Anchor block", "Misc", Vector3(1, 1, 1), 0.9, Vector3(0, 0, 0), "box"],
 	"dynamic_offsetter": ["Dynamic offsetter", "Misc", Vector3(1, 1, 1), 0.8, Vector3(0, 0, 0), "box"],
+	"magnet": ["Electromagnet", "Misc", Vector3(2, 0.5, 2), 0.9, Vector3(0, 0, 0), "box"],
+	"winch": ["Winch and hook", "Misc", Vector3(2, 1, 1), 0.6, Vector3(0, 0, 0), "box"],
+	"coupler": ["Coupler", "Misc", Vector3(1, 1, 0.5), 0.8, Vector3(0, 0, 0), "box"],
 }
 
 ## Parts that start in their own colour instead of the brush colour.
@@ -115,6 +119,10 @@ const DEFAULT_COLORS := {
 	"altitude_sensor": Color(0.20, 0.21, 0.23),
 	"attitude_sensor": Color(0.20, 0.21, 0.23),
 	"distance_sensor": Color(0.20, 0.21, 0.23),
+	"graph_display": Color(0.16, 0.17, 0.19),
+	"magnet": Color(0.62, 0.12, 0.10),
+	"winch": Color(0.95, 0.72, 0.10),
+	"coupler": Color(0.35, 0.37, 0.40),
 }
 
 const CATEGORIES := ["Basic", "Structural", "Advanced", "Mechanical", "Fluid and Engine", "Aero", "Logic", "Combat", "Misc"]

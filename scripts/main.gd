@@ -29,6 +29,7 @@ const Menus = preload("res://scripts/menus.gd")
 const Fleet = preload("res://scripts/fleet.gd")
 const Replay = preload("res://scripts/replay.gd")
 const GameHud = preload("res://scripts/game_hud.gd")
+const Stress = preload("res://scripts/stress.gd")
 
 # The hangar sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
@@ -208,6 +209,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key != null and key.pressed and not key.echo and key.physical_keycode == KEY_M \
 			and get_viewport().gui_get_focus_owner() == null:
 		_hud.toggle_world_map()
+	elif key != null and key.pressed and not key.echo and key.physical_keycode == KEY_9 \
+			and get_viewport().gui_get_focus_owner() == null and bool(_controller.spawned):
+		Stress.view = not Stress.view
+		_game_hud.announce("", "Stress view on: blue easy, red at breaking point" if Stress.view else "Stress view off", 2.5)
 
 
 ## Sends the character back to the hangar, in front of its door. The world
