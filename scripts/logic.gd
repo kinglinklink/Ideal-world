@@ -494,7 +494,7 @@ func _run_tanks() -> void:
 ## A graph screen: up to four lines plotted against time, drawn on both of
 ## its big faces and, for the vehicle the character sits in, on screen too
 ## (game_hud.gd reads graphs_for_screen).
-func _new_graph(uid: int, props: Dictionary, size_m: Vector3) -> Dictionary:
+func _new_graph(uid: int, props: Dictionary, _size_m: Vector3) -> Dictionary:
 	var graph := {
 		"uid": uid,
 		"window": clampf(float(props.get("window", 10.0)), 1.0, 600.0),

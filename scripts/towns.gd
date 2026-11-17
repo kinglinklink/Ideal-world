@@ -44,6 +44,14 @@ const CONCRETE_KINDS := ["warehouse", "industrial", "commercial", "retail", "hos
 const HP_PER_M3 := {"wood": 2.0, "brick": 4.0, "concrete": 6.0}
 const MAX_HP := 150000.0
 const RUBBLE := Color(0.42, 0.39, 0.35)
+## The US 93 bridge at Polson, over the Flathead River where it leaves the
+## lake: rebuilt big, a cable-stayed bridge that humps POLSON_RISE metres in
+## the middle so boats and small planes fit underneath.
+const POLSON_A := Vector3(4137.2, -20.6, 17508.3)
+const POLSON_B := Vector3(3736.8, -20.5, 17381.6)
+const POLSON_RISE := 16.0
+const POLSON_WIDTH := 18.0
+const POLSON_TOWER := 72.0          # metres the towers stand above the deck
 
 var _samples := PackedFloat32Array()
 var _runs: Dictionary = {}        # Vector2i square -> Array of [first sample, count, code]
@@ -83,6 +91,8 @@ func setup(world: Dictionary) -> void:
 	for key in _buildings:
 		seen[key] = true
 	_squares = seen.keys()
+
+	_raise_polson_road()
 
 	_road_look = StandardMaterial3D.new()
 	_road_look.vertex_color_use_as_albedo = true
@@ -484,6 +494,66 @@ func reset_damage() -> void:
 	_hp.clear()
 
 
+## Where along the Polson bridge a map point is: [share of the way from A
+## to B, metres off its middle line].
+static func _polson_place(x: float, z: float) -> Vector2:
+	var a := Vector2(POLSON_A.x, POLSON_A.z)
+	var b := Vector2(POLSON_B.x, POLSON_B.z)
+	var along := b - a
+	var point := Vector2(x, z) - a
+	var t := point.dot(along) / along.length_squared()
+	var side := absf(point.cross(along.normalized()))
+	return Vector2(t, side)
+
+
+## The top of the Polson bridge's deck at a share `t` of the way across:
+## a smooth hump, highest in the middle.
+static func polson_deck(t: float) -> float:
+	var ends := lerpf(POLSON_A.y, POLSON_B.y, t)
+	return ends + POLSON_RISE * (1.0 - cos(TAU * clampf(t, 0.0, 1.0))) * 0.5
+
+
+## The road over the bridge follows its deck. Road samples are kept
+## relative to the middle of their 1 km square.
+func _raise_polson_road() -> void:
+	for key in _runs:
+		var square: Vector2i = key
+		var middle := (Vector2(square) + Vector2(0.5, 0.5)) * MapInfo.CELL
+		for item in _runs[square]:
+			var run: Array = item
+			for index in int(run[1]):
+				var at := (int(run[0]) + index) * 3
+				if at + 2 >= _samples.size():
+					break
+				var place := _polson_place(_samples[at] + middle.x, _samples[at + 2] + middle.y)
+				if place.x > 0.0 and place.x < 1.0 and place.y < POLSON_WIDTH * 0.5:
+					_samples[at + 1] = polson_deck(place.x) + 0.02
+
+
+## Every paved highway as lines of map points (motorways, trunk and primary
+## roads), for traffic and car races to drive along. Runs are joined where
+## one ends on the first point of the next.
+func highway_lines() -> Array:
+	var lines: Array = []
+	for key in _runs:
+		var square: Vector2i = key
+		var middle := (Vector2(square) + Vector2(0.5, 0.5)) * MapInfo.CELL
+		for item in _runs[square]:
+			var run: Array = item
+			var code: int = run[2]
+			if code % 8 > 2 or code >= 8:
+				continue
+			var line := PackedVector3Array()
+			for index in int(run[1]):
+				var at := (int(run[0]) + index) * 3
+				if at + 2 >= _samples.size():
+					break
+				line.append(Vector3(_samples[at] + middle.x, _samples[at + 1], _samples[at + 2] + middle.y))
+			if line.size() >= 2:
+				lines.append(line)
+	return lines
+
+
 ## Bridges: a solid concrete deck along each span, on piers down into the water.
 func _build_bridges(spans: Array) -> void:
 	if spans.is_empty():
@@ -505,6 +575,9 @@ func _build_bridges(spans: Array) -> void:
 		var length := a.distance_to(b)
 		if length < 0.1:
 			continue
+		var middle_place := _polson_place((a.x + b.x) * 0.5, (a.z + b.z) * 0.5)
+		if middle_place.x > -0.02 and middle_place.x < 1.02 and middle_place.y < 6.0 and width > 8.0:
+			continue   # the old Polson bridge: built new below
 		var along := (b - a) / length
 		var side := Vector3(-along.z, 0.0, along.x).normalized()
 		var up := side.cross(along).normalized()
@@ -521,12 +594,124 @@ func _build_bridges(spans: Array) -> void:
 		# A pier under the start of each span.
 		var pier := Transform3D(Basis.IDENTITY, Vector3(a.x, (a.y + MapInfo.LAKE_Y) * 0.5 - 6.0, a.z))
 		_box(surface, pier, Vector3(1.6, a.y - MapInfo.LAKE_Y + 12.0, 1.6))
+	_build_polson_bridge(body, surface)
 	surface.generate_normals()
 	var mesh := surface.commit()
 	mesh.surface_set_material(0, _house_look)
 	var drawn := MeshInstance3D.new()
 	drawn.mesh = mesh
 	body.add_child(drawn)
+
+
+## The big Polson bridge: a humped deck with concrete barriers, piers into
+## the river, two H-shaped towers and fans of stay cables, and lights.
+func _build_polson_bridge(body: StaticBody3D, surface: SurfaceTool) -> void:
+	var a := POLSON_A
+	var b := POLSON_B
+	var flat := Vector3(b.x - a.x, 0.0, b.z - a.z)
+	var span := flat.length()
+	var along := flat / span
+	var side := Vector3(-along.z, 0.0, along.x)
+	var pieces := 36
+	var concrete := Color(0.70, 0.70, 0.68)
+	var steel := Color(0.85, 0.32, 0.18)
+	surface.set_color(concrete)
+	for index in pieces:
+		var t0 := float(index) / pieces
+		var t1 := float(index + 1) / pieces
+		var p0 := Vector3(a.x, 0.0, a.z) + along * span * t0
+		var p1 := Vector3(a.x, 0.0, a.z) + along * span * t1
+		p0.y = polson_deck(t0)
+		p1.y = polson_deck(t1)
+		var run := p1 - p0
+		var forward := run.normalized()
+		var up := side.cross(forward).normalized()
+		if up.y < 0.0:
+			up = -up
+		var turn := Basis(side, up, -forward)
+		var middle := (p0 + p1) * 0.5
+		# The deck, a little longer than each piece so they overlap.
+		var deck := Transform3D(turn, middle - up * 0.6)
+		var deck_size := Vector3(POLSON_WIDTH, 1.2, run.length() + 0.6)
+		_solid_box(body, surface, deck, deck_size)
+		# Concrete barriers along both edges.
+		for edge in [-1.0, 1.0]:
+			var barrier := Transform3D(turn, middle + side * float(edge) * (POLSON_WIDTH * 0.5 - 0.3) + up * 0.55)
+			_solid_box(body, surface, barrier, Vector3(0.6, 1.1, run.length() + 0.6))
+		# Piers down into the river, every few pieces.
+		if index % 4 == 2:
+			for edge in [-1.0, 1.0]:
+				var foot := middle + side * float(edge) * POLSON_WIDTH * 0.32
+				var drop := foot.y - (MapInfo.LAKE_Y - 12.0)
+				_solid_box(body, surface, Transform3D(Basis.IDENTITY, Vector3(foot.x, foot.y - 1.2 - drop * 0.5, foot.z)),
+						Vector3(2.6, drop, 2.6))
+	# Two towers, at a third and two thirds of the way, straddling the deck.
+	surface.set_color(steel)
+	for share in [1.0 / 3.0, 2.0 / 3.0]:
+		var t: float = share
+		var base := Vector3(a.x, 0.0, a.z) + along * span * t
+		var deck_top := polson_deck(t)
+		var bottom := MapInfo.LAKE_Y - 12.0
+		var top := deck_top + POLSON_TOWER
+		for edge in [-1.0, 1.0]:
+			var leg := base + side * float(edge) * (POLSON_WIDTH * 0.5 + 2.0)
+			_solid_box(body, surface, Transform3D(Basis.IDENTITY, Vector3(leg.x, (bottom + top) * 0.5, leg.z)),
+					Vector3(3.2, top - bottom, 4.0))
+		# Cross beams under the deck, high up and at the top.
+		for height in [deck_top - 2.0, deck_top + POLSON_TOWER * 0.55, top - 2.0]:
+			var beam_turn := Basis(side, Vector3.UP, side.cross(Vector3.UP))
+			_solid_box(body, surface, Transform3D(beam_turn, Vector3(base.x, float(height), base.z)),
+					Vector3(POLSON_WIDTH + 8.0, 2.4, 2.4))
+	# Stay cables: fans from each tower top down to both edges of the deck.
+	surface.set_color(Color(0.92, 0.92, 0.9))
+	for share in [1.0 / 3.0, 2.0 / 3.0]:
+		var t: float = share
+		var base := Vector3(a.x, 0.0, a.z) + along * span * t
+		var top := polson_deck(t) + POLSON_TOWER - 4.0
+		for edge in [-1.0, 1.0]:
+			var anchor := base + side * float(edge) * (POLSON_WIDTH * 0.5 + 2.0)
+			anchor.y = top
+			for cable in range(1, 9):
+				for direction in [-1.0, 1.0]:
+					var reach_t: float = t + float(direction) * float(cable) * 0.038
+					if reach_t < 0.02 or reach_t > 0.98:
+						continue
+					var deck_point := Vector3(a.x, 0.0, a.z) + along * span * reach_t + side * float(edge) * (POLSON_WIDTH * 0.5 - 0.2)
+					deck_point.y = polson_deck(reach_t) + 1.0
+					var line := deck_point - anchor
+					var cable_turn := Basis.looking_at(line.normalized(), Vector3.UP if absf(line.normalized().y) < 0.99 else Vector3.FORWARD)
+					_box(surface, Transform3D(cable_turn, (anchor + deck_point) * 0.5), Vector3(0.18, 0.18, line.length()))
+	surface.set_color(concrete)
+	# Lamps along the deck, lit at night.
+	var lamps := Node3D.new()
+	lamps.add_to_group("night_lights")
+	lamps.visible = false
+	add_child(lamps)
+	for index in range(1, 12):
+		var t := float(index) / 12.0
+		for edge in [-1.0, 1.0]:
+			var post := Vector3(a.x, 0.0, a.z) + along * span * t + side * float(edge) * (POLSON_WIDTH * 0.5 - 0.3)
+			post.y = polson_deck(t)
+			_box(surface, Transform3D(Basis.IDENTITY, post + Vector3(0.0, 4.0, 0.0)), Vector3(0.25, 8.0, 0.25))
+			var lamp := OmniLight3D.new()
+			lamp.light_color = Color(1.0, 0.85, 0.6)
+			lamp.light_energy = 1.4
+			lamp.omni_range = 22.0
+			lamp.position = post + Vector3(0.0, 8.2, 0.0)
+			lamp.distance_fade_enabled = true
+			lamp.distance_fade_begin = 1500.0
+			lamp.distance_fade_length = 400.0
+			lamps.add_child(lamp)
+
+
+func _solid_box(body: StaticBody3D, surface: SurfaceTool, place: Transform3D, size: Vector3) -> void:
+	var shape := BoxShape3D.new()
+	shape.size = size
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	collider.transform = place
+	body.add_child(collider)
+	_box(surface, place, size)
 
 
 func _box(surface: SurfaceTool, place: Transform3D, size: Vector3) -> void:

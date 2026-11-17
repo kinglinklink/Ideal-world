@@ -34,6 +34,8 @@ const Rigging = preload("res://scripts/rigging.gd")
 const Weather = preload("res://scripts/weather.gd")
 const Disasters = preload("res://scripts/disasters.gd")
 const WeatherPanel = preload("res://scripts/weather_panel.gd")
+const Traffic = preload("res://scripts/traffic.gd")
+const Races = preload("res://scripts/races.gd")
 
 # The hangar sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
@@ -68,6 +70,7 @@ var _weather: Node              # weather.gd
 var _disasters: Node            # disasters.gd
 var _weather_panel: RefCounted  # weather_panel.gd
 var _panel_timer := 0.0
+var _races: Node               # races.gd: races, cargo runs and the people who offer them
 const START_HEADING := PI
 
 
@@ -241,6 +244,22 @@ func _ready() -> void:
 	_weather_panel.build(game_hud, _weather, disasters)
 	hud.weather_pressed.connect(func() -> void: _weather_panel.toggle())
 
+	# Cars on the highways and planes in the sky; races and cargo runs.
+	var traffic: Node = Traffic.new()
+	traffic.name = "Traffic"
+	add_child(traffic)
+	traffic.setup(terrain, player)
+	var races: Node = Races.new()
+	races.name = "Races"
+	add_child(races)
+	races.player = player
+	races.controller = controller
+	races.fleet = _fleet
+	races.game_hud = game_hud
+	races.setup(terrain, traffic.roads)
+	controller.talk_handler = Callable(races, "talk")
+	_races = races
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
@@ -321,6 +340,8 @@ func _shift_world(shift: Vector3) -> void:
 			node.position -= shift
 	_combat.shift_origin(shift)
 	_rigging.shift_origin(shift)
+	if _races != null:
+		_races.shift_origin(shift)
 	_terrain.origin_shifted()
 
 

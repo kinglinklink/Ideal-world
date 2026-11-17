@@ -431,7 +431,7 @@ func _triangle(rock: SurfaceTool, faces: PackedVector3Array, a: Vector3, b: Vect
 	faces.append(c)
 
 
-func _inside_any(point: Vector3, chambers: Array, scale: float) -> bool:
+func _inside_any(point: Vector3, chambers: Array, share: float) -> bool:
 	for item in chambers:
 		var chamber: Array = item
 		var centre: Vector3 = chamber[0]
@@ -441,7 +441,7 @@ func _inside_any(point: Vector3, chambers: Array, scale: float) -> bool:
 		var side := along.cross(Vector3.UP).normalized()
 		var off := point - centre
 		var local := Vector3(off.dot(side) / half.x, off.y / half.y, off.dot(along) / half.z)
-		if local.length() < scale:
+		if local.length() < share:
 			return true
 	return false
 

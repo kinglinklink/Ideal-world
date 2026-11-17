@@ -189,6 +189,14 @@ func _update_graphs() -> void:
 		_graph_views[index].graph = wanted[index]
 
 
+## A label in the left-hand column for readouts (a race's position and time).
+func make_side_label() -> Label:
+	var label := _label("", 20, Color(1.0, 1.0, 0.9))
+	side.add_child(label)
+	side.move_child(label, 1)
+	return label
+
+
 ## A window in the middle of the screen with a title and a close button.
 ## Returns [the panel, the column to fill].
 func make_window(title: String, width: float = 520.0) -> Array:

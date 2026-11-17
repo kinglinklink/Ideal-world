@@ -166,6 +166,7 @@ var _speed_history: Dictionary = {} # body -> Array of its last CRASH_WINDOW + 1
 var _alive_time := 0.0             # seconds since spawning
 var _parked: Dictionary = {}       # body -> [linear velocity, angular velocity] while parked far from the player
 var parked := false
+var race_hold := false             # held parked at a race start (races.gd)
 var gear_conflicts := 0            # gear trains whose ratios disagree, found at spawn
 var _belt_mesh: MeshInstance3D = null
 var applied: Dictionary = {}       # piece -> force put on it this check (world), for stress.gd
@@ -2511,17 +2512,17 @@ func body_origin_in_grid(body: RigidBody3D) -> Vector3:
 
 
 ## A piece's centre of mass in its body's own space.
-func piece_centre(piece: int) -> Vector3:
+func centre_of_piece(piece: int) -> Vector3:
 	var entry: Dictionary = _pieces.get(piece, {})
 	return entry.get("centre", Vector3.ZERO)
 
 
-func piece_mass(piece: int) -> float:
+func mass_of_piece(piece: int) -> float:
 	var entry: Dictionary = _pieces.get(piece, {})
 	return float(entry.get("mass", 0.0))
 
 
-func piece_material(piece: int) -> String:
+func material_of_piece(piece: int) -> String:
 	var record: Dictionary = _records.get(_uid_of(piece), {})
 	return str(record.get("material", "steel"))
 

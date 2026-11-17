@@ -170,7 +170,7 @@ func _tree_for(body: RigidBody3D, pieces: Array) -> Dictionary:
 	var best := INF
 	for item in pieces:
 		var piece: int = item
-		var distance: float = (spawner.piece_centre(piece) - centre).length_squared()
+		var distance: float = (spawner.centre_of_piece(piece) - centre).length_squared()
 		if distance < best:
 			best = distance
 			root = piece
@@ -220,14 +220,14 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 	var mass := 0.0
 	for item in order:
 		var piece: int = item
-		var m: float = spawner.piece_mass(piece)
-		var r: Vector3 = spawner.piece_centre(piece) - centre
+		var m: float = spawner.mass_of_piece(piece)
+		var r: Vector3 = spawner.centre_of_piece(piece) - centre
 		var at_part: Vector3 = accel + turn_rate.cross(r) + spin.cross(spin.cross(r))
-		var load: Vector3 = (gravity - at_part) * m
+		var part_load: Vector3 = (gravity - at_part) * m
 		if applied.has(piece):
-			load += to_local * (applied[piece] as Vector3)
-		own[piece] = load
-		total += load
+			part_load += to_local * (applied[piece] as Vector3)
+		own[piece] = part_load
+		total += part_load
 		mass += m
 	if mass <= 0.0:
 		return
@@ -246,7 +246,7 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 			var best := INF
 			for item in order:
 				var piece: int = item
-				var distance: float = (spawner.piece_centre(piece) - at).length_squared()
+				var distance: float = (spawner.centre_of_piece(piece) - at).length_squared()
 				if distance < best:
 					best = distance
 					nearest = piece
@@ -255,7 +255,7 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 	# What holds it all up, shared out by mass.
 	for item in order:
 		var piece: int = item
-		own[piece] = (own[piece] as Vector3) - total * (spawner.piece_mass(piece) / mass)
+		own[piece] = (own[piece] as Vector3) - total * (spawner.mass_of_piece(piece) / mass)
 	# Outermost first: each part passes its load and everything beyond it inward.
 	# Only the worst overloaded face in a body breaks per check; the loads are
 	# worked out again with it gone.
@@ -272,11 +272,11 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 			continue
 		var face: Vector3 = point[piece]
 		var m: Vector3 = (moment.get(piece, Vector3.ZERO) as Vector3) \
-				+ (spawner.piece_centre(piece) - face).cross(own[piece] as Vector3)
+				+ (spawner.centre_of_piece(piece) - face).cross(own[piece] as Vector3)
 		var a: float = area[piece]
 		var z: float = pow(a, 1.5) / 6.0
 		var stress: float = f.length() / a + m.length() / z
-		var limit: float = minf(strength_of(spawner.piece_material(piece)), strength_of(spawner.piece_material(up)))
+		var limit: float = minf(strength_of(spawner.material_of_piece(piece)), strength_of(spawner.material_of_piece(up)))
 		var ratio: float = stress / limit if limit < INF else 0.0
 		_ratio[piece] = ratio
 		if ratio > 1.0:
@@ -288,7 +288,7 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 			_over.erase(piece)
 		# Hand the load on to the parent, with its moment about the parent's face.
 		force[up] = (force.get(up, Vector3.ZERO) as Vector3) + f
-		var up_face: Vector3 = point.get(up, spawner.piece_centre(up))
+		var up_face: Vector3 = point.get(up, spawner.centre_of_piece(up))
 		moment[up] = (moment.get(up, Vector3.ZERO) as Vector3) + m + (face - up_face).cross(f)
 	if not parent.is_empty():
 		var root: int = order[0]

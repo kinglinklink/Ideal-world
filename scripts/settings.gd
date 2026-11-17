@@ -23,6 +23,7 @@ const Spawner = preload("res://scripts/spawner.gd")
 const Stress = preload("res://scripts/stress.gd")
 const Player = preload("res://scripts/player.gd")
 const Disasters = preload("res://scripts/disasters.gd")
+const Traffic = preload("res://scripts/traffic.gd")
 
 const PATH := "user://settings.cfg"
 const SKIES := ["cycle", "day", "night"]
@@ -45,6 +46,7 @@ const DEFAULTS := {
 	"structural_failure": true,
 	"player_damage": true,
 	"random_disasters": true,
+	"traffic": true,
 }
 const MSAA := ["off", "2x", "4x"]
 
@@ -99,3 +101,4 @@ static func apply(values: Dictionary, forest: Node) -> void:
 	Stress.failure = bool(values["structural_failure"])
 	Player.damage_enabled = bool(values["player_damage"])
 	Disasters.random_events = bool(values["random_disasters"])
+	Traffic.enabled = bool(values["traffic"])

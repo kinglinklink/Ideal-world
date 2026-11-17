@@ -60,6 +60,7 @@ var link_source_uid := 0       # Config: the source part clicked, waiting for an
 var seat_uid := 0              # the seat the character is sitting in, 0 for none
 var near_seat_uid := 0         # the nearest seat within reach, 0 for none
 var fleet: Node3D = null       # fleet.gd: vehicles spawned from saves, whose seats can be sat in too
+var talk_handler: Callable = Callable()   # races.gd: E talks to someone nearby instead of sitting, if it says so
 var _seat_owner: Node = null   # the spawner of the seat sat in; null for a seat on the build grid
 var _near_owner: Node = null   # likewise for the seat in reach
 
@@ -266,6 +267,8 @@ func _on_key(key: InputEventKey) -> void:
 	if (code == KEY_ENTER or code == KEY_KP_ENTER) and not key.ctrl_pressed:
 		toggle_spawn()   # Enter does the same as the Spawn button
 		return
+	if code == KEY_E and not key.ctrl_pressed and seat_uid == 0 and talk_handler.is_valid() and bool(talk_handler.call()):
+		return   # talked to someone
 	if spawned:
 		# The build tools are put away. Only sitting down still works.
 		if code == KEY_E and not key.ctrl_pressed:
@@ -1078,6 +1081,29 @@ func _seat_place(frame: Array) -> Array:
 	if Vector2(forward.x, forward.z).length() > 0.5:
 		heading = atan2(-forward.x, -forward.z)
 	return [cushion, heading]
+
+
+## Sits the character in the first seat of a spawned vehicle (a fleet
+## vehicle spawned for a race). Returns true if there was a seat.
+func sit_in(vehicle: Node) -> bool:
+	if vehicle == null or not is_instance_valid(vehicle):
+		return false
+	if seat_uid != 0:
+		_leave_seat()
+	for key in vehicle.all_records():
+		var uid: int = key
+		if str((vehicle.all_records()[uid] as Dictionary)["type"]) != "seat":
+			continue
+		var frame: Array = vehicle.seat_frame(uid)
+		if frame.is_empty():
+			continue
+		_seat_owner = vehicle
+		var place: Array = _seat_place(frame)
+		seat_uid = uid
+		near_seat_uid = 0
+		player.sit(place[0], place[1])
+		return true
+	return false
 
 
 func _leave_seat() -> void:

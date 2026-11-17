@@ -68,6 +68,7 @@ var landmarks: Node3D = null       # landmarks.gd
 var towns: Node3D = null           # towns.gd
 var towers: Node3D = null          # towers.gd
 var caves: Node3D = null           # caves.gd
+var extra_sources: Array = []      # other things that need solid ground under them: objects with body_motions()
 var fleet: Node3D = null           # fleet.gd: vehicles spawned from saves
 
 var _coarse := PackedByteArray()
@@ -609,6 +610,13 @@ func _plan_tiles() -> void:
 			var moving: Vector3 = motion[1]
 			_want_round(wanted, at, BODY_REACH)
 			_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
+	for source in extra_sources:
+		if not is_instance_valid(source):
+			continue
+		for item in source.body_motions():
+			var motion: Array = item
+			var at: Vector3 = Origin.to_map(motion[0])
+			_want_round(wanted, at, BODY_REACH)
 	if towers != null:
 		for item in towers.debris_motions():
 			var motion: Array = item
