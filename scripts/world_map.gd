@@ -30,7 +30,7 @@ func _ready() -> void:
 	visible = false
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 ## Opens the map centred on the player, zoomed to show the whole lake, or closes it.
@@ -38,6 +38,9 @@ func toggle() -> void:
 	visible = not visible
 	if not visible:
 		return
+	# Fill the window, whatever size it is now.
+	position = Vector2.ZERO
+	size = get_viewport_rect().size
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var area: Rect2 = minimap.picture_area()

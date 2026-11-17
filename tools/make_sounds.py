@@ -117,7 +117,12 @@ def main():
         length = rng.integers(20, 90)
         end = min(at + length, len(crackle))
         crackle[at:end] += size * rng.standard_normal(end - at) * np.exp(-np.arange(end - at) / 25.0)
-    write("rocket_loop", rumble + 0.35 * crackle, loop=True)
+    write("rocket_loop", rumble + 0.15 * crackle, loop=True)
+
+    # A thruster: a smooth, breathy rush with a low hum under it, no crackle.
+    t = times(2.0)
+    rush = shaped_noise(2.0, lambda f: band(120, 2200, 0.7)(f) / (f / 150.0) ** 0.5)
+    write("thruster_loop", rush + 0.15 * tone(t, 70) + 0.08 * tone(t, 140), loop=True, peak=0.7)
 
     # A propeller: a buzz at the blade-passing rate (40 Hz here), rich in harmonics.
     t = times(1.0)
@@ -198,8 +203,11 @@ def main():
     write("piston_pop", pop)
 
     # Interface: a soft tick, and two block knocks for placing and removing parts.
-    t = times(0.05)
-    write("click", tone(t, 1800) * envelope(t, 0.0005, 0.008), peak=0.5)
+    # A keyboard key: a low, blocky thock with a short dull tick on top.
+    t = times(0.07)
+    thock = tone(t, 190) * envelope(t, 0.001, 0.012) + 0.5 * tone(t, 410) * envelope(t, 0.0005, 0.006)
+    tick = lowpass(rng.standard_normal(len(t)), 2200) * envelope(t, 0.0003, 0.004)
+    write("click", thock + 0.9 * tick, peak=0.5)
     t = times(0.12)
     write("place", (tone(t, 820) + 0.4 * tone(t, 1640)) * envelope(t, 0.001, 0.025)
           + 0.3 * rng.standard_normal(len(t)) * envelope(t, 0.0005, 0.006), peak=0.6)

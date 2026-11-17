@@ -100,13 +100,11 @@ func despawn(index: int) -> void:
 	if index < 0 or index >= vehicles.size():
 		return
 	var vehicle: Dictionary = vehicles[index]
-	var spawner: Node = vehicle["spawner"]
-	if is_instance_valid(spawner):
-		spawner.despawn()
+	if is_instance_valid(vehicle["spawner"]):
+		vehicle["spawner"].despawn()
 	for key in ["logic", "engines", "combat", "spawner"]:
-		var node: Node = vehicle[key]
-		if is_instance_valid(node):
-			node.queue_free()
+		if is_instance_valid(vehicle[key]):
+			(vehicle[key] as Node).queue_free()
 	vehicles.remove_at(index)
 
 
@@ -125,9 +123,8 @@ func _forget_gone() -> void:
 func spawners() -> Array:
 	var list: Array = []
 	for item in vehicles:
-		var spawner: Node = item["spawner"]
-		if is_instance_valid(spawner):
-			list.append(spawner)
+		if is_instance_valid(item["spawner"]):
+			list.append(item["spawner"])
 	return list
 
 
@@ -143,9 +140,9 @@ func body_motions() -> Array:
 func positions() -> Array:
 	var list: Array = []
 	for item in vehicles:
-		var spawner: Node = item["spawner"]
-		if not is_instance_valid(spawner):
+		if not is_instance_valid(item["spawner"]):
 			continue
+		var spawner: Node = item["spawner"]
 		var motions: Array = spawner.body_motions()
 		if motions.is_empty():
 			continue
@@ -180,10 +177,9 @@ func _physics_process(delta: float) -> void:
 ## Moves every vehicle with the rest of the world when main.gd re-centres it.
 func shift_origin(shift: Vector3) -> void:
 	for item in vehicles:
-		var spawner: Node = item["spawner"]
-		var combat: Node3D = item["combat"]
-		if is_instance_valid(spawner):
-			spawner.shift_origin(shift)
-		if is_instance_valid(combat):
+		if is_instance_valid(item["spawner"]):
+			item["spawner"].shift_origin(shift)
+		if is_instance_valid(item["combat"]):
+			var combat: Node3D = item["combat"]
 			combat.position -= shift
 			combat.shift_origin(shift)
