@@ -95,10 +95,16 @@ static func _point(value: Variant) -> Vector2:
 func _runway_lights(runway: Dictionary) -> void:
 	var length := float(runway["length"])
 	var width := float(runway["width"])
-	var place := frame(_point(runway["centre"]), float(runway["height_mid"]), float(runway["heading"]))
-	place.basis = place.basis * Basis(Vector3.RIGHT, atan(float(runway.get("slope", 0.0))))
-	var spots: Array = []   # [position along the runway's own axes, colour]
 	var half := length * 0.5
+	# Paved runways are one straight slope through their middle height; bush
+	# strips follow the ground, as a height every profile_step metres.
+	var profile: Array = runway.get("profile", [])
+	var step := float(runway.get("profile_step", 10.0))
+	var place := frame(_point(runway["centre"]), float(runway.get("height_mid", 0.0)), float(runway["heading"]))
+	if runway.has("height_mid"):
+		place.basis = place.basis * Basis(Vector3.RIGHT, atan(float(runway.get("slope", 0.0))))
+		profile = []
+	var spots: Array = []   # [position along the runway's own axes, colour]
 	var t := -half
 	while t <= half + 0.1:
 		for side in [-1.0, 1.0]:
@@ -122,7 +128,14 @@ func _runway_lights(runway: Dictionary) -> void:
 	batch.instance_count = spots.size()
 	for index in spots.size():
 		var spot: Array = spots[index]
-		batch.set_instance_transform(index, Transform3D(Basis.IDENTITY, spot[0]))
+		var at: Vector3 = spot[0]
+		if not profile.is_empty():
+			# The frame's +Z runs back from the far end: this far from the start.
+			var from_start := clampf((half - at.z) / maxf(step, 0.01), 0.0, profile.size() - 1.0)
+			var low := int(floor(from_start))
+			var high := mini(low + 1, profile.size() - 1)
+			at.y += lerpf(float(profile[low]), float(profile[high]), from_start - low)
+		batch.set_instance_transform(index, Transform3D(Basis.IDENTITY, at))
 		batch.set_instance_color(index, spot[1])
 	var lights := MultiMeshInstance3D.new()
 	lights.name = str(runway.get("name", "Runway")).replace(" ", "") + "Lights"

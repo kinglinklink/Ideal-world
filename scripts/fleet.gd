@@ -32,8 +32,8 @@ const WAKE_DISTANCE := 2500.0     # and set going again
 var _park_check := 0.0
 
 
-## Spawns a saved build in front of `player`. Returns a message to show.
-func spawn_save(save_name: String, player: Node3D) -> String:
+## Spawns a saved build in front of `near` (the player). Returns a message to show.
+func spawn_save(save_name: String, near: Node3D) -> String:
 	_forget_gone()
 	if vehicles.size() >= MAX_VEHICLES:
 		return "The fleet is full (%d vehicles). Despawn one first." % MAX_VEHICLES
@@ -55,17 +55,17 @@ func spawn_save(save_name: String, player: Node3D) -> String:
 		var box: AABB = BuildGrid.bounds_of(grid.get_part(uid))
 		bounds = box if first else bounds.merge(box)
 		first = false
-	var heading: float = player.get_heading()
+	var heading: float = near.get_heading()
 	var turn := Basis(Vector3.UP, heading)
 	var forward := turn * Vector3.FORWARD
 	var reach := maxf(bounds.size.x, bounds.size.z) * 0.5
-	var middle_world: Vector3 = player.global_position + forward * (GAP + reach)
+	var middle_world: Vector3 = near.global_position + forward * (GAP + reach)
 	# Rest it on the highest ground under it, or on the water.
 	var floor_y := -INF
 	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1), Vector2.ZERO]:
 		var spot: Vector2 = corner
 		var probe := middle_world + turn * Vector3(spot.x * bounds.size.x * 0.5, 0.0, spot.y * bounds.size.z * 0.5)
-		var ground: float = terrain.ground_at(probe) if terrain != null else player.global_position.y
+		var ground: float = terrain.ground_at(probe) if terrain != null else near.global_position.y
 		floor_y = maxf(floor_y, maxf(ground, MapInfo.LAKE_Y))
 	var centre_local := Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
 	var origin := Vector3(middle_world.x, floor_y + 0.4, middle_world.z) - turn * centre_local

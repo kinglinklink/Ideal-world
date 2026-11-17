@@ -38,7 +38,7 @@ func _ready() -> void:
 
 
 ## The lake picture and the places to label, from world.json and landmarks.gd.
-func set_world(world: Dictionary, places: Array) -> void:
+func set_world(world: Dictionary, named_places: Array) -> void:
 	var image := Image.load_from_file(MapInfo.MINIMAP_FILE)
 	if image != null and not image.is_empty():
 		_picture = ImageTexture.create_from_image(image)
@@ -55,7 +55,7 @@ func set_world(world: Dictionary, places: Array) -> void:
 		var town: Dictionary = item
 		var spot: Array = town["at"]
 		_towns.append([Vector2(float(spot[0]), float(spot[1])), str(town["name"])])
-	_places = places
+	_places = named_places
 
 
 # What the full map draws too.

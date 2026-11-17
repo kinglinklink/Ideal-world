@@ -2630,7 +2630,7 @@ func _check_gear_trains() -> int:
 				else:
 					ratio[other] = expected
 					queue.append(other)
-	return conflicts / 2   # each disagreement is seen from both ends
+	return int(conflicts / 2.0)   # each disagreement is seen from both ends
 
 
 ## Parks the build where it stands (far from the player) or sets it going
