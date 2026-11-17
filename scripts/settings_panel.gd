@@ -53,6 +53,7 @@ var _trees: HSlider
 var _trees_label: Label
 var _fps: CheckBox
 var _sky: OptionButton
+var _crash: CheckBox
 var _volume_sliders: Dictionary = {}
 var _volume_labels: Dictionary = {}
 
@@ -190,7 +191,14 @@ func _build() -> void:
 		var fraction: float = pair[1]
 		jump.pressed.connect(func() -> void: jump_time.emit(fraction))
 		jump_row.add_child(jump)
-	world.add_child(_note("A day lasts 20 minutes: 10 of daylight, 10 of night.\nRunway lights come on after dusk."))
+	_crash = CheckBox.new()
+	_crash.text = "Crash damage (hard knocks break parts)"
+	_crash.focus_mode = Control.FOCUS_NONE
+	_crash.toggled.connect(func(on: bool) -> void:
+		values["crash_damage"] = on
+		_commit())
+	world.add_child(_crash)
+	world.add_child(_note("A day lasts 20 minutes: 10 of daylight, 10 of night.\nRunway lights come on after dusk.\nCrash damage: a body whose speed changes faster than 20 g (over 50 ms) damages\nevery part in it, by its mass: heavy, weak parts break first."))
 
 	# --- Controls ---
 	var controls := _page(tabs, "Controls")
@@ -283,6 +291,7 @@ func _show_values() -> void:
 	_trees_label.text = "%.1f km" % (float(values["tree_distance"]) / 1000.0)
 	_fps.set_pressed_no_signal(bool(values["show_fps"]))
 	_sky.select(Settings.SKIES.find(str(values["sky"])))
+	_crash.set_pressed_no_signal(bool(values["crash_damage"]))
 	for key in _volume_sliders:
 		var slider: HSlider = _volume_sliders[key]
 		slider.set_value_no_signal(int(values[key]))

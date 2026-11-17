@@ -283,6 +283,7 @@ func _build_water() -> void:
 func _build_walls() -> void:
 	var lines: Array = world.get("walls", [])
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "Wall"
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0
@@ -478,6 +479,7 @@ func _make_tile(square: Vector2i) -> StaticBody3D:
 	collider.transform = Transform3D(Basis.from_scale(Vector3(step, step, step)),
 			Vector3(x0 + tile * 0.5, 0.0, z0 + tile * 0.5))
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "Ground_%d_%d" % [square.x, square.y]
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0

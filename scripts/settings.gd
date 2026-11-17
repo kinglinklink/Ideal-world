@@ -12,10 +12,12 @@ extends RefCounted
 ##   msaa           edge smoothing: "off", "2x" or "4x"
 ##   shadows        whether the sun casts shadows
 ##   volume_*       master, effects, machines, ambience and interface volumes, 0 to 100
+##   crash_damage   whether hard knocks damage spawned parts
 ##
 ## The physics always runs 240 steps a second, whatever the frame rate.
 
 const Sound = preload("res://scripts/sound.gd")
+const Spawner = preload("res://scripts/spawner.gd")
 
 const PATH := "user://settings.cfg"
 const SKIES := ["cycle", "day", "night"]
@@ -34,6 +36,7 @@ const DEFAULTS := {
 	"volume_machines": 80,
 	"volume_ambience": 70,
 	"volume_interface": 60,
+	"crash_damage": true,
 }
 const MSAA := ["off", "2x", "4x"]
 
@@ -84,3 +87,4 @@ static func apply(values: Dictionary, forest: Node) -> void:
 	root.scaling_3d_scale = float(values["render_scale"]) / 100.0
 	root.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][MSAA.find(str(values["msaa"]))]
 	Sound.apply_volumes(values)
+	Spawner.crash_damage = bool(values["crash_damage"])

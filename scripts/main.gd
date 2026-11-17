@@ -123,6 +123,8 @@ func _ready() -> void:
 	fleet.name = "Fleet"
 	add_child(fleet)
 	fleet.terrain = terrain
+	fleet.player = player
+	fleet.main_spawner = spawner
 	fleet.structures = combat.structures
 	terrain.fleet = fleet
 	_fleet = fleet
@@ -279,6 +281,7 @@ func _make_garage(pad_size: Vector3) -> Array:
 	var centre := Vector3(pad_size.x * 0.5, 0.0, -GARAGE_GAP - half_depth)
 
 	var garage := StaticBody3D.new()
+	garage.physics_material_override = Units.world_surface()
 	garage.name = "Garage"
 	garage.position = centre
 	add_child(garage)
@@ -324,6 +327,7 @@ func _make_garage(pad_size: Vector3) -> Array:
 
 	# The door is its own body, so it can be taken away and put back.
 	_garage_door = StaticBody3D.new()
+	_garage_door.physics_material_override = Units.world_surface()
 	_garage_door.name = "GarageDoor"
 	garage.add_child(_garage_door)
 	_garage_door_collider = _wall(_garage_door, Vector3(DOOR_SIZE.x, DOOR_SIZE.y, 0.2),

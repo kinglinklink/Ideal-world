@@ -905,6 +905,9 @@ func toggle_spawn() -> void:
 			note += "\n%d joint(s) free to turn." % hinges
 		if locked > 0:
 			note += "\n%d joint(s) locked: both sides are welded to the same body." % locked
+		var fighting: int = int(report.get("gear_conflicts", 0))
+		if fighting > 0:
+			note += "\nWarning: %d gear mesh(es) fight the rest of their train (the tooth ratios round a loop do not agree), so it is jammed." % fighting
 		var thrusters: int = report["thrusters"]
 		var panels: int = report["panels"]
 		if thrusters > 0 or panels > 0:

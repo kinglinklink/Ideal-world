@@ -24,6 +24,12 @@ const GAP := 6.0    # metres between the character and the near end of a new veh
 var terrain: Node3D = null    # terrain.gd
 var structures: Array = []    # what guns can damage: towns.gd, towers.gd
 var vehicles: Array = []      # {"name", "spawner", "logic", "engines", "combat", "parts", "mass"}
+var player: Node3D = null     # player.gd: vehicles far from it are parked
+var main_spawner: Node = null # the pad's build, parked the same way
+
+const PARK_DISTANCE := 3000.0     # metres from the player at which a vehicle is frozen where it is
+const WAKE_DISTANCE := 2500.0     # and set going again
+var _park_check := 0.0
 
 
 ## Spawns a saved build in front of `player`. Returns a message to show.
@@ -146,6 +152,29 @@ func positions() -> Array:
 		var first_motion: Array = motions[0]
 		list.append([first_motion[0], str(item["name"])])
 	return list
+
+
+## Vehicles far from the player freeze where they are, keeping their speed,
+## and carry on as they were when the player comes back: so a fleet parked
+## round the map costs nothing while you are away.
+func _physics_process(delta: float) -> void:
+	_park_check -= delta
+	if _park_check > 0.0 or player == null:
+		return
+	_park_check = 0.5
+	var all: Array = spawners()
+	if main_spawner != null and bool(main_spawner.spawned):
+		all.append(main_spawner)
+	for item in all:
+		var spawner: Node = item
+		var at: Variant = spawner.where()
+		if at == null:
+			continue
+		var distance: float = (at as Vector3).distance_to(player.global_position)
+		if not bool(spawner.parked) and distance > PARK_DISTANCE:
+			spawner.set_parked(true)
+		elif bool(spawner.parked) and distance < WAKE_DISTANCE:
+			spawner.set_parked(false)
 
 
 ## Moves every vehicle with the rest of the world when main.gd re-centres it.

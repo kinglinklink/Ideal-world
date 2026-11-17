@@ -168,6 +168,7 @@ func _build(index: int) -> void:
 	if old_body != null and is_instance_valid(old_body):
 		old_body.queue_free()
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "WizardTower%d" % index
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0

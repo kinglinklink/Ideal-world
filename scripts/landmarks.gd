@@ -250,6 +250,7 @@ func _bush_strip(runway: Dictionary) -> void:
 	look.roughness = 1.0
 	mesh.surface_set_material(0, look)
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "MelitaStrip"
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0
@@ -652,6 +653,7 @@ class Builder:
 
 	func _init(owner: Node3D, body_name: String, place: Transform3D, friction: float) -> void:
 		body = StaticBody3D.new()
+		body.physics_material_override = Units.world_surface()
 		body.name = body_name
 		body.transform = place
 		body.collision_layer = Layers.LAYER_WORLD
