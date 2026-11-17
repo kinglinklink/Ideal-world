@@ -43,7 +43,8 @@ DETAIL = 4.0
 TILE = 128.0      # collision squares
 CELL = 1024.0     # tree drawing squares
 PAD_REF = np.array([-477.0, -781.0])   # the pad's corner in the reference frame of map_common
-HOME = (-15.0, -43.0, 47.0, 79.0)      # pad, gap and garage, with a margin: x0, z0, x1, z1
+HOME = (-20.0, -66.0, 84.0, 80.0)      # pad (64 × 64 m), gap and hangar, with a margin: x0, z0, x1, z1
+BASE_LEVEL = 901.0                     # the pad's height above sea level, kept as it has always been
 VILLA_SITE = (90.0, 110.0)             # half the levelled ground round the Cromwell villa: east-west, north-south
 CARRIER_CLEARANCE = 1900.0             # metres of open water all round the carrier's spot
 BORDER_MARGIN = 2000.0                 # metres of land between the lake's furthest reach and the wall
@@ -221,8 +222,7 @@ def main():
 
     # --- The build pad ---
     hx0, hz0, hx1, hz1 = HOME
-    home_mask = (detail.X >= hx0) & (detail.X <= hx1) & (detail.Z >= hz0) & (detail.Z <= hz1)
-    base = float(np.round(np.median(raw_detail[home_mask]), 1))
+    base = BASE_LEVEL   # (was the median of the ground under HOME; fixed so the world does not move)
     print("Build pad level %.1f m above sea level" % base)
     home_centre = ((hx0 + hx1) * 0.5, (hz0 + hz1) * 0.5)
     home_half = ((hz1 - hz0) * 0.5, (hx1 - hx0) * 0.5)

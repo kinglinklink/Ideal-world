@@ -50,6 +50,10 @@ var terrain: Node3D = null            # terrain.gd, for the height of the ground
 var swimming := false                 # in the lake, deeper than standing height
 var g_force := 1.0                    # the acceleration the character feels, in g: 1 standing still, 0 in free fall
 var _g_velocity := Vector3.ZERO       # the velocity at the last tick, for measuring acceleration
+# After a teleport: ticks left in which a platform the character last stood on
+# (say a plane it walked onto, then flew away in) may not carry it off.
+var _settle_ticks := 0
+var _settle_at := Vector3.ZERO
 var _g_skip := true                   # skip one measurement after sitting down or standing up
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
@@ -146,6 +150,13 @@ func stand_up(exit_point: Vector3) -> void:
 func teleport(at: Vector3, heading: float) -> void:
 	global_position = at
 	velocity = Vector3.ZERO
+	# Godot remembers the last moving platform the character stood on and, on
+	# the next step, carries the character along with it and adds its
+	# velocity. After a teleport that platform is somewhere else entirely, so
+	# for the first few steps the character is held where it was put.
+	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
+	_settle_ticks = 3
+	_settle_at = at
 	yaw = heading
 	_model.rotation.y = heading
 	_g_skip = true
@@ -286,6 +297,14 @@ func _physics_process(delta: float) -> void:
 	else:
 		move_and_slide()
 		pushing = _push_bodies(wanted, grip_force, delta)
+	if _settle_ticks > 0:
+		_settle_ticks -= 1
+		global_position = Vector3(_settle_at.x, maxf(global_position.y, _settle_at.y - 0.5), _settle_at.z)
+		velocity = Vector3.ZERO
+		_floor_body = null
+		pushing = Vector3.ZERO
+		if _settle_ticks == 0:
+			platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_VELOCITY
 	if _floor_body != null:
 		# Whatever the character stands on carries its weight.
 		var feet := _floor_point - _floor_body.global_position

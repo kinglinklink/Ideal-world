@@ -13,7 +13,7 @@ const MaterialLibrary = preload("res://scripts/material_library.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const Aero = preload("res://scripts/aero.gd")
 
-const SIZE := Vector3i(128, 128, 256)   # cells: X width, Y height, Z length
+const SIZE := Vector3i(256, 128, 256)   # cells: X width, Y height, Z length (64 × 32 × 64 m)
 const MAX_SIZE_UNITS := 64 * 200        # largest single part: 64 cells per side
 const EPSILON := 0.0001                 # metres; keeps touching parts from counting as overlapping
 const HISTORY_LIMIT := 100              # how many steps Undo can go back

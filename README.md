@@ -8,10 +8,10 @@ Early development. **Milestone 1: Build mode** is mostly in place, and **Milesto
 
 Working now:
 
-- **The map: Flathead Lake, Montana, at true size**, built from real elevation data. You start on Wild Horse Island, with the build pad and garage on the flat bench above Skeeko Bay. See [The map](#the-map).
-- A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
+- **The map: Flathead Lake, Montana, at true size**, built from real elevation data. You start on Wild Horse Island, with the build pad and hangar on the flat bench above Skeeko Bay. See [The map](#the-map).
+- A 64 m × 64 m build pad with a 0.25 m grid (256 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
-- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen rolls the door up and back down.
+- A steel hangar behind the start point (56 × 40 m, 15 m to the eaves), with exposed I-beam frames, roof trusses and cross-bracing inside and a 44 m roller door facing the build pad. The **Open hangar** button at the top of the screen rolls the door up and back down.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - **Respawn** (button at the top, or P) puts you back at the build pad from anywhere
 - **A title screen** when the game starts (Play, Parts guide, Settings, Quit), and a **pause menu**: Esc (once the cursor is free; in first person the first Esc frees it) pauses the game with Resume, Parts guide, Settings, Back to the build pad, Title screen and Quit.
@@ -155,7 +155,7 @@ Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. 
 
 The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25 km wide. Its real shoreline and every island come from USGS elevation data. The edge of the world is a straight-sided rectangle, 29 km east to west and 50 km north to south, square to north and 2 km beyond the lake's furthest reach on every side, so it takes in a stretch of the rivers too. It is a stone wall with an unseen barrier above it up to 12 km, so nothing can fly out, and its corners are all right angles, so nothing snags on it. The land beyond the wall is still drawn, out to the mountains.
 
-- **Wild Horse Island** is where you start. The pad and garage sit on the flat bench above Skeeko Bay, near the north centre of the island, 901 m above sea level and 20 m above the lake. The island is Palouse grassland with pine on the north-facing slopes.
+- **Wild Horse Island** is where you start. The pad and hangar sit on the flat bench above Skeeko Bay, near the north centre of the island, 901 m above sea level and 20 m above the lake. The island is Palouse grassland with pine on the north-facing slopes.
 - **Wild Horse Island airport:** a 1,200 m × 30 m asphalt runway running north and south, west of the pad, with a 2 % slope, a parking apron, a hangar and a tower. Its runway is at 90° to Melita's.
 - **Melita Island:** a bush-plane strip as long as the real island allows (803 m of gravel, east and west), starting at a timber landing on the west shore. The island is thick with trees except along the strip and in the open middle, where the Camp Melita lodge serves as the terminal. The camp's big main dock is where the real one is, on the sheltered south face: a wide walkway on rock-filled cribbing with finger piers, a T-head and the camp's fleet of pontoon arks, sailboats, fishing boats and canoes.
 - **Polson airport**, on its real runway: 1,278 m of asphalt at the south end of the lake, 896 m above sea level.

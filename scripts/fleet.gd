@@ -59,16 +59,22 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 	var turn := Basis(Vector3.UP, heading)
 	var forward := turn * Vector3.FORWARD
 	var reach := maxf(bounds.size.x, bounds.size.z) * 0.5
-	var middle_world: Vector3 = near.global_position + forward * (GAP + reach)
-	# Rest it on the highest ground under it, or on the water.
-	var floor_y := -INF
-	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1), Vector2.ZERO]:
-		var spot: Vector2 = corner
-		var probe := middle_world + turn * Vector3(spot.x * bounds.size.x * 0.5, 0.0, spot.y * bounds.size.z * 0.5)
-		var ground: float = terrain.ground_at(probe) if terrain != null else near.global_position.y
-		floor_y = maxf(floor_y, maxf(ground, MapInfo.LAKE_Y))
+	# Try in front of the character first, then further out, until the
+	# vehicle's box is clear of other builds, vehicles and buildings.
+	var middle_world := Vector3.ZERO
+	var floor_y := 0.0
+	var placed := false
+	for attempt in 6:
+		middle_world = near.global_position + forward * (GAP + reach + float(attempt) * (reach + 4.0))
+		floor_y = _rest_height(middle_world, turn, bounds, near.global_position.y)
+		if _box_is_clear(middle_world, turn, bounds, floor_y + 0.4):
+			placed = true
+			break
+	if not placed:
+		grid.queue_free()
+		return "There is no clear space in front of you for \"%s\". Face open ground and try again." % save_name
 	var centre_local := Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
-	var origin := Vector3(middle_world.x, floor_y + 0.4, middle_world.z) - turn * centre_local
+	var origin := Vector3(middle_world.x, 0.0, middle_world.z) - turn * centre_local
 	origin.y = floor_y + 0.4 - bounds.position.y
 	grid.global_transform = Transform3D(turn, origin)
 
@@ -91,9 +97,58 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 	combat.setup(spawner)
 	combat.terrain = terrain
 	combat.structures = structures
+	if int(report.get("bodies", 1)) == 0:
+		spawner.queue_free()
+		logic.queue_free()
+		engines.queue_free()
+		combat.queue_free()
+		return "\"%s\" made no bodies when spawned." % save_name
 	vehicles.append({"name": save_name, "spawner": spawner, "logic": logic, "engines": engines, "combat": combat,
 			"parts": int(report.get("parts", 0)), "mass": float(report.get("mass", 0.0))})
-	return "Spawned \"%s\": %d parts, %.0f kg." % [save_name, int(report.get("parts", 0)), float(report.get("mass", 0.0))]
+	return "Spawned \"%s\" %.0f m ahead: %d parts, %.0f kg." % [save_name, middle_world.distance_to(near.global_position),
+			int(report.get("parts", 0)), float(report.get("mass", 0.0))]
+
+
+## The height of the top of whatever lies under a vehicle's footprint: the
+## ground, the lake, a road, the hangar floor, another build. Rays come down
+## over a grid of points from a little above the character, so a vehicle
+## spawned indoors rests on the floor and not on the roof.
+func _rest_height(middle: Vector3, turn: Basis, bounds: AABB, eye_y: float) -> float:
+	var highest := MapInfo.LAKE_Y
+	var space := get_world_3d().direct_space_state
+	var top := eye_y + bounds.size.y + 1.5
+	for i in 5:
+		for j in 5:
+			var across := (float(i) / 4.0 - 0.5) * bounds.size.x
+			var along := (float(j) / 4.0 - 0.5) * bounds.size.z
+			var probe := middle + turn * Vector3(across, 0.0, along)
+			var ground: float = terrain.ground_at(probe) if terrain != null else eye_y - 1.0
+			highest = maxf(highest, ground)
+			var ray := PhysicsRayQueryParameters3D.create(Vector3(probe.x, top, probe.z),
+					Vector3(probe.x, ground - 1.0, probe.z), 1 | 4)   # the world and bodies
+			var hit := space.intersect_ray(ray)
+			if not hit.is_empty():
+				highest = maxf(highest, (hit["position"] as Vector3).y)
+	return highest
+
+
+## True if a vehicle's box, resting at `bottom_y`, touches no body or building
+## (the ground and water under it do not count).
+func _box_is_clear(middle: Vector3, turn: Basis, bounds: AABB, bottom_y: float) -> bool:
+	var box := BoxShape3D.new()
+	box.size = Vector3(bounds.size.x, maxf(bounds.size.y - 0.3, 0.1), bounds.size.z)
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = box
+	query.transform = Transform3D(turn, Vector3(middle.x, bottom_y + 0.3 + box.size.y * 0.5, middle.z))
+	query.collision_mask = 1 | 4
+	query.collide_with_areas = false
+	for hit in get_world_3d().direct_space_state.intersect_shape(query, 8):
+		var thing: Object = (hit as Dictionary).get("collider")
+		# Terrain collision squares are ground, which the box is lifted clear of.
+		if thing is Node and terrain != null and (thing as Node).get_parent() == terrain:
+			continue
+		return false
+	return true
 
 
 func despawn(index: int) -> void:

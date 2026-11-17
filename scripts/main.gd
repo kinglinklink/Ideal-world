@@ -28,11 +28,12 @@ const Sound = preload("res://scripts/sound.gd")
 const Menus = preload("res://scripts/menus.gd")
 const Fleet = preload("res://scripts/fleet.gd")
 
-# The garage sits behind the start point, with its door facing the build pad.
-const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
-const GARAGE_GAP := 12.0                        # from the garage door to the pad
-const DOOR_SIZE := Vector2(16.0, 5.5)           # width, height in metres
-const WALL_THICKNESS := 0.4
+# The hangar sits behind the start point, with its door facing the build pad.
+const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
+const RIDGE_RISE := 5.0                         # the roof's peak above the eaves
+const GARAGE_GAP := 12.0                        # from the hangar door to the pad
+const DOOR_SIZE := Vector2(44.0, 12.5)          # width, height in metres
+const WALL_THICKNESS := 0.5
 
 # Grass keeps clear of the pad and garage by this distance, in metres.
 const GRASS_MARGIN := 45.0
@@ -270,74 +271,177 @@ func _wall(body: StaticBody3D, size: Vector3, at: Vector3, color: Color) -> Coll
 	return collider
 
 
-## The garage: a hollow building with a large sectional door facing the pad,
-## and a concrete apron between the two. Returns its footprints for the map.
+## The hangar: a steel portal-frame building with a pitched roof and a big
+## roller door facing the pad, and a concrete apron between the two. Inside,
+## the frames stand bare: I-beam columns, Warren roof trusses, purlins, knee
+## braces and yellow cross-bracing on the walls and roof. Returns its
+## footprints for the map.
 func _make_garage(pad_size: Vector3) -> Array:
 	var width := GARAGE_SIZE.x
-	var height := GARAGE_SIZE.y
+	var height := GARAGE_SIZE.y      # at the eaves
 	var depth := GARAGE_SIZE.z
+	var half_width := width * 0.5
 	var half_depth := depth * 0.5
 	var thick := WALL_THICKNESS
+	var ridge := height + RIDGE_RISE
 	var centre := Vector3(pad_size.x * 0.5, 0.0, -GARAGE_GAP - half_depth)
 
 	var garage := StaticBody3D.new()
 	garage.physics_material_override = Units.world_surface()
-	garage.name = "Garage"
+	garage.name = "Hangar"
 	garage.position = centre
 	add_child(garage)
 
-	var wall := Color(0.74, 0.78, 0.84)
-	var roof := Color(0.86, 0.42, 0.24)
-	var trim := Color(0.94, 0.95, 0.97)
-	var door_color := Color(0.32, 0.36, 0.42)
-	var seam := Color(0.20, 0.23, 0.28)
+	var cladding := Color(0.60, 0.63, 0.66)
+	var roof_color := Color(0.26, 0.30, 0.35)
+	var steel := Color(0.16, 0.18, 0.21)
+	var bracing := Color(0.95, 0.72, 0.10)
+	var door_color := Color(0.40, 0.44, 0.48)
+	var seam := Color(0.22, 0.25, 0.29)
 	var front := half_depth - thick * 0.5   # the middle of the front wall, in Z
+	var back := -half_depth + thick * 0.5
 
-	# Back and side walls, and the roof.
-	_wall(garage, Vector3(width, height, thick), Vector3(0.0, height * 0.5, -half_depth + thick * 0.5), wall)
-	_wall(garage, Vector3(thick, height, depth), Vector3(-width * 0.5 + thick * 0.5, height * 0.5, 0.0), wall)
-	_wall(garage, Vector3(thick, height, depth), Vector3(width * 0.5 - thick * 0.5, height * 0.5, 0.0), wall)
-	_wall(garage, Vector3(width + 1.0, 0.5, depth + 1.0), Vector3(0.0, height + 0.25, 0.0), roof)
-
-	# The front wall, built around the door opening.
+	# --- The shell: walls, gables and roof, all solid ---
+	_wall(garage, Vector3(thick, height, depth), Vector3(-half_width + thick * 0.5, height * 0.5, 0.0), cladding)
+	_wall(garage, Vector3(thick, height, depth), Vector3(half_width - thick * 0.5, height * 0.5, 0.0), cladding)
+	_wall(garage, Vector3(width, height, thick), Vector3(0.0, height * 0.5, back), cladding)
 	var side_width := (width - DOOR_SIZE.x) * 0.5
 	var above_door := height - DOOR_SIZE.y
-	_wall(garage, Vector3(side_width, height, thick),
-			Vector3(-width * 0.5 + side_width * 0.5, height * 0.5, front), wall)
-	_wall(garage, Vector3(side_width, height, thick),
-			Vector3(width * 0.5 - side_width * 0.5, height * 0.5, front), wall)
-	_wall(garage, Vector3(DOOR_SIZE.x, above_door, thick),
-			Vector3(0.0, DOOR_SIZE.y + above_door * 0.5, front), wall)
+	_wall(garage, Vector3(side_width, height, thick), Vector3(-half_width + side_width * 0.5, height * 0.5, front), cladding)
+	_wall(garage, Vector3(side_width, height, thick), Vector3(half_width - side_width * 0.5, height * 0.5, front), cladding)
+	_wall(garage, Vector3(DOOR_SIZE.x, above_door, thick), Vector3(0.0, DOOR_SIZE.y + above_door * 0.5, front), cladding)
+	for z in [front, back]:
+		_gable(garage, half_width, height, ridge, float(z), thick, cladding)
+	var slope := atan2(RIDGE_RISE, half_width)
+	var rafter := sqrt(half_width * half_width + RIDGE_RISE * RIDGE_RISE) + 1.2
+	for side in [-1.0, 1.0]:
+		var s: float = side
+		var tilt := Basis(Vector3.BACK, s * slope)
+		var middle := Vector3(-s * half_width * 0.5, (height + ridge) * 0.5 + 0.15, 0.0)
+		_tilted_wall(garage, Vector3(rafter, 0.35, depth + 1.2), Transform3D(tilt, middle), roof_color)
 
-	# White trim round the opening, on the outside.
-	_solid(garage, Vector3(DOOR_SIZE.x + 0.8, 0.4, 0.3), Vector3(0.0, DOOR_SIZE.y + 0.2, half_depth + 0.05), trim)
-	_solid(garage, Vector3(0.4, DOOR_SIZE.y, 0.3), Vector3(-DOOR_SIZE.x * 0.5 - 0.2, DOOR_SIZE.y * 0.5, half_depth + 0.05), trim)
-	_solid(garage, Vector3(0.4, DOOR_SIZE.y, 0.3), Vector3(DOOR_SIZE.x * 0.5 + 0.2, DOOR_SIZE.y * 0.5, half_depth + 0.05), trim)
+	# --- The steel, merged into one mesh so it costs one draw ---
+	var frame := SurfaceTool.new()
+	frame.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var bays := 5
+	var inset := half_width - 0.9      # columns stand just inside the side walls
+	for bay in bays + 1:
+		var z := -half_depth + 1.0 + (depth - 2.0) * float(bay) / bays
+		for side in [-1.0, 1.0]:
+			var x: float = float(side) * inset
+			_i_beam(frame, Vector3(x, 0.0, z), Vector3(x, height - 0.2, z), 0.7, 0.5, steel)
+			# Knee brace from the column up to the truss.
+			_member(frame, Vector3(x, height - 3.2, z), Vector3(x - float(side) * 3.0, height - 0.45, z), 0.18, 0.18, steel)
+			# Base plate.
+			_box(frame, Transform3D(Basis.IDENTITY, Vector3(x, 0.03, z)), Vector3(1.0, 0.06, 1.0), steel)
+		_truss(frame, z, inset, height, ridge, steel)
+	# Purlins along the roof, and an eave beam each side.
+	var purlins := 7
+	for index in purlins + 1:
+		var t := float(index) / purlins
+		for side in [-1.0, 1.0]:
+			var s: float = side
+			var x := s * inset * (1.0 - t)
+			var y := lerpf(height - 0.05, ridge - 0.45, t)
+			_member(frame, Vector3(x, y, -half_depth + 0.6), Vector3(x, y, half_depth - 0.6), 0.16, 0.22, steel)
+	# Yellow cross-bracing: an X in the end bays of each side wall and of the roof.
+	var bay_length := (depth - 2.0) / bays
+	for bay_index in [0, bays - 1]:
+		var z0 := -half_depth + 1.0 + bay_length * float(bay_index)
+		var z1 := z0 + bay_length
+		for side in [-1.0, 1.0]:
+			var x: float = float(side) * (inset + 0.38)
+			_member(frame, Vector3(x, 0.4, z0), Vector3(x, height - 0.6, z1), 0.08, 0.08, bracing)
+			_member(frame, Vector3(x, 0.4, z1), Vector3(x, height - 0.6, z0), 0.08, 0.08, bracing)
+			var low_y := height - 0.2
+			var high_y := ridge - 0.6
+			_member(frame, Vector3(float(side) * inset, low_y, z0), Vector3(0.0, high_y, z1), 0.08, 0.08, bracing)
+			_member(frame, Vector3(float(side) * inset, low_y, z1), Vector3(0.0, high_y, z0), 0.08, 0.08, bracing)
+	# Vertical ribs on the outside of the cladding, every metre.
+	var rib := Color(0.50, 0.53, 0.56)
+	var x_rib := -half_width + 0.5
+	while x_rib < half_width:
+		for z in [half_depth + 0.04, -half_depth - 0.04]:
+			var in_door: bool = float(z) > 0.0 and absf(x_rib) < DOOR_SIZE.x * 0.5 + 0.4
+			var bottom := DOOR_SIZE.y + 0.1 if in_door else 0.0
+			var top := height + RIDGE_RISE * (1.0 - absf(x_rib) / half_width) - 0.1
+			_box(frame, Transform3D(Basis.IDENTITY, Vector3(x_rib, (bottom + top) * 0.5, float(z))),
+					Vector3(0.08, top - bottom, 0.08), rib)
+		x_rib += 1.0
+	var z_rib := -half_depth + 0.5
+	while z_rib < half_depth:
+		for x in [-half_width - 0.04, half_width + 0.04]:
+			_box(frame, Transform3D(Basis.IDENTITY, Vector3(float(x), height * 0.5, z_rib)), Vector3(0.08, height, 0.08), rib)
+		z_rib += 1.0
+	# The door's frame: a heavy steel header and jambs, with hazard stripes.
+	_box(frame, Transform3D(Basis.IDENTITY, Vector3(0.0, DOOR_SIZE.y + 0.35, half_depth + 0.2)),
+			Vector3(DOOR_SIZE.x + 1.6, 0.7, 0.5), steel)
+	for side in [-1.0, 1.0]:
+		var jamb_x: float = float(side) * (DOOR_SIZE.x * 0.5 + 0.4)
+		_box(frame, Transform3D(Basis.IDENTITY, Vector3(jamb_x, DOOR_SIZE.y * 0.5, half_depth + 0.2)),
+				Vector3(0.8, DOOR_SIZE.y, 0.5), steel)
+		for stripe in 8:
+			var y := 0.3 + float(stripe) * 0.6
+			var tilt := Basis(Vector3.FORWARD, deg_to_rad(35.0))
+			_box(frame, Transform3D(tilt, Vector3(jamb_x, y, half_depth + 0.47)), Vector3(0.75, 0.22, 0.02),
+					bracing if stripe % 2 == 0 else Color(0.08, 0.08, 0.08))
+	frame.generate_normals()
+	var steelwork := MeshInstance3D.new()
+	steelwork.name = "Steelwork"
+	var look := StandardMaterial3D.new()
+	look.vertex_color_use_as_albedo = true
+	look.roughness = 0.6
+	look.metallic = 0.35
+	look.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mesh := frame.commit()
+	mesh.surface_set_material(0, look)
+	steelwork.mesh = mesh
+	garage.add_child(steelwork)
 
-	# A concrete floor and two lamps inside.
-	_solid(garage, Vector3(width - thick * 2.0, 0.02, depth - thick * 2.0), Vector3(0.0, 0.011, 0.0), Color(0.58, 0.58, 0.60))
+	# A sign over the door.
+	var sign_label := Label3D.new()
+	sign_label.text = "HANGAR 1"
+	sign_label.font_size = 260
+	sign_label.pixel_size = 0.01
+	sign_label.modulate = Color(0.96, 0.96, 0.92)
+	sign_label.outline_size = 24
+	sign_label.outline_modulate = Color(0.1, 0.1, 0.12)
+	sign_label.position = Vector3(0.0, height + RIDGE_RISE * 0.35, half_depth + 0.12)
+	garage.add_child(sign_label)
+
+	# Floor: polished concrete with yellow lines marking the bays.
+	_solid(garage, Vector3(width - thick * 2.0, 0.02, depth - thick * 2.0), Vector3(0.0, 0.011, 0.0), Color(0.55, 0.56, 0.58))
+	for side in [-1.0, 1.0]:
+		_solid(garage, Vector3(0.25, 0.022, depth - 3.0), Vector3(float(side) * (DOOR_SIZE.x * 0.5 - 0.5), 0.012, 0.0), bracing)
+	_solid(garage, Vector3(DOOR_SIZE.x - 1.0, 0.022, 0.25), Vector3(0.0, 0.012, -half_depth + 1.5), bracing)
+
+	# High-bay lamps hung from the trusses, and two lights that cast shadows.
+	for row in 3:
+		for column in 4:
+			var lamp_at := Vector3(-half_width * 0.6 + half_width * 0.4 * float(column), height - 1.4,
+					-half_depth * 0.6 + half_depth * 0.6 * float(row))
+			_solid(garage, Vector3(0.9, 0.25, 0.9), lamp_at, Color(1.0, 0.97, 0.88) * 1.4)
 	for lamp_side in [-1.0, 1.0]:
-		var side: float = lamp_side
 		var lamp := OmniLight3D.new()
-		lamp.position = Vector3(side * width * 0.25, height - 1.0, 0.0)
-		lamp.omni_range = 16.0
-		lamp.light_energy = 1.5
+		lamp.position = Vector3(float(lamp_side) * width * 0.22, height - 2.0, 0.0)
+		lamp.omni_range = 34.0
+		lamp.light_energy = 2.2
 		lamp.shadow_enabled = true   # so the walls keep the light indoors
 		garage.add_child(lamp)
 
-	# The door is its own body, so it can be taken away and put back.
+	# --- The roller door: its own body, so it can roll up out of the way ---
 	_garage_door = StaticBody3D.new()
 	_garage_door.physics_material_override = Units.world_surface()
-	_garage_door.name = "GarageDoor"
+	_garage_door.name = "HangarDoor"
 	garage.add_child(_garage_door)
 	_garage_door_collider = _wall(_garage_door, Vector3(DOOR_SIZE.x, DOOR_SIZE.y, 0.2),
 			Vector3(0.0, DOOR_SIZE.y * 0.5, front), door_color)
-	for panel in range(1, 5):
-		var seam_height := DOOR_SIZE.y * float(panel) / 5.0
-		_solid(_garage_door, Vector3(DOOR_SIZE.x, 0.06, 0.26), Vector3(0.0, seam_height, front), seam)
+	for panel in range(1, 12):
+		var seam_height := DOOR_SIZE.y * float(panel) / 12.0
+		_solid(_garage_door, Vector3(DOOR_SIZE.x, 0.07, 0.26), Vector3(0.0, seam_height, front), seam)
 
 	# A concrete apron from the door to the pad. It is too thin to trip on.
-	var apron_width := DOOR_SIZE.x + 4.0
+	var apron_width := DOOR_SIZE.x + 6.0
 	var apron := MeshInstance3D.new()
 	var apron_mesh := BoxMesh.new()
 	apron_mesh.size = Vector3(apron_width, 0.02, GARAGE_GAP)
@@ -352,14 +456,123 @@ func _make_garage(pad_size: Vector3) -> Array:
 
 	return [
 		[Rect2(centre.x - apron_width * 0.5, -GARAGE_GAP, apron_width, GARAGE_GAP), Color(0.34, 0.34, 0.36), ""],
-		[Rect2(centre.x - width * 0.5, centre.z - half_depth, width, depth),
-				Color(0.62, 0.34, 0.22), "Garage"],
+		[Rect2(centre.x - half_width, centre.z - half_depth, width, depth), Color(0.42, 0.46, 0.52), "Hangar"],
 	]
 
 
-## Opens or closes the garage. There is no animation yet: the door simply
-## goes away and comes back, along with its collision.
-## Rolls the garage door up into its top, or back down, over a second and a
+## A triangular gable end above the eaves, solid.
+func _gable(body: StaticBody3D, half_width: float, eave: float, ridge: float, z: float, thick: float, color: Color) -> void:
+	var points := PackedVector3Array()
+	for dz in [-thick * 0.5, thick * 0.5]:
+		points.append(Vector3(-half_width, eave, z + float(dz)))
+		points.append(Vector3(half_width, eave, z + float(dz)))
+		points.append(Vector3(0.0, ridge, z + float(dz)))
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = points
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	body.add_child(collider)
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	surface.set_color(color)
+	for index in [0, 1, 2, 3, 5, 4, 0, 3, 4, 0, 4, 1, 1, 4, 5, 1, 5, 2, 2, 5, 3, 2, 3, 0]:
+		surface.add_vertex(points[index])
+	surface.generate_normals()
+	var look := StandardMaterial3D.new()
+	look.vertex_color_use_as_albedo = true
+	look.roughness = 0.85
+	look.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mesh := surface.commit()
+	mesh.surface_set_material(0, look)
+	var shown := MeshInstance3D.new()
+	shown.mesh = mesh
+	body.add_child(shown)
+
+
+## A box wall turned by `place`: something to see and something to walk into.
+func _tilted_wall(body: StaticBody3D, size: Vector3, place: Transform3D, color: Color) -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.7
+	material.metallic = 0.3
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh.material = material
+	var shown := MeshInstance3D.new()
+	shown.mesh = mesh
+	shown.transform = place
+	body.add_child(shown)
+	var shape := BoxShape3D.new()
+	shape.size = size
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	collider.transform = place
+	body.add_child(collider)
+
+
+## One roof truss across the hangar at `z`: a bottom chord at the eaves, top
+## chords up to the ridge, and a Warren web of diagonals between them.
+func _truss(surface: SurfaceTool, z: float, inset: float, eave: float, ridge: float, color: Color) -> void:
+	var bottom := eave - 0.45
+	_member(surface, Vector3(-inset, bottom, z), Vector3(inset, bottom, z), 0.3, 0.3, color)
+	for side in [-1.0, 1.0]:
+		var s: float = side
+		_member(surface, Vector3(s * inset, eave - 0.05, z), Vector3(0.0, ridge - 0.45, z), 0.3, 0.32, color)
+	var panels := 12
+	var previous := Vector3(-inset, bottom, z)
+	for index in range(1, panels + 1):
+		var x := -inset + 2.0 * inset * float(index) / panels
+		var top_y := lerpf(eave - 0.05, ridge - 0.45, 1.0 - absf(x) / inset)
+		var top := Vector3(x, top_y - 0.1, z)
+		var low := Vector3(x, bottom, z)
+		_member(surface, low, top, 0.12, 0.12, color)   # vertical
+		if index % 2 == 1:
+			_member(surface, previous, top, 0.14, 0.14, color)
+		else:
+			var previous_top_y := lerpf(eave - 0.05, ridge - 0.45, 1.0 - absf(previous.x) / inset)
+			_member(surface, Vector3(previous.x, previous_top_y - 0.1, z), low, 0.14, 0.14, color)
+		previous = low
+
+
+## An I-beam from `a` to `b`: a web and two flanges. `section` is the depth
+## of the beam (across the hangar) and `flange` the width of its flanges.
+func _i_beam(surface: SurfaceTool, a: Vector3, b: Vector3, section: float, flange: float, color: Color) -> void:
+	var length := a.distance_to(b)
+	var middle := (a + b) * 0.5
+	var place := Transform3D(Basis.IDENTITY, middle)
+	_box(surface, place, Vector3(section, length, 0.06), color)                                   # web
+	_box(surface, place.translated_local(Vector3(section * 0.5 - 0.04, 0.0, 0.0)), Vector3(0.08, length, flange), color)
+	_box(surface, place.translated_local(Vector3(-section * 0.5 + 0.04, 0.0, 0.0)), Vector3(0.08, length, flange), color)
+
+
+## A straight member from `a` to `b` with a `w` × `h` section.
+func _member(surface: SurfaceTool, a: Vector3, b: Vector3, w: float, h: float, color: Color) -> void:
+	var along := b - a
+	var length := along.length()
+	if length < 0.001:
+		return
+	var forward := along / length
+	var up := Vector3.UP if absf(forward.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT
+	var side := up.cross(forward).normalized()
+	var top := forward.cross(side).normalized()
+	_box(surface, Transform3D(Basis(side, top, forward), (a + b) * 0.5), Vector3(w, h, length), color)
+
+
+## A box into a merged mesh.
+func _box(surface: SurfaceTool, place: Transform3D, size: Vector3, color: Color) -> void:
+	var h := size * 0.5
+	var c: Array = []
+	for corner in [Vector3(-1, -1, -1), Vector3(1, -1, -1), Vector3(1, 1, -1), Vector3(-1, 1, -1),
+			Vector3(-1, -1, 1), Vector3(1, -1, 1), Vector3(1, 1, 1), Vector3(-1, 1, 1)]:
+		c.append(place * ((corner as Vector3) * h))
+	surface.set_color(color)
+	for face in [[0, 3, 2, 1], [4, 5, 6, 7], [0, 4, 7, 3], [1, 2, 6, 5], [3, 7, 6, 2], [0, 1, 5, 4]]:
+		var f: Array = face
+		for index in [0, 1, 2, 0, 2, 3]:
+			surface.add_vertex(c[f[index]])
+
+
+## Rolls the hangar door up into its top, or back down, over a second and a
 ## half. It stops being solid as it starts to open and is solid again once
 ## it has closed.
 func _on_garage_button() -> void:
