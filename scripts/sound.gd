@@ -19,6 +19,7 @@ const BUSES := ["Effects", "Machines", "Ambience", "Interface"]
 const FILES := {
 	"motor_loop": "res://sounds/motor_loop.wav", "jet_loop": "res://sounds/jet_loop.wav",
 	"rocket_loop": "res://sounds/rocket_loop.wav", "prop_loop": "res://sounds/prop_loop.wav",
+	"thruster_loop": "res://sounds/thruster_loop.wav",
 	"wind_loop": "res://sounds/wind_loop.wav", "day_loop": "res://sounds/day_loop.wav",
 	"night_loop": "res://sounds/night_loop.wav", "gunshot": "res://sounds/gunshot.wav",
 	"cannon": "res://sounds/cannon.wav", "explosion": "res://sounds/explosion.wav",
@@ -27,7 +28,7 @@ const FILES := {
 	"remove": "res://sounds/remove.wav", "spawn": "res://sounds/spawn.wav",
 	"splash": "res://sounds/splash.wav",
 }
-const LOOPS := ["motor_loop", "jet_loop", "rocket_loop", "prop_loop", "wind_loop", "day_loop", "night_loop"]
+const LOOPS := ["motor_loop", "jet_loop", "rocket_loop", "thruster_loop", "prop_loop", "wind_loop", "day_loop", "night_loop"]
 const VOICES := 24            # one-shots that can sound at once; the oldest gives way
 const MAX_MACHINES := 32      # machine sounds on one build
 const GUN_GAP := 0.03         # s: shots from guns closer together than this share one sound
@@ -180,8 +181,10 @@ func _process(_delta: float) -> void:
 	if fleet != null:
 		for item in fleet.vehicles:
 			var vehicle: Dictionary = item
+			if not is_instance_valid(vehicle["spawner"]):
+				continue
 			var vehicle_spawner: Node = vehicle["spawner"]
-			if not is_instance_valid(vehicle_spawner) or not bool(vehicle_spawner.spawned):
+			if not bool(vehicle_spawner.spawned):
 				continue
 			if not vehicle.has("sounds"):
 				vehicle["sounds"] = _find_machines(vehicle_spawner)
@@ -239,7 +242,7 @@ func _find_machines(source: Node) -> Array:
 				loop = "motor_loop"
 				full = maxf(absf(float(props.get("max_flow", 1.0))), 0.001)
 			"thruster":
-				loop = "rocket_loop"
+				loop = "thruster_loop"
 				full = maxf(float(props.get("thrust", 1000.0)), 1.0)
 			"solid_rocket":
 				loop = "rocket_loop"
@@ -270,9 +273,10 @@ func _find_machines(source: Node) -> Array:
 func _run_machines(source: Node, machines: Array) -> void:
 	for item in machines:
 		var machine: Dictionary = item
-		var sound := machine["player"] as AudioStreamPlayer3D
-		if sound == null or not is_instance_valid(sound):
+		# The part (and its sound with it) may have been shot off.
+		if not is_instance_valid(machine["player"]):
 			continue
+		var sound: AudioStreamPlayer3D = machine["player"]
 		var uid: int = machine["uid"]
 		var type: String = machine["type"]
 		var outputs: Dictionary = source.outputs_of(uid)
@@ -284,7 +288,10 @@ func _run_machines(source: Node, machines: Array) -> void:
 				size = sqrt(maxf(float((machine["props"] as Dictionary).get("max_torque", 100.0)), 1.0)) * 0.3
 			"pump":
 				level = absf(float(outputs.get("flow", 0.0))) / float(machine["full"]) * 0.6
-			"thruster", "solid_rocket":
+			"thruster":
+				level = absf(float(outputs.get("thrust", 0.0))) / float(machine["full"])
+				size = sqrt(float(machine["full"])) * 0.06
+			"solid_rocket":
 				level = absf(float(outputs.get("thrust", 0.0))) / float(machine["full"])
 				size = sqrt(float(machine["full"])) * 0.15
 			"nozzle":
@@ -304,6 +311,8 @@ func _run_machines(source: Node, machines: Array) -> void:
 		sound.unit_size = clampf(size, 2.0, 80.0)
 		sound.max_distance = sound.unit_size * 150.0
 		sound.volume_db = linear_to_db(0.25 + 0.75 * minf(level, 1.0))
+		if type == "thruster":
+			sound.volume_db -= 10.0   # a steady push should not drown everything else
 		match type:
 			"motor", "pump":
 				sound.pitch_scale = clampf(0.35 + level * 1.3, 0.2, 3.0)

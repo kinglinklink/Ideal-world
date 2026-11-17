@@ -31,7 +31,7 @@ func _ready() -> void:
 
 	_dim = ColorRect.new()
 	_dim.color = Color(0.02, 0.03, 0.05, 0.55)
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_dim.visible = false
 	add_child(_dim)
@@ -52,7 +52,7 @@ func _ready() -> void:
 ## Holds a window in the middle of the screen without blocking clicks around it.
 func _centred(window: Control) -> CenterContainer:
 	var centre := CenterContainer.new()
-	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	centre.add_child(window)
 	return centre
@@ -73,7 +73,7 @@ func _menu_button(parent: Control, text: String, action: Callable) -> Button:
 
 func _build_title() -> Control:
 	var screen := Control.new()
-	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.visible = false
 	var shade := ColorRect.new()
@@ -117,7 +117,7 @@ func _build_title() -> Control:
 
 func _build_pause() -> Control:
 	var screen := CenterContainer.new()
-	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.visible = false
 	var panel := PanelContainer.new()

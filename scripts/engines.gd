@@ -559,8 +559,8 @@ func _show_flame(uid: int, thrust: float) -> void:
 		if thrust <= 0.0:
 			return
 		_jet_flames[uid] = spawner.attach_extra(uid, Callable(spawner, "_new_flame"))
-	var flame: Node3D = _jet_flames[uid]
-	if flame != null and is_instance_valid(flame):
+	if is_instance_valid(_jet_flames[uid]):
+		var flame: Node3D = _jet_flames[uid]
 		flame.visible = thrust > 0.0
 
 
@@ -587,8 +587,8 @@ func _run_rockets(delta: float) -> void:
 			rocket["lit"] = true
 			rocket["flame"] = spawner.attach_extra(uid, Callable(spawner, "_new_flame"))
 		var burning: bool = bool(rocket["lit"]) and (bool(rocket["ideal"]) or float(rocket["left"]) > 0.0)
-		var flame: Node3D = rocket["flame"]
-		if flame != null and is_instance_valid(flame):
+		if is_instance_valid(rocket["flame"]):
+			var flame: Node3D = rocket["flame"]
 			flame.visible = burning
 		var thrust: float = rocket["thrust"] if burning else 0.0
 		spawner.set_outputs(uid, {"thrust": thrust})

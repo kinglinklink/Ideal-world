@@ -19,7 +19,7 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 23"
+const VERSION := "Build 24"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -130,7 +130,7 @@ func set_map_features(features: Array) -> void:
 ## Tells the interface whether the garage door is open, so the button at the
 ## top of the screen offers the opposite.
 func set_garage_open(open: bool) -> void:
-	_garage_button.text = "Close garage" if open else "Open garage"
+	_garage_button.text = "Close hangar" if open else "Open hangar"
 
 
 ## Loads and applies the saved settings. `forest` is forest.gd,
@@ -332,7 +332,7 @@ func _build_interface() -> void:
 	top_buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	top_buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(top_buttons)
-	_garage_button = _button("Open garage", 150.0)
+	_garage_button = _button("Open hangar", 150.0)
 	_garage_button.pressed.connect(_on_garage_button)
 	top_buttons.add_child(_garage_button)
 	var respawn := _button("Respawn (P)", 120.0)
