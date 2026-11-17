@@ -21,7 +21,12 @@ const Terrain = preload("res://scripts/terrain.gd")
 const Spawner = preload("res://scripts/spawner.gd")
 const Combat = preload("res://scripts/combat.gd")
 const Logic = preload("res://scripts/logic.gd")
+const Engines = preload("res://scripts/engines.gd")
 const Origin = preload("res://scripts/origin.gd")
+const Daylight = preload("res://scripts/daylight.gd")
+const Sound = preload("res://scripts/sound.gd")
+const Menus = preload("res://scripts/menus.gd")
+const Fleet = preload("res://scripts/fleet.gd")
 
 # The garage sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
@@ -35,18 +40,28 @@ const GRASS_MARGIN := 45.0
 var _garage_door: StaticBody3D
 var _garage_door_collider: CollisionShape3D
 var _garage_open := false
+var _garage_door_parts: Array = []   # [MeshInstance3D, its shut transform]
+var _door_shut := 1.0
+var _door_tween: Tween = null
 var _hud: CanvasLayer
 var _player: CharacterBody3D
 var _spawner: Node3D
 var _combat: Node3D
 var _terrain: Node3D
 var _controller: Node3D
+var _daylight: Node3D          # daylight.gd: sun, moon, sky and the time of day
+var _fleet: Node3D             # fleet.gd: saved builds spawned out as vehicles
 var _start := Vector3.ZERO     # where the character starts and respawns, in map positions
 const START_HEADING := PI
 
 
 func _ready() -> void:
 	_make_sky_and_sun()
+
+	# Sound: effects, machines, wind and the birds and crickets.
+	var sound: Node = Sound.new()
+	sound.name = "Sound"
+	add_child(sound)
 
 	var grid: Node3D = BuildGrid.new()
 	grid.name = "BuildGrid"
@@ -85,6 +100,12 @@ func _ready() -> void:
 	add_child(logic)
 	logic.setup(spawner)
 
+	# Fuel, pumps, cylinders, jet engines and rockets.
+	var engines: Node3D = Engines.new()
+	engines.name = "Engines"
+	add_child(engines)
+	engines.setup(spawner)
+
 	# The map: ground, lake, forests, airports and the wall round the edge.
 	# Set up before the first physics step, so the ground is solid under the
 	# character from the start.
@@ -96,6 +117,17 @@ func _ready() -> void:
 	spawner.terrain = terrain
 	combat.terrain = terrain
 	combat.structures = [terrain.towns, terrain.towers]
+
+	# Saved builds spawned out into the world as vehicles of their own.
+	var fleet: Node3D = Fleet.new()
+	fleet.name = "Fleet"
+	add_child(fleet)
+	fleet.terrain = terrain
+	fleet.player = player
+	fleet.main_spawner = spawner
+	fleet.structures = combat.structures
+	terrain.fleet = fleet
+	_fleet = fleet
 	logic.terrain = terrain
 	_terrain = terrain
 
@@ -111,6 +143,7 @@ func _ready() -> void:
 	controller.name = "BuildController"
 	add_child(controller)
 	controller.setup(grid, player, spawner)
+	controller.fleet = _fleet
 	_controller = controller
 
 	var hud: CanvasLayer = Hud.new()
@@ -122,7 +155,22 @@ func _ready() -> void:
 	_hud = hud
 	hud.connect("garage_button_pressed", _on_garage_button)
 	hud.connect("respawn_pressed", _respawn)
-	hud.setup_settings(terrain.forest)
+	# Title screen, pause menu, settings and the parts guide, over everything.
+	var menus: CanvasLayer = Menus.new()
+	menus.name = "Menus"
+	add_child(menus)
+	menus.player = player
+	menus.hud = hud
+	menus.version = "Ideal World  %s" % Hud.VERSION
+	menus.connect("respawn_requested", _respawn)
+	hud.menus = menus
+	hud.setup_settings(terrain.forest, _daylight, menus.settings_panel)
+	menus.show_title()
+	sound.spawner = spawner
+	sound.fleet = _fleet
+	hud.set_fleet(_fleet)
+	sound.player = player
+	sound.daylight = _daylight
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -130,6 +178,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_P \
 			and get_viewport().gui_get_focus_owner() == null:
 		_respawn()
+	elif key != null and key.pressed and not key.echo and key.physical_keycode == KEY_M \
+			and get_viewport().gui_get_focus_owner() == null:
+		_hud.toggle_world_map()
 
 
 ## Sends the character back to the build pad.
@@ -159,6 +210,8 @@ func _shift_world(shift: Vector3) -> void:
 			_player.global_position -= shift
 		elif child == _spawner:
 			_spawner.shift_origin(shift)   # moves each body itself
+		elif child == _fleet:
+			_fleet.shift_origin(shift)     # likewise, vehicle by vehicle
 		elif child is DirectionalLight3D:
 			continue
 		elif child is Node3D:
@@ -169,39 +222,10 @@ func _shift_world(shift: Vector3) -> void:
 
 
 func _make_sky_and_sun() -> void:
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.22, 0.47, 0.88)
-	sky_material.sky_horizon_color = Color(0.68, 0.82, 0.95)
-	sky_material.ground_horizon_color = Color(0.68, 0.82, 0.95)
-	sky_material.ground_bottom_color = Color(0.30, 0.42, 0.30)
-
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_SKY
-	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	# Haze, so the far mountains fade into the sky.
-	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.70, 0.80, 0.90)
-	environment.fog_density = 0.00005
-	environment.fog_sky_affect = 0.0
-	environment.fog_aerial_perspective = 0.4
-
-	var world_environment := WorldEnvironment.new()
-	world_environment.name = "WorldEnvironment"
-	world_environment.environment = environment
-	add_child(world_environment)
-
-	var sun := DirectionalLight3D.new()
-	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-	sun.light_energy = 1.2
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 250.0
-	add_child(sun)
+	var daylight: Node3D = Daylight.new()
+	daylight.name = "Daylight"
+	add_child(daylight)
+	_daylight = daylight
 
 
 ## The noise picture the ground and water shaders read for grass mottling
@@ -257,6 +281,7 @@ func _make_garage(pad_size: Vector3) -> Array:
 	var centre := Vector3(pad_size.x * 0.5, 0.0, -GARAGE_GAP - half_depth)
 
 	var garage := StaticBody3D.new()
+	garage.physics_material_override = Units.world_surface()
 	garage.name = "Garage"
 	garage.position = centre
 	add_child(garage)
@@ -302,6 +327,7 @@ func _make_garage(pad_size: Vector3) -> Array:
 
 	# The door is its own body, so it can be taken away and put back.
 	_garage_door = StaticBody3D.new()
+	_garage_door.physics_material_override = Units.world_surface()
 	_garage_door.name = "GarageDoor"
 	garage.add_child(_garage_door)
 	_garage_door_collider = _wall(_garage_door, Vector3(DOOR_SIZE.x, DOOR_SIZE.y, 0.2),
@@ -333,11 +359,42 @@ func _make_garage(pad_size: Vector3) -> Array:
 
 ## Opens or closes the garage. There is no animation yet: the door simply
 ## goes away and comes back, along with its collision.
+## Rolls the garage door up into its top, or back down, over a second and a
+## half. It stops being solid as it starts to open and is solid again once
+## it has closed.
 func _on_garage_button() -> void:
 	_garage_open = not _garage_open
-	_garage_door.visible = not _garage_open
-	_garage_door_collider.set_deferred("disabled", _garage_open)
 	_hud.set_garage_open(_garage_open)
+	if _garage_door_parts.is_empty():
+		for child in _garage_door.get_children():
+			if child is MeshInstance3D:
+				_garage_door_parts.append([child, (child as MeshInstance3D).transform])
+	if _garage_open:
+		_garage_door_collider.set_deferred("disabled", true)
+	_garage_door.visible = true
+	if _door_tween != null and _door_tween.is_valid():
+		_door_tween.kill()
+	_door_tween = create_tween()
+	_door_tween.tween_method(_set_door_shut, _door_shut, 0.0 if _garage_open else 1.0, 1.5) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_door_tween.tween_callback(func() -> void:
+		_garage_door.visible = not _garage_open
+		if not _garage_open:
+			_garage_door_collider.set_deferred("disabled", false))
+
+
+## How far down the door is: 1 shut, 0 rolled up. Squeezes its panels up
+## toward the top of the opening.
+func _set_door_shut(amount: float) -> void:
+	_door_shut = amount
+	var shown := maxf(amount, 0.02)
+	for item in _garage_door_parts:
+		var part: MeshInstance3D = item[0]
+		var original: Transform3D = item[1]
+		var place := original
+		place.basis = Basis.from_scale(Vector3(1.0, shown, 1.0)) * original.basis
+		place.origin.y = original.origin.y * shown + DOOR_SIZE.y * (1.0 - shown)
+		part.transform = place
 
 
 ## The visible grid on the build pad. Clicks land on the ground collider

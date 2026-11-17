@@ -44,7 +44,10 @@ const PORTS := {
 	"bevel_gear": {"inputs": [], "outputs": SPEED_OUT},
 	"rack": {"inputs": [], "outputs": [["position", "Position", "number"]]},
 	"pulley": {"inputs": [], "outputs": SPEED_OUT},
-	"crankshaft": {"inputs": [], "outputs": [["angle", "Angle", "number"], ["speed", "Speed", "number"]]},
+	"crankshaft": {"inputs": [], "outputs": [
+		["angle", "Angle", "number"], ["speed", "Speed", "number"],
+		["position", "Rod end position (m)", "number"], ["near_top", "Near the top", "bool"],
+	]},
 	"wheel": {"inputs": [], "outputs": SPEED_OUT},
 	"clutch": {"inputs": [["engage", "Engage", "bool"], ["amount", "Amount", "number"]], "outputs": []},
 	"brake": {"inputs": [["brake", "Brake", "bool"], ["amount", "Amount", "number"]], "outputs": []},
@@ -92,6 +95,11 @@ const PORTS := {
 	"pid_controller": {
 		"inputs": [["setpoint", "Setpoint", "number"], ["measurement", "Measurement", "number"]],
 		"outputs": [["output", "Output", "number"]],
+	},
+	"pwm_generator": {
+		"inputs": [["enable", "Enable", "bool"], ["duty", "Duty (0 to 1)", "number"],
+				["frequency", "Frequency (Hz)", "number"]],
+		"outputs": [["output", "Output", "bool"], ["phase", "Phase (0 to 1)", "number"]],
 	},
 	"speed_sensor": {"inputs": [], "outputs": SPEED_OUT},
 	"altitude_sensor": {"inputs": [], "outputs": [["altitude", "Altitude", "number"]]},

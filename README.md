@@ -11,10 +11,13 @@ Working now:
 - **The map: Flathead Lake, Montana, at true size**, built from real elevation data. You start on Wild Horse Island, with the build pad and garage on the flat bench above Skeeko Bay. See [The map](#the-map).
 - A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
-- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
+- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen rolls the door up and back down.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - **Respawn** (button at the top, or P) puts you back at the build pad from anywhere
-- **Settings** (button at the top): frame rate (VSync, a limit from 1 to 240, or unlimited), how far away trees are drawn, and whether to show frames per second. Saved between runs.
+- **A title screen** when the game starts (Play, Parts guide, Settings, Quit), and a **pause menu**: Esc (once the cursor is free; in first person the first Esc frees it) pauses the game with Resume, Parts guide, Settings, Back to the build pad, Title screen and Quit.
+- **Settings** (button at the top, or from the menus), in four tabs, saved between runs. *Display:* frame rate (VSync, a limit from 1 to 240, or unlimited), resolution (50 to 100%), edge smoothing (off, 2×, 4×), shadows, tree distance, frames per second on screen, and quick presets for a laptop or a desktop. *Sound:* master, effects, machines, wind and nature, and clicks. *World:* day and night, always day or always night, and jump to a time. *Controls:* every key.
+- **The parts guide** (F1, or the Guide button): a page for every one of the 78 parts saying what it does, how to use it and where its limits are, with its default size, every setting (units, default and range) and every input and output, plus pages on how welding, signals, fluids, flying, water, damage, the map and performance work. Search finds parts by name or by anything on their page.
+- **Sound.** Guns, cannons, explosions and buildings coming down; motors, propellers, jets, rockets and thrusters that rise in pitch and volume as they work harder, heard from where they are; a pop for every firing of a combustion cylinder; wind that rises with your speed; birds by day and crickets at night; clicks and knocks for the interface and for placing and removing parts. Every sound is made from scratch by `tools/make_sounds.py`, so nothing was downloaded.
 - A mini map in the top-right corner, north up, drawn over the real lake, with the islands, airports and buildings labelled. It zooms out as you speed up, from 600 m across standing still to 12 km across in a fast plane.
 - Grass round the pad, and about 600,000 pines across the islands and the land inside the wall, built near the camera as you go
 - All five tools: Place, Delete, Config, Transform and Paint
@@ -24,9 +27,9 @@ Working now:
 - Twenty-two shapes in three groups. Basic: block, wedge, triangle wedge, cylinder, sphere. Structural: half block, plate, post, rod. Advanced: corner wedge, inverse corner, pyramid, cone, tapered cylinder, hemisphere, half cylinder, convex curve, concave curve, arch, ring, pipe, torus.
 - All eighteen mechanical parts work once spawned: motor, servo, door hinge servo, hinge, ball joint, bearing block, piston, solenoid, spring, gear, bevel gear, rack, belt pulley, crankshaft, wheel, linkage bar, clutch and brake
 - All four combat parts work once spawned: machine gun, large cannon, ammo generator and explosive block. Parts have health, and a body that loses parts breaks into separate chunks.
-- **All eleven logic parts work once spawned** (see [Logic and sensors](#logic-and-sensors)): input, boolean gate, number logic, PID controller, speed, altitude, attitude and distance sensors, impact detector, light panel and vanish block
+- **All twelve logic parts work once spawned** (see [Logic and sensors](#logic-and-sensors)): input, boolean gate, number logic, PID controller, PWM generator, speed, altitude, attitude and distance sensors, impact detector, light panel and vanish block
 - **The propeller and lift-gas tank work.** A propeller on a motor pulls along its spin axis according to its speed, blade count and pitch, and loads the motor in return. A lift-gas tank lifts straight up by its setting per block, scaled by its Amount input, and weakens as the air thins.
-- Display models for the 13 fluid and engine parts. These are models only for now.
+- **The fluid and engine parts work** (see [Fluids and engines](#fluids-and-engines)): fuel tanks, pumps, valves, pipes, hydraulic and gas cylinders, pressure tanks, combustion cylinders for engines you build yourself, jet engines from a compressor, combustor, turbine and nozzle, fuel-fed thrusters and solid rockets
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color, and one ideal material, **Frictionless surface**: nothing grips it, and once spawned it cannot be moved or damaged
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
@@ -35,15 +38,26 @@ Working now:
 - Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
-Not built yet: the fluid and engine parts. Once spawned these are simply welded solid.
+### Fluids and engines
+
+Fluid parts that touch face to face join into a **network**: tanks, pipes, pumps, valves, cylinders and engine parts. A valve that is closed splits the network there (Open input, Amount over 0, or "Open with no input"). A pump runs at its max flow × Rate (−1 to 1; full if Rate is not linked) while On is on (always, if On is not linked). What a network does depends on what is in it:
+
+- **Fuel.** A fuel tank holds its volume in fuel (34 MJ/L and 0.75 kg/L, like petrol, unless you change them), starting at its fill. It weighs its shell (15% of a solid block) plus its fuel, so it gets lighter as fuel burns and the center of mass moves. Level is out in %. Combustors, combustion cylinders (through a pump) and thrusters with "Runs without fuel" off take their fuel from the tanks in their network, and stop when it runs out.
+- **Hydraulics.** A fluid cylinder set to hydraulic oil is moved by the pumps in its network: the rod goes out at the pumps' flow over the cylinders' area (back in with a negative Rate), pushing with up to the pumps' max pressure × its area. With the pumps stopped, the oil is locked and the rod holds where it is (up to 20 MPa). Two cylinders on one pump share the flow.
+- **Gas.** Pressure tanks and fluid cylinders set to gas share one pressure, by the ideal gas law. A gas cylinder pushes its rod out with (pressure − outside air) × area, so it is an air spring: push the rod in and the pressure rises. A pump in a gas network pumps outside air in, up to its max pressure (or lets it out, run backward).
+- **Combustion cylinders** are the heart of a piston engine you build yourself: link the rod to a crankshaft with a linkage bar (ball joints), put a pump and a fuel tank touching the cylinder (or joined to it by pipes), and turn the crank to start it (a motor makes a good starter). The pump sends fuel in, at most what one cylinder of air can burn. With "Fires by itself at the top" on, it fires just past the top of its stroke; or link Spark to your own timing (number logic's Modulo turns the crank's angle into 0 to 360°, and Between makes a firing window). The fuel burns at once and the pressure jumps; the gas expands as the rod goes out, pushing the crank round, then the cylinder breathes out and in near the bottom and squeezes the fresh air (9 to 1) on the way back up. The pump's Rate is the throttle. A cylinder 0.6 blocks across and 0.6 long burns about 0.3 mL a firing, so a pump max flow of about 0.02 L/s per cylinder gives full throttle at a few thousand rpm. Pressure out is in kPa.
+- **Jet engines.** A compressor, a combustor, a turbine and a nozzle in one network (with a fuel tank) make a jet. The combustor burns its max fuel flow × Fuel rate (full if not linked). The spool winds up over a few seconds as fuel flows; air flow is air density × the compressor's face area × 100 m/s at full spool; the heat speeds that air up at the ideal efficiency for the compressor's pressure ratio, and the thrust (air flow × the speed the jet gains) comes out of the back of the nozzle, pushing along its −Z like a thruster. Thrust falls as you fly faster. Compressor and turbine put out the spool speed in rpm, the nozzle its thrust. A compressor 4 blocks across with 0.1 L/s of fuel makes about 16 kN standing still; give it 1 L/s for about 50 kN.
+- **Solid rockets** light when Ignite switches on and push along −Z with their thrust for their burn time, getting lighter as the propellant burns, then go out. "Never burns out" keeps them going forever.
+- **Fuel-fed thrusters** (Runs without fuel off) burn fuel from their network in proportion to thrust, about 0.5 L/s for each 1,000 N.
 
 ### Logic and sensors
 
 Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any number other than 0 counts as on. Signals pass through a chain of up to four gates in the same physics tick.
 
 - **Boolean gate:** AND, OR, NOT (of A), XOR, NAND and NOR. **Latch:** A switches it on, B switches it off. **Timer:** when A switches on, the result stays on for the timer length.
-- **Number logic:** an unlinked B uses the Constant setting, so "Add" with only A linked adds the constant. Add, Subtract (A − B), Multiply, Divide (A ÷ B, 0 if B is 0), Absolute value (of A), Min, Max, Clamp (A between B and C), Compare (on if A > B), Select (B if A is on, else C), Map range (A from B…C onto 0…1). "Comparison is true" is on whenever the result is not 0.
+- **Number logic:** an unlinked B uses the Constant setting, so "Add" with only A linked adds the constant. Add, Subtract (A − B), Multiply, Divide (A ÷ B, 0 if B is 0), Absolute value (of A), Min, Max, Clamp (A between B and C), Compare (on if A > B), Select (B if A is on, else C), Map range (A from B…C onto 0…1), Modulo (A wrapped into 0 up to B), Between (on while A is between B and C). "Comparison is true" is on whenever the result is not 0.
 - **PID controller:** output = Kp × error + Ki × its running total + Kd × its rate of change, where error = setpoint − measurement, held between the lowest and highest output. The running total stops growing while the output is held at a limit, and the rate is taken from the measurement, so a sudden change of setpoint does not jolt it.
+- **PWM generator:** a square wave. Output is on for the duty cycle's share of every cycle and off for the rest, at its frequency (up to 120 Hz; the physics runs at 240 steps a second, so higher would be meaningless). Duty (0 to 1) and Frequency (Hz) inputs override the settings while linked, and Enable (on if not linked) stops it with the output off. Phase puts out where it is in the cycle, 0 to 1, as a sawtooth. Link Output to a thruster's On, a motor's direction or a light to pulse them; link a number (a PID's output, say) to Duty to vary the share of time on.
 - **Speed sensor:** m/s. **Altitude sensor:** metres above sea level (the lake is at 881 m). **Attitude sensor:** pitch (nose up positive), roll (right side down positive) and yaw (compass heading, 0 north, 90 east) in degrees, plus each rate in degrees per second, all of the sensor's own forward (−Z) and up (+Y).
 - **Distance sensor:** metres from the sensor straight ahead along its −Z to the first part, building, ground or water, up to its range; it reads the range if nothing is there.
 - **Impact detector:** puts out its acceleration in g (0 at rest or in steady flight) and switches on for its signal length whenever that passes its trigger level.
@@ -71,7 +85,10 @@ Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any num
 | Enter | Spawn the build, or go back to building |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
-| Esc | Free or recapture the cursor (first person) |
+| Esc | Free the cursor (first person); with the cursor free, pause. Closes the map, guide and settings. |
+| F1 | Parts guide |
+| M | Open or close the full map. Scroll to zoom, drag to move it, click to set a waypoint, right-click to clear it. |
+| P | Back to the build pad |
 | 1 to 5 | Place, Delete, Config, Transform, Paint. Press the same key again to put the tool away. |
 | Ctrl+Z / Ctrl+Y | Undo / redo (also the Undo and Redo buttons, bottom right) |
 | Left click | Use the current tool |
@@ -93,13 +110,19 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 18"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 23"). While building it also shows how many parts the build has, and while you sit in a moving vehicle how fast it is turning (°/s). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
 - **Welding.** Parts whose bounding boxes share a face (or part of one) or overlap are welded into one rigid body. Parts that only meet along an edge or at a corner are not. Separate groups become separate bodies.
 - **Mass.** Each body has the combined mass and center of mass of its parts, from their real volumes and densities. Its friction is the mass-weighted average of its materials.
-- **Gravity and collisions.** Bodies fall, collide, stack and tip over.
+- **Gravity and collisions.** Bodies fall, collide, stack and tip over. Each body's inertia comes from the real mass and place of every part in it, so a heavy engine in the nose makes a plane slow to turn.
+- **Friction** against the ground is the geometric mean of the two coefficients, √(μ × 1): every body is given √μ of its materials, and the world's surfaces more than any body has, so the physics engine (which takes the lower) picks the body's. Between two bodies it takes the lower √μ.
+- **Overlaps count once.** Parts of one material that overlap share their overlap: the later part gives up its share of the volume, so mass and center of mass count it once.
+- **Crash damage.** A body whose speed changes by more than 20 g, averaged over 50 ms (which irons out engine shake), damages every part in it by 0.05 HP per kg of that part per g over, per tick: heavy, weak parts break first. Off in Settings → World.
+- **Far-away builds park.** A fleet vehicle or the pad's build more than 3 km from you freezes where it is, keeping its speed, and carries on when you come within 2.5 km.
+- **Air drag on every body.** For each of its own three axes, a body's outline seen along that axis (in quarter-block cells, overlaps counted once) catches the air: force = ½ × air density × 1.0 × area × speed², acting at the middle of that outline, so a body with more outline behind its centre of mass turns into the wind like a dart. Aero panels and propellers are left out of the outline because they work out their own drag.
+- **The fleet.** The **Fleet** button at the top spawns any saved build out into the world, a few metres in front of you and facing your way, as a vehicle of its own with its own logic, engines and guns. It stays, working, while you build something else on the pad; sit in its seats like any other. Despawn them one by one or all at once. Up to 8; they show as green squares on the mini map and full map.
 - **Pushing.** The character has a mass of 70 kg. Walking into a body pushes it with a force equal to the character's momentum toward it (mass × closing speed) handed over across a quarter of a second, but never harder than the feet can grip: grip × weight, about 687 N on the ground and next to nothing on ice. Friction with the ground decides the rest. A light body slides away, a heavier one moves slowly and holds you back to its speed, and one whose friction is greater than the push does not move at all. Every push is a force in newtons from the game's own code; the physics engine itself never shoves a body out of the character's way.
 - **Weight and grip.** A body you stand on carries your weight, and feels the reaction of your feet: speed up, slow down or push on something while standing on a loose body and it is pushed the other way. The character changes speed only as fast as its grip allows (grip × g), so it takes a moment to get going on the ground, is slippery on ice, and cannot change speed at all on a frictionless surface.
 - **Seats** work the same as on the pad: E to sit, Space to stand up.
@@ -110,21 +133,21 @@ This is the basic version. What it does so far:
 - **Every other mechanical part** comes apart into pieces held by a real joint, and each piece welds to whatever touches it:
   - **Ball joint:** the top swivels on the base. Settings: an angle limit, and "carries rotation", which stops it twisting so it passes turning through.
   - **Bearing block:** the housing welds by its four sides and the shaft through it by its two ends (along its own Y). The shaft turns freely, against its friction torque.
-  - **Piston:** the rod end on top slides out along its own +Y. Link Extend to run out to the target length, or link Length to a number of blocks; it moves at its set speed and easing with up to its max force. Outputs its length.
+  - **Piston:** the rod end on top slides out along its own +Y. Link Extend to run out to the target length, or link Length to a number of blocks; it moves at its set speed and easing with up to its max force. Outputs its length. In sensor mode it is a load cell instead: it holds its length with a very stiff spring and puts out the pressure on it in kPa.
   - **Solenoid:** link On and the top snaps out by its stroke with its set force, and back when off.
   - **Spring:** the two plates are pushed apart below the rest length and pulled together above it, by stiffness × stretch, less damping × speed. The coils stretch to match.
-  - **Crankshaft:** the journals weld by the two ends (along its own X) and the webs turn between them. For a working engine linkage, join a linkage bar to the webs.
+  - **Crankshaft:** the journals weld by the two ends (along its own X) and the webs turn between them. For a working engine linkage, join a linkage bar to the webs. Its throw radius and rod length give two more outputs: the rod end's distance from the axis, r cos θ + √(L² − r² sin² θ), and "Near the top" (within 15° of top dead centre), handy for spark timing.
   - **Wheel:** set to spin freely (the default), the hub welds by the ends of its axle (along its own X) and the round tyre turns on it, against its friction torque. Turn spin freely off to bolt a solid wheel to a motor.
   - **Linkage bar:** a bar with a joint at each end (ball joints, or hinges about Y or Z, as set). Each end welds to what touches it.
   - **Clutch:** the two plates turn together with up to the max torque and slip past it. Link Engage, or Amount (0 to 1) to grip part way.
   - **Brake:** the caliper welds by its +X face and the disc by its two ends (along its own Y). Link Brake, or Amount (0 to 1), to hold the disc still with up to the max torque.
-  - **Gears, bevel gears, pulleys and racks** are fixed to what they touch, like any block. Spur gears whose shafts are parallel, level and whose rims touch turn together in the ratio of their teeth; bevel gears do the same with shafts at right angles. Pulleys with the same belt number, parallel shafts and level with each other turn together in the ratio of their sizes (belt 0 means no belt). A gear sitting on a rack's teeth with its shaft across the rack drives the rack along. Mount gears on a motor, bearing or wheel axle so they have something to turn on.
+  - **Gears, bevel gears, pulleys and racks** are fixed to what they touch, like any block. Spur gears whose shafts are parallel, level and whose rims touch turn together in the ratio of their teeth; bevel gears do the same with shafts at right angles. Pulleys with the same belt number, parallel shafts and level with each other turn together in the ratio of their sizes, with the belt drawn between them (belt 0 means no belt). A gear train whose ratios disagree round a loop jams, and the spawn message warns about it. A gear sitting on a rack's teeth with its shaft across the rack drives the rack along. Mount gears on a motor, bearing or wheel axle so they have something to turn on.
 - **Health and damage.** Every part has health = mass × material strength (the Config tool shows it). A part whose health runs out disappears, and if what is left of its body is in separate pieces, each piece becomes a body of its own and flies off with the speed it had.
 - **Machine gun:** fires along its own −Z while its Fire input is on, at its fire rate. Each round is an instant line out to its range and does 4 HP to the first part it hits, with a small push, and the gun feels the recoil.
 - **Large cannon:** fires along its own −Z. Its size sets the shot: the bore is a fifth of its smaller cross size, the shell is three bores long and made of the projectile material, and the propellant pushes it down the barrel at 100 MPa, so muzzle energy = 100 MPa × bore area × barrel length (the Config tool shows the numbers). Shells fly under gravity and do 1 HP per kJ they carry on impact. A shell goes through any part it destroys, slowed by the energy that took. One shot per 0.5 s per metre of barrel, with recoil.
 - **Ammo generator:** makes its set rate per second up to its storage, starting empty, and gets heavier as it fills (25 g per machine gun round; a cannon shell weighs what the heaviest cannon linked to it fires). Turn off a gun's Unlimited ammo and link its Ammo supply input to a generator of the right type, and each shot takes one.
 - **Explosive block:** goes off when its Detonate input is on, or when it is destroyed. Every part within the blast radius takes 1000 HP per metre of radius at the centre, falling to nothing at the edge, and is pushed away by 1 N·s per HP. An explosive caught in a blast goes off one tick later, so chains of them ripple.
-- A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** is invisible and has no collision once spawned, but still welds.
+- A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** moves and turns everything built on its top face (its own +Y), by its shift and turn settings along its own axes, at spawn, and holds it welded there; then it is invisible and has no collision.
 
 Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. Belts are not drawn. A piston's Pressure output reads 0, and the crankshaft's throw and rod length settings are not used yet (build the linkage from linkage bars). There is no drag on anything but aero panels yet. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
 
@@ -145,6 +168,8 @@ The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25
 - **Small airports by the towns:** every town without one has a 700 m × 20 m paved runway on the flattest open ground near it, clear of its buildings and roads, with an apron, hangar and tower: Bigfork, Lakeside, Somers, Rollins, Dayton, Elmo, Big Arm, Woods Bay, Yellow Bay and Finley Point.
 - **Wizard towers:** six enormous round stone towers with pointed purple roofs and gold finials, at random places on dry land each time the game starts (find them on the mini map). Each is 190 to 240 m across (wider than the Cromwell château) and 430 to 580 m tall to the top of its wall, with the roof 250 to 310 m more. They can be destroyed: see [Destruction](#destruction).
 - **The real towns**, from OpenStreetMap: Polson, Bigfork, Lakeside, Somers, Rollins, Woods Bay, Big Arm, Elmo, Dayton, Finley Point and Yellow Bay, with every mapped road and building inside the wall (about 4,000 buildings and thousands of kilometres of road). Roads are drawn on the ground: asphalt highways with a yellow centre line, side streets, and brown gravel tracks. Buildings stand on their real outlines at their real or estimated height and are solid, so you have to fly over them or drive round them. Bridges over water, such as US 93 at Polson, are solid decks you can drive across. The town names show on the mini map. Map data © OpenStreetMap contributors, ODbL.
+- **Day and night:** a whole day takes 20 minutes, 10 of daylight and 10 of night. The sun rises in the east, crosses the southern sky and sets in the west in an orange glow; at night the moon follows it across, the stars come out, and the runway lights come on at every airport. The time is shown at the bottom right. Settings can hold it at day or at night, or jump to dawn, noon, dusk or night.
+- **The full map** (M) shows the whole lake and the land round it with the towns, islands, airports and wizard towers. Click it to set a **waypoint**: it shows on the mini map (at the edge, with a line, when it is out of sight) and its distance and compass bearing appear at the bottom right.
 - **Altitude** on screen is real, in metres above sea level, and the air thins with real altitude, so wings lose a little lift at the lake's 881 m.
 
 ### Destruction
@@ -204,6 +229,13 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
 | `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
 | `scripts/logic.gd` | Logic blocks, sensors, light panels, vanish blocks, propellers and lift-gas tanks |
+| `scripts/sound.gd` | Sound: effects, machine loops, wind and nature, volumes |
+| `scripts/menus.gd` | Title screen, pause menu, and the windows they open |
+| `scripts/parts_guide.gd`, `parts_guide_text.gd` | The parts guide window and its pages |
+| `tools/make_sounds.py` | Makes every sound in `sounds/` from scratch |
+| `scripts/engines.gd` | Fluid networks, fuel, pumps, cylinders, jet engines and rockets |
+| `scripts/daylight.gd` | Day and night: sun, moon, sky, stars and runway lights |
+| `scripts/world_map.gd` | The full map (M) and waypoints |
 | `scripts/towers.gd` | The wizard towers: placing, building, damage and collapse |
 | `scripts/towns.gd` | The real towns: roads, buildings and bridges, built in 1 km squares near the camera, and buildings being destroyed |
 | `scripts/origin.gd` | Re-centring the world on the player |

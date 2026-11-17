@@ -20,7 +20,7 @@ const MAX_LIGHTS := 24       # light panels past this many glow but do not light
 const PROP_BLADE_FACTOR := 0.04   # thrust coefficient per blade
 const PROP_EFFICIENCY := 0.8
 const SEA_LEVEL_AIR := 1.225
-const GATES := ["boolean_gate", "number_gate", "pid_controller"]
+const GATES := ["boolean_gate", "number_gate", "pid_controller", "pwm_generator"]
 const SENSORS := ["speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor", "impact_detector"]
 
 var spawner: Node3D = null    # spawner.gd
@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 		_run_sensor(uid, delta)
 	for pass_index in GATE_PASSES:
 		for uid in _gates:
-			_run_gate(uid, delta, pass_index == GATE_PASSES - 1)
+			_run_gate(uid, delta, pass_index)
 	_run_lights()
 	_run_vanish()
 	_run_propellers()
@@ -113,7 +113,8 @@ func _clear() -> void:
 
 # --- Gates -------------------------------------------------------------------
 
-func _run_gate(uid: int, delta: float, last_pass: bool) -> void:
+func _run_gate(uid: int, delta: float, pass_index: int) -> void:
+	var last_pass := pass_index == GATE_PASSES - 1
 	var record: Dictionary = spawner.record_of(uid)
 	if record.is_empty():
 		return
@@ -174,11 +175,34 @@ func _run_gate(uid: int, delta: float, last_pass: bool) -> void:
 			"Map range":
 				# A from the range B to C onto 0 to 1.
 				result = (a - b) / (c - b) if absf(c - b) > 1e-9 else 0.0
+			"Modulo":
+				# A wrapped into 0 up to B: a crank's angle into one turn, say.
+				result = fposmod(a, b) if absf(b) > 1e-9 else 0.0
+			"Between":
+				# On while A is between B and C: a spark window, say.
+				is_true = a >= minf(b, c) and a <= maxf(b, c)
+				result = 1.0 if is_true else 0.0
 		if not is_finite(result):
 			result = 0.0
-		if str(props.get("operation", "")) != "Compare":
+		if not ["Compare", "Between"].has(str(props.get("operation", ""))):
 			is_true = result != 0.0
 		spawner.set_outputs(uid, {"result": result, "is_true": 1.0 if is_true else 0.0})
+	elif type == "pwm_generator":
+		# On for `duty` of each cycle, at `frequency` cycles a second. The clock
+		# moves once a tick, on the first pass, so the output is there for the
+		# rest of the chain in the same tick.
+		var enabled: bool = spawner.input_value(links, "enable", 1.0) != 0.0
+		var frequency: float = clampf(spawner.input_value(links, "frequency", float(props.get("frequency", 2.0))),
+				0.0, 120.0)
+		var duty: float = clampf(spawner.input_value(links, "duty", float(props.get("duty", 50.0)) / 100.0), 0.0, 1.0)
+		if not bool(state["primed"]):
+			state["primed"] = true
+			state["last"] = 0.0
+		if pass_index == 0:
+			state["last"] = fposmod(float(state["last"]) + frequency * delta, 1.0) if enabled else 0.0
+		var phase: float = state["last"]
+		var on := enabled and duty > 0.0 and (duty >= 1.0 or phase < duty)
+		spawner.set_outputs(uid, {"output": 1.0 if on else 0.0, "phase": phase})
 	elif type == "pid_controller":
 		if not last_pass:
 			return   # it integrates over time, so it runs once a tick

@@ -57,6 +57,7 @@ var forest: Node3D = null          # forest.gd
 var landmarks: Node3D = null       # landmarks.gd
 var towns: Node3D = null           # towns.gd
 var towers: Node3D = null          # towers.gd
+var fleet: Node3D = null           # fleet.gd: vehicles spawned from saves
 
 var _coarse := PackedByteArray()
 var _detail := PackedByteArray()
@@ -282,6 +283,7 @@ func _build_water() -> void:
 func _build_walls() -> void:
 	var lines: Array = world.get("walls", [])
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "Wall"
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0
@@ -407,6 +409,13 @@ func _plan_tiles() -> void:
 			_want_round(wanted, at, BODY_REACH)
 			if moving.length() > 1.0:
 				_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
+	if fleet != null:
+		for item in fleet.body_motions():
+			var motion: Array = item
+			var at: Vector3 = Origin.to_map(motion[0])
+			var moving: Vector3 = motion[1]
+			_want_round(wanted, at, BODY_REACH)
+			_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
 	if towers != null:
 		for item in towers.debris_motions():
 			var motion: Array = item
@@ -470,6 +479,7 @@ func _make_tile(square: Vector2i) -> StaticBody3D:
 	collider.transform = Transform3D(Basis.from_scale(Vector3(step, step, step)),
 			Vector3(x0 + tile * 0.5, 0.0, z0 + tile * 0.5))
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "Ground_%d_%d" % [square.x, square.y]
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0

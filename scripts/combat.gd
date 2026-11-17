@@ -21,6 +21,7 @@ extends Node3D
 const Units = preload("res://scripts/units.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
+const Sound = preload("res://scripts/sound.gd")
 
 const BULLET_DAMAGE := 4.0          # HP per machine gun round
 const BULLET_MASS := 0.01           # kg, the bullet itself
@@ -39,6 +40,7 @@ const RAY_MASK := Units.LAYER_WORLD | Units.LAYER_BODIES
 
 var spawner: Node3D = null   # spawner.gd
 var structures: Array = []   # towns.gd, towers.gd: things in the world that can be destroyed
+var resets_world := true     # false for a fleet vehicle's guns: only the pad's Build puts the world back
 var terrain: Node3D = null   # terrain.gd: shots also stop at the ground, near or far
 
 var _generation := -1
@@ -152,9 +154,10 @@ func _start() -> void:
 ## Forgets everything from the last spawn and removes what is still flying.
 func _clear() -> void:
 	_generation = -1
-	for item in structures:
-		var structure: Node = item
-		structure.reset_damage()
+	if resets_world:
+		for item in structures:
+			var structure: Node = item
+			structure.reset_damage()
 	_guns.clear()
 	_generators.clear()
 	_explosives.clear()
@@ -295,6 +298,7 @@ func _fire_bullet(uid: int, record: Dictionary) -> void:
 	if body != null and not body.freeze:
 		body.apply_impulse(-direction * BULLET_MASS * BULLET_SPEED, from - body.global_position)
 	_add_tracer(from, to)
+	Sound.gun("gunshot", from, -2.0, 30.0)
 
 
 ## A cannon shell: it leaves the muzzle at the speed its energy gives, plus
@@ -326,6 +330,8 @@ func _fire_shell(uid: int, record: Dictionary) -> void:
 	_shells.append({"node": node, "at": from, "speed": carried + direction * speed,
 			"mass": mass, "life": SHELL_LIFE, "skip": []})
 	_add_flash(from, maxf(bore * 6.0, 0.3))
+	# Bigger guns are louder and carry further.
+	Sound.gun("cannon", from, clampf(linear_to_db(maxf(bore / 0.05, 0.2)), -12.0, 8.0), clampf(bore * 800.0, 30.0, 250.0))
 
 
 func _run_shells(delta: float) -> void:
@@ -495,6 +501,8 @@ func _set_off_blasts() -> void:
 		var radius: float = blast[1]
 		var peak: float = BLAST_HP_PER_METRE * radius
 		_add_flash(centre, radius * 2.0)
+		Sound.play_at("explosion", centre, clampf(linear_to_db(maxf(radius / 2.0, 0.2)), -8.0, 10.0),
+				clampf(radius * 25.0, 40.0, 1500.0), clampf(1.15 - radius * 0.02, 0.6, 1.2))
 		for key in spawner.live_parts():
 			var uid: int = key
 			var place: Array = spawner.part_place(uid)
@@ -541,6 +549,7 @@ func _damage_structure(collider: Object, shape: int, amount: float) -> void:
 
 ## A cloud of dust where something big came down.
 func _add_dust(at: Vector3, size: float = 30.0) -> void:
+	Sound.play_at("collapse", at, 4.0, 200.0, randf_range(0.85, 1.1))
 	var node := MeshInstance3D.new()
 	if _dust_mesh == null:
 		var ball := SphereMesh.new()

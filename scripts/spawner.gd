@@ -40,6 +40,11 @@ const SERVO_GAIN := 0.2      # share of a position error a servo or piston sets 
 const SOLENOID_SPEED := 5.0  # m/s; a solenoid snaps across as fast as its force allows, up to this
 const WATER_DENSITY := 1000.0   # kg/m^3
 const WATER_DRAG := 0.5         # drag coefficient of a submerged float
+const CRASH_WINDOW := 12        # ticks (50 ms) over which a body's change of speed is measured for crash damage
+const CRASH_SAFE_G := 20.0      # average g over that time that does no harm
+const CRASH_DAMAGE := 0.05      # HP per kg of part, per g over the safe level, per tick
+const CRASH_GRACE := 1.0        # seconds after spawning before knocks count, while things settle
+const BODY_DRAG := 1.0          # drag coefficient of a body's outline (a flat face square to the air is 1.2, a rounded one less)
 const FLOAT_CELL := 1.0         # metres; floats are merged into cubes this size
 const MAX_AIR_CELLS := 1500000  # bigger builds skip the sealed-air search
 
@@ -90,6 +95,16 @@ const MACHINES := {
 		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
 			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
 		"joints": [[0, 1, "slide", 1, Vector3(0, 0, 0)]]},
+	# Fluid and combustion cylinders: a barrel and a rod end like a piston's,
+	# moved by the pressure inside (engines.gd) instead of a drive.
+	"fluid_cylinder": {"role": "cylinder",
+		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
+			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
+		"joints": [[0, 1, "slide", 1, Vector3(0, 0, 0)]]},
+	"combustion_cylinder": {"role": "cylinder",
+		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
+			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
+		"joints": [[0, 1, "slide", 1, Vector3(0, 0, 0)]]},
 	"solenoid": {"role": "solenoid",
 		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
 			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
@@ -131,6 +146,7 @@ const MACHINES := {
 }
 
 var spawned := false
+var engines: Node = null       # engines.gd: pressures for cylinders, fuel for thrusters
 var generation := 0            # goes up by one at every spawn, so other scripts can tell a new one
 var occupied_seat := 0         # uid of the seat the character is sitting in; set by the build controller
 
@@ -143,6 +159,15 @@ var _bodies: Array = []            # every RigidBody3D
 var terrain: Node3D = null         # terrain.gd, to tell lake from dry land
 var _floats: Dictionary = {}       # body -> [PackedVector3Array points in the body, PackedFloat32Array volumes, reach]
 var _air: Dictionary = {}          # body -> [PackedVector3Array, PackedFloat32Array]: sealed air, merged into cubes
+var _drag: Dictionary = {}         # body -> {"count": pieces it was worked out for, "axes": [[area m², point in the body], x3]}
+var _speed_history: Dictionary = {} # body -> Array of its last CRASH_WINDOW + 1 velocities, for crash damage
+var _alive_time := 0.0             # seconds since spawning
+var _parked: Dictionary = {}       # body -> [linear velocity, angular velocity] while parked far from the player
+var parked := false
+var gear_conflicts := 0            # gear trains whose ratios disagree, found at spawn
+var _belt_mesh: MeshInstance3D = null
+## Damage from hard knocks (Settings): on unless switched off.
+static var crash_damage := true
 var _body_pieces: Dictionary = {}  # body -> Array of the pieces in it
 var _body_count := 0               # for naming bodies
 var _shapes: Dictionary = {}       # collision shapes, shared between identical pieces
@@ -236,8 +261,9 @@ static func _piece_box(piece: int, record: Dictionary) -> AABB:
 ## pieces by the size of the box each fills.
 static func _piece_mass(piece: int, record: Dictionary) -> float:
 	var machine: Dictionary = machine_of(record)
+	var whole: float = BuildGrid.mass_of(record) * float(record.get("solid_share", 1.0))
 	if machine.is_empty():
-		return BuildGrid.mass_of(record)
+		return whole
 	var total := 0.0
 	var mine := 0.0
 	var listed: Array = machine["pieces"]
@@ -248,7 +274,7 @@ static func _piece_mass(piece: int, record: Dictionary) -> float:
 		total += volume
 		if index == piece % PIECES:
 			mine = volume
-	return BuildGrid.mass_of(record) * mine / total
+	return whole * mine / total
 
 
 ## A piece's centre of mass, in the grid's space.
@@ -269,6 +295,11 @@ func spawn(grid: Node3D) -> Dictionary:
 	_grid_frame = grid.global_transform
 	for uid in grid.all_uids():
 		_records[uid] = grid.get_part(uid)
+	var forced := _apply_offsetters()
+	_count_overlaps_once()
+	_alive_time = 0.0
+	_parked.clear()
+	parked = false
 
 	# Every piece and its box.
 	var all_pieces: Array = []
@@ -291,7 +322,7 @@ func spawn(grid: Node3D) -> Dictionary:
 
 	# Weld them into bodies.
 	var total_mass := 0.0
-	for group in weld_groups(all_pieces, _boxes):
+	for group in _merge_forced(weld_groups(all_pieces, _boxes), forced):
 		var pieces: Array = group
 		# The engine gives one friction value to a whole body, so frictionless
 		# parts get a body of their own. They and everything welded to them
@@ -343,14 +374,168 @@ func spawn(grid: Node3D) -> Dictionary:
 
 	_find_gears()
 	_find_meshes()
+	gear_conflicts = _check_gear_trains()
 	_find_air()
 	generation += 1
 	spawned = true
 	return {
 		"parts": _records.size(), "bodies": _bodies.size(), "mass": total_mass,
 		"hinges": free_joints, "locked": locked,
-		"thrusters": _thrusters.size(), "panels": _panels.size(),
+		"thrusters": _thrusters.size(), "panels": _panels.size(), "gear_conflicts": gear_conflicts,
 	}
+
+
+## Dynamic offsetters: before welding, everything built on an offsetter's
+## top face (its own +Y), and everything joined on beyond that, is turned
+## about the middle of that face by the offsetter's turn settings and moved
+## by its shift, both along the offsetter's own axes. The offsetter then
+## holds what it moved welded to itself, however far it moved. If what is on
+## top also reaches round to another face of the offsetter, it cannot be told
+## apart from the rest, and nothing moves. Returns [offsetter uid, uids it
+## holds] pairs for _merge_forced.
+func _apply_offsetters() -> Array:
+	var forced: Array = []
+	for key in _records.keys():
+		var uid: int = key
+		var record: Dictionary = _records[uid]
+		if str(record["type"]) != "dynamic_offsetter":
+			continue
+		var props: Dictionary = record.get("props", {})
+		var shift_local := Vector3(float(props.get("shift_x", 0.0)), float(props.get("shift_y", 0.0)),
+				float(props.get("shift_z", 0.0))) * Units.CELL
+		var turn_local := Vector3(float(props.get("turn_x", 0.0)), float(props.get("turn_y", 0.0)),
+				float(props.get("turn_z", 0.0)))
+		if shift_local.length() < 0.0001 and turn_local.length() < 0.01:
+			continue
+		var rot: Basis = record["rot"]
+		var own_box: AABB = BuildGrid.bounds_of(record)
+		var up: Vector3 = rot.y.normalized()
+		var size_m: Vector3 = Units.to_metres(record["size"] as Vector3i)
+		var top_middle: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT + up * size_m.y * 0.5
+		# What sits on the top face, then everything joined on beyond it.
+		var boxes: Dictionary = {}
+		for other_key in _records:
+			if other_key != uid:
+				boxes[other_key] = BuildGrid.bounds_of(_records[other_key])
+		var seeds: Array = []
+		for other_key in boxes:
+			var box: AABB = boxes[other_key]
+			if _touching(box, own_box) and (box.get_center() - top_middle).dot(up) > -0.001:
+				seeds.append(other_key)
+		if seeds.is_empty():
+			continue
+		var moving: Dictionary = {}
+		var queue: Array = seeds.duplicate()
+		for first_part in seeds:
+			moving[first_part] = true
+		var tangled := false
+		while not queue.is_empty() and not tangled:
+			var current: int = queue.pop_back()
+			var current_box: AABB = boxes[current]
+			for other_key in boxes:
+				if moving.has(other_key):
+					continue
+				if not _touching(boxes[other_key], current_box):
+					continue
+				var other_box: AABB = boxes[other_key]
+				if _touching(other_box, own_box) and (other_box.get_center() - top_middle).dot(up) <= -0.001:
+					tangled = true   # it wraps round to the offsetter's other side
+					break
+				moving[other_key] = true
+				queue.append(other_key)
+		if tangled:
+			continue
+		var turn := rot * Basis.from_euler(turn_local * PI / 180.0) * rot.inverse()
+		var shift: Vector3 = rot * shift_local
+		for moved_key in moving:
+			var moved: Dictionary = _records[moved_key]
+			var at: Vector3 = Vector3(moved["pos"] as Vector3i) * Units.UNIT
+			var new_at: Vector3 = top_middle + turn * (at - top_middle) + shift
+			moved["pos"] = Vector3i((new_at / Units.UNIT).round())
+			moved["rot"] = (turn * (moved["rot"] as Basis)).orthonormalized()
+		forced.append([uid, seeds])
+	return forced
+
+
+## Parts of one material may overlap. The volume they share is counted once:
+## for each pair of overlapping parts of the same material, the later part
+## gives up its share of the overlap (their boxes' overlap times the smaller
+## of their solid fractions). Sets record["solid_share"], used by _piece_mass.
+func _count_overlaps_once() -> void:
+	var buckets: Dictionary = {}   # 1 m cell -> uids reaching into it
+	var boxes: Dictionary = {}
+	for key in _records:
+		var uid: int = key
+		var box: AABB = BuildGrid.bounds_of(_records[uid])
+		boxes[uid] = box
+		var low := Vector3i(box.position.floor())
+		var high := Vector3i(box.end.floor())
+		for x in range(low.x, high.x + 1):
+			for y in range(low.y, high.y + 1):
+				for z in range(low.z, high.z + 1):
+					var cell := Vector3i(x, y, z)
+					if not buckets.has(cell):
+						buckets[cell] = []
+					(buckets[cell] as Array).append(uid)
+	var given: Dictionary = {}     # uid -> m³ of its volume counted already in another part
+	var checked: Dictionary = {}
+	for cell in buckets:
+		var members: Array = buckets[cell]
+		for i in members.size():
+			for j in range(i + 1, members.size()):
+				var a: int = mini(int(members[i]), int(members[j]))
+				var b: int = maxi(int(members[i]), int(members[j]))
+				var pair := Vector2i(a, b)
+				if checked.has(pair):
+					continue
+				checked[pair] = true
+				var record_a: Dictionary = _records[a]
+				var record_b: Dictionary = _records[b]
+				if record_a["material"] != record_b["material"]:
+					continue
+				var shared: AABB = (boxes[a] as AABB).intersection(boxes[b])
+				var volume := shared.size.x * shared.size.y * shared.size.z
+				if volume <= 0.000001:
+					continue
+				var fraction_a: float = PartLibrary.PARTS.get(record_a["type"], [0, 0, 0, 1.0])[3]
+				var fraction_b: float = PartLibrary.PARTS.get(record_b["type"], [0, 0, 0, 1.0])[3]
+				given[b] = float(given.get(b, 0.0)) + volume * minf(fraction_a, fraction_b)
+	for key in given:
+		var uid: int = key
+		var record: Dictionary = _records[uid]
+		var own: float = BuildGrid.volume_of(record)
+		if own > 0.0:
+			record["solid_share"] = clampf(1.0 - float(given[uid]) / own, 0.05, 1.0)
+
+
+## Joins the weld groups that an offsetter holds together (see _apply_offsetters).
+static func _merge_forced(groups: Array, forced: Array) -> Array:
+	if forced.is_empty():
+		return groups
+	var group_of: Dictionary = {}   # piece -> index into groups
+	for index in groups.size():
+		for piece in groups[index]:
+			group_of[piece] = index
+	for item in forced:
+		var pair: Array = item
+		var holder: int = int(pair[0]) * PIECES
+		for held_uid in pair[1]:
+			var held: int = int(held_uid) * PIECES
+			if not group_of.has(holder) or not group_of.has(held):
+				continue
+			var keep: int = group_of[holder]
+			var gone: int = group_of[held]
+			if keep == gone:
+				continue
+			for piece in groups[gone]:
+				(groups[keep] as Array).append(piece)
+				group_of[piece] = keep
+			groups[gone] = []
+	var merged: Array = []
+	for group in groups:
+		if not (group as Array).is_empty():
+			merged.append(group)
+	return merged
 
 
 ## Removes every spawned body and joint.
@@ -386,6 +571,13 @@ func despawn() -> void:
 	_racks.clear()
 	_floats.clear()
 	_air.clear()
+	_drag.clear()
+	_speed_history.clear()
+	_parked.clear()
+	parked = false
+	if _belt_mesh != null and is_instance_valid(_belt_mesh):
+		_belt_mesh.queue_free()
+	_belt_mesh = null
 	occupied_seat = 0
 	spawned = false
 
@@ -443,6 +635,14 @@ func seat_velocity(uid: int) -> Vector3:
 
 ## The spawned seat nearest to a point in the world and within `reach`
 ## metres of it. Returns its uid, or 0 for none.
+## How fast a spawned seat's body is turning, in degrees per second.
+func seat_spin(uid: int) -> float:
+	if not _seats.has(uid):
+		return 0.0
+	var body: RigidBody3D = _piece_body(_seats[uid][0])
+	return rad_to_deg(body.angular_velocity.length()) if body != null else 0.0
+
+
 func nearest_seat(world_point: Vector3, reach: float) -> int:
 	var best := 0
 	var best_distance := reach
@@ -735,11 +935,12 @@ func _build_piece(body: RigidBody3D, piece: int, centre: Vector3) -> bool:
 		var spec: Array = _piece_spec(piece, record)
 		var piece_name: String = spec[0]
 		var options := {"half": piece_name}
-		if piece_name == "top" and (type == "piston" or type == "solenoid") and size_m.y > 0.0:
+		var cylinder := type == "fluid_cylinder" or type == "combustion_cylinder"
+		if piece_name == "top" and (type == "piston" or type == "solenoid" or cylinder) and size_m.y > 0.0:
 			# Enough rod to show when it is run right out.
 			var travel: float = float(props.get("max_length", props.get("stroke", 1.0))) * Units.CELL
 			options["reach"] = snappedf(clampf(travel / size_m.y, 0.0, 64.0), 0.01)
-		mesh = PartLibrary.get_mesh(type, options)
+		mesh = PartLibrary.get_mesh("piston" if cylinder else type, options)
 		shape_key = "%s %s %s" % [type, piece_name, size_units]
 		if type == "wheel" and piece_name == "top":
 			# The tyre is round, so that it rolls.
@@ -811,8 +1012,116 @@ func _refresh_body(body: RigidBody3D) -> void:
 			body.linear_velocity = _fresh_speed(body) + _fresh_spin(body).cross(shift)
 	body.mass = maxf(mass, 0.001)
 	body.center_of_mass = centre
-	body.physics_material_override.friction = grip / mass   # the mass-weighted average of its materials
+	# The mass-weighted average of its materials, as √μ: see the note on
+	# friction in units.gd.
+	body.physics_material_override.friction = sqrt(maxf(grip / mass, 0.0) * Units.WORLD_FRICTION)
+	body.inertia = _inertia_of(pieces, centre, mass)
 	_rebuild_floats(body)
+	var drag: Dictionary = _drag.get(body, {})
+	if int(drag.get("count", -1)) != pieces.size():
+		_drag[body] = {"count": pieces.size(), "axes": _drag_areas(pieces)}
+
+
+## A body's moments of inertia about its centre of mass, along its own axes,
+## from each piece's real mass and box (a solid box, moved out by the
+## parallel-axis rule). The cross terms are left out, so the engine treats
+## the body's axes as its principal axes.
+func _inertia_of(pieces: Array, centre: Vector3, mass: float) -> Vector3:
+	var total := Vector3.ZERO
+	for piece in pieces:
+		var entry: Dictionary = _pieces[piece]
+		var piece_mass: float = entry["mass"]
+		var size: Vector3 = (_boxes[piece] as AABB).size if _boxes.has(piece) else Vector3.ONE * Units.CELL
+		var away: Vector3 = (entry["centre"] as Vector3) - centre
+		total += piece_mass / 12.0 * Vector3(size.y * size.y + size.z * size.z,
+				size.x * size.x + size.z * size.z, size.x * size.x + size.y * size.y)
+		total += piece_mass * Vector3(away.y * away.y + away.z * away.z,
+				away.x * away.x + away.z * away.z, away.x * away.x + away.y * away.y)
+	# Never quite zero, which the solver cannot take.
+	var least := maxf(mass, 0.001) * 0.0001
+	return Vector3(maxf(total.x, least), maxf(total.y, least), maxf(total.z, least))
+
+
+## How much a body catches the air from each side: for each of its own three
+## axes, the area of its outline seen along that axis (the parts' boxes laid
+## on a grid of quarter-block cells, so overlaps count once), and the middle
+## of that outline, where the drag acts. Aero panels and propellers are left
+## out: they work out their own air forces.
+func _drag_areas(pieces: Array) -> Array:
+	var axes: Array = []
+	var boxes: Array = []
+	for piece in pieces:
+		var uid: int = _uid_of(piece)
+		var record: Dictionary = _records[uid]
+		var type: String = record["type"]
+		if PartLibrary.is_aero_panel(type) or type == "propeller" or not _boxes.has(piece):
+			continue
+		var entry: Dictionary = _pieces[piece]
+		var place: Transform3D = entry["place"]
+		var grid_box: AABB = _boxes[piece]
+		# The piece's box in the body: the part's own middle, plus where the
+		# piece sits from it.
+		var middle: Vector3 = place.origin + (grid_box.get_center() - Vector3(record["pos"] as Vector3i) * Units.UNIT)
+		boxes.append(AABB(middle - grid_box.size * 0.5, grid_box.size))
+	for axis in 3:
+		var u_axis := (axis + 1) % 3
+		var v_axis := (axis + 2) % 3
+		var cells: Dictionary = {}
+		for item in boxes:
+			var box: AABB = item
+			var u0 := int(ceil(box.position[u_axis] / Units.CELL - 0.5))
+			var u1 := int(floor(box.end[u_axis] / Units.CELL - 0.5))
+			var v0 := int(ceil(box.position[v_axis] / Units.CELL - 0.5))
+			var v1 := int(floor(box.end[v_axis] / Units.CELL - 0.5))
+			for u in range(u0, u1 + 1):
+				for v in range(v0, v1 + 1):
+					cells[Vector2i(u, v)] = true
+		var area := cells.size() * Units.CELL * Units.CELL
+		var sum := Vector2.ZERO
+		for key in cells:
+			var cell: Vector2i = key
+			sum += (Vector2(cell) + Vector2(0.5, 0.5)) * Units.CELL
+		var point := Vector3.ZERO
+		if not cells.is_empty():
+			sum /= cells.size()
+			point[u_axis] = sum.x
+			point[v_axis] = sum.y
+		axes.append([area, point])
+	return axes
+
+
+## Air drag on every body, from its outline along each of its own axes:
+## force = ½ × air density × BODY_DRAG × area × speed² against the motion
+## along that axis, acting at the middle of that outline, so a body with more
+## outline behind its centre of mass turns its nose into the wind.
+func _run_body_drag() -> void:
+	for body in _bodies:
+		var spawned_body: RigidBody3D = body
+		if not is_instance_valid(spawned_body) or spawned_body.freeze or not _drag.has(spawned_body):
+			continue
+		var axes: Array = _drag[spawned_body]["axes"]
+		var frame: Transform3D = spawned_body.global_transform
+		var density: float = Aero.air_density(frame.origin.y)
+		var pushed := false
+		for axis in 3:
+			var pair: Array = axes[axis]
+			var area: float = pair[0]
+			if area <= 0.0:
+				continue
+			var point: Vector3 = pair[1]
+			point[axis] = spawned_body.center_of_mass[axis]
+			var arm: Vector3 = frame.basis * point
+			var direction: Vector3 = frame.basis[axis].normalized()
+			var speed: float = velocity_at(spawned_body, arm).dot(direction)
+			if absf(speed) < 0.5:
+				continue
+			var force: float = 0.5 * density * BODY_DRAG * area * speed * absf(speed)
+			# Never more than would stop that motion in one tick.
+			force = minf(absf(force), spawned_body.mass * absf(speed) * 240.0 * 0.5) * signf(force)
+			spawned_body.apply_force(-direction * force, arm)
+			pushed = true
+		if pushed:
+			spawned_body.sleeping = false
 
 
 # --- Damage ------------------------------------------------------------------
@@ -992,6 +1301,7 @@ func _resplit(body: RigidBody3D) -> void:
 		_bodies.erase(body)
 		_floats.erase(body)
 		_air.erase(body)
+		_drag.erase(body)
 		body.queue_free()
 		return
 
@@ -1355,7 +1665,15 @@ func _run_turners(delta: float) -> void:
 			_set_turner_motor(turner, braking, 0.0, float(props.get("max_torque", 200.0)) * squeeze)
 			_outputs[uid] = {"speed": rpm}
 		elif role == "crank":
-			_outputs[uid] = {"angle": rad_to_deg(angle), "speed": rpm}
+			# Where a rod of the set length on a pin at the set throw puts its far
+			# end, measured from the crank's axis: r cos θ + √(L² − r² sin² θ),
+			# greatest (top dead centre) as built.
+			var throw: float = maxf(float(props.get("throw_radius", 0.35)), 0.0)
+			var rod: float = maxf(float(props.get("rod_length", 1.5)), throw)
+			var turned: float = fposmod(angle, TAU)
+			var reach: float = throw * cos(turned) + sqrt(maxf(rod * rod - pow(throw * sin(turned), 2.0), 0.0))
+			_outputs[uid] = {"angle": rad_to_deg(angle), "speed": rpm, "position": reach,
+					"near_top": 1.0 if turned < deg_to_rad(15.0) or turned > TAU - deg_to_rad(15.0) else 0.0}
 		elif role == "hinge":
 			_outputs[uid] = {"angle": rad_to_deg(angle)}
 		else:
@@ -1447,8 +1765,24 @@ func _add_slider(uid: int, role: String, joint: Generic6DOFJoint3D, a: int, b: i
 	elif role == "solenoid":
 		longest = float(props.get("stroke", 0.5)) * Units.CELL
 		force = float(props.get("force", 500.0))
+	var hydraulic := false
+	if role == "cylinder":
+		longest = float(props.get("stroke", 1.0)) * Units.CELL
+		hydraulic = str(record["type"]) == "fluid_cylinder" \
+				and str(props.get("fluid", "Hydraulic oil")) == "Hydraulic oil"
+		force = 1.0
 
-	if role == "spring":
+	var sensing: bool = role == "piston" and bool(props.get("sensor_mode", false))
+	if role == "spring" or sensing or (role == "cylinder" and not hydraulic):
+		# Free along its line: the pressure inside pushes it (engines.gd).
+		joint.set_flag_x(Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_LIMIT, role == "cylinder" or sensing)
+		if sensing:
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_LOWER_LIMIT, -longest - 0.01)
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_UPPER_LIMIT, longest + 0.01)
+		if role == "cylinder":
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_LOWER_LIMIT, -longest - 0.01)
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_UPPER_LIMIT, longest + 0.01)
+	elif role == "spring":
 		# A spring is free to move along its line; the spring force is applied by hand.
 		joint.set_flag_x(Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_LIMIT, false)
 	else:
@@ -1471,6 +1805,8 @@ func _add_slider(uid: int, role: String, joint: Generic6DOFJoint3D, a: int, b: i
 		"setpoint": 0.0, "hold": 0.0,   # measured from where it was built
 		"built": size_m.y,              # spring: its length as built
 		"coils": null, "coils_place": Transform3D.IDENTITY, "coils_size": size_m,
+		"hydraulic": hydraulic, "limit": force, "sensing": sensing,
+		"area": size_m.x * size_m.z,
 	}
 	if role == "spring":
 		# The coils are drawn on the base and stretched to reach the top.
@@ -1522,6 +1858,12 @@ func _run_sliders(delta: float) -> void:
 		if role == "spring":
 			_run_spring(slider, a_body, b_body, axis, point_a, point_b, out, moving, delta)
 			_outputs[uid] = {"length": (float(slider["built"]) + out) / Units.CELL}
+			continue
+		if role == "cylinder":
+			_run_cylinder(slider, a_body, b_body, axis, point_a, point_b, out, moving, delta)
+			continue
+		if bool(slider.get("sensing", false)):
+			_run_load_cell(slider, a_body, b_body, axis, point_a, point_b, out, moving, delta)
 			continue
 
 		var start: float = slider["start"]
@@ -1582,6 +1924,95 @@ func _set_slider_motor(slider: Dictionary, wanted: float, moving: float) -> void
 	if absf(wanted - moving) > 0.001:
 		_wake(_piece_body(slider["a"]))
 		_wake(_piece_body(slider["b"]))
+
+
+## A fluid or combustion cylinder. A hydraulic one is driven at the speed
+## the pumps feeding it give, with the force their pressure allows, and
+## holds still (the oil locked in) when they stop. A gas or combustion one
+## is pushed by the pressure inside it less the air outside, both worked
+## out by engines.gd; it cannot be pushed in past closed.
+func _run_cylinder(slider: Dictionary, a_body: RigidBody3D, b_body: RigidBody3D, axis: Vector3,
+		point_a: Vector3, point_b: Vector3, out: float, moving: float, delta: float) -> void:
+	var uid: int = slider["uid"]
+	var longest: float = slider["longest"]
+	if bool(slider["hydraulic"]):
+		var drive: Array = [0.0, 20000000.0 * 0.01]
+		if engines != null:
+			drive = engines.hydraulic_drive(uid, out)
+		var speed: float = drive[0]
+		var limit: float = maxf(float(drive[1]), 1.0)
+		if absf(limit - float(slider["limit"])) > limit * 0.01:
+			var joint: Generic6DOFJoint3D = slider["joint"]
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_MOTOR_FORCE_LIMIT, limit)
+			slider["limit"] = limit
+		# Oil in, the rod goes out; none, it stays where it is.
+		var setpoint := clampf(float(slider["setpoint"]) + speed * delta, 0.0, longest)
+		slider["setpoint"] = setpoint
+		_set_slider_motor(slider, speed * (1.0 if setpoint > 0.0 and setpoint < longest else 0.0)
+				+ SERVO_GAIN * (setpoint - out) / delta, moving)
+		return
+	var force := 0.0
+	if engines != null:
+		force = engines.cylinder_force(uid, out, moving, delta)
+	# A hard stop at closed, held by a stiff spring the masses can bear.
+	if out < 0.0:
+		var looseness := 0.0
+		if not a_body.freeze:
+			looseness += 1.0 / a_body.mass
+		if not b_body.freeze:
+			looseness += 1.0 / b_body.mass
+		if looseness > 0.0:
+			var shared_mass: float = 1.0 / looseness
+			force += 0.2 * shared_mass / (delta * delta) * -out - 0.5 * shared_mass / delta * minf(moving, 0.0)
+	force = clampf(force, -50000000.0, 50000000.0)
+	if absf(force) > 0.0001:
+		if not a_body.freeze:
+			a_body.sleeping = false
+			a_body.apply_force(-axis * force, point_a - a_body.global_position)
+		if not b_body.freeze:
+			b_body.sleeping = false
+			b_body.apply_force(axis * force, point_b - b_body.global_position)
+
+
+## A piston in sensor mode is a load cell: it takes no command, and holds its
+## built length with the stiffest spring the masses can bear. The force on
+## that spring over the piston's cross-section is the pressure it puts out,
+## in kPa (positive when pushed in).
+func _run_load_cell(slider: Dictionary, a_body: RigidBody3D, b_body: RigidBody3D, axis: Vector3,
+		point_a: Vector3, point_b: Vector3, out: float, moving: float, delta: float) -> void:
+	var looseness := 0.0
+	if not a_body.freeze:
+		looseness += 1.0 / a_body.mass
+	if not b_body.freeze:
+		looseness += 1.0 / b_body.mass
+	var force := 0.0
+	if looseness > 0.0:
+		var shared_mass: float = 1.0 / looseness
+		force = -0.2 * shared_mass / (delta * delta) * out - 0.5 * shared_mass / delta * moving
+		if not a_body.freeze:
+			a_body.apply_force(-axis * force, point_a - a_body.global_position)
+		if not b_body.freeze:
+			b_body.apply_force(axis * force, point_b - b_body.global_position)
+	var start: float = slider["start"]
+	_outputs[int(slider["uid"])] = {"length": (start + out) / Units.CELL,
+			"pressure": force / maxf(float(slider["area"]), 0.0001) / 1000.0}
+
+
+## Hangs something drawn (a flame) on a part, so it moves with the part and
+## goes when the part is destroyed. `make` gets the part's place inside its
+## body and its size, and returns the node.
+func attach_extra(uid: int, make: Callable) -> Node3D:
+	var piece: int = uid * PIECES
+	if not _pieces.has(piece):
+		return null
+	var entry: Dictionary = _pieces[piece]
+	var record: Dictionary = _records[uid]
+	var node: Node3D = make.call(entry["place"], Units.to_metres(record["size"] as Vector3i))
+	var body: RigidBody3D = entry["body"]
+	body.add_child(node)
+	var extras: Array = entry["extras"]
+	extras.append(node)
+	return node
 
 
 ## A spring pushes its two ends apart when shorter than its rest length and
@@ -1714,7 +2145,7 @@ func _find_meshes() -> void:
 				# other. The rims move at one speed, so they turn the same way.
 				if int(a["belt"]) > 0 and int(a["belt"]) == int(b["belt"]) and absf(lined_up) > 0.99 and level:
 					_meshes.append({"a": a["uid"], "b": b["uid"], "weight_a": radius_a, "weight_b": radius_b,
-							"sense": signf(lined_up)})
+							"sense": signf(lined_up), "belt": true})
 			elif type_a == "gear" and type_b == "gear":
 				# Spur gears: parallel shafts, level with each other, rims touching.
 				var gap: float = between.length() - (radius_a + radius_b)
@@ -1989,6 +2420,11 @@ func link_source(links: Dictionary, input_id: String) -> int:
 
 
 ## Lets another script publish a part's outputs, for links to read.
+## What a part is putting out now: output id -> value. Empty if nothing.
+func outputs_of(uid: int) -> Dictionary:
+	return _outputs.get(uid, {})
+
+
 func set_outputs(uid: int, values: Dictionary) -> void:
 	_outputs[uid] = values
 
@@ -2040,7 +2476,194 @@ func _physics_process(delta: float) -> void:
 	_run_gears()
 	_run_thrusters()
 	_run_aero(delta)
+	_run_body_drag()
 	_run_buoyancy(delta)
+	_alive_time += delta
+	_run_crash_damage(delta)
+
+
+func _process(_delta: float) -> void:
+	if spawned:
+		_draw_belts()
+
+
+## Damage from hard knocks. Each body's change of speed is measured over the
+## last CRASH_WINDOW ticks (50 ms), which irons out the shaking of engines
+## and joints; past CRASH_SAFE_G on average, every part in the body takes
+## CRASH_DAMAGE HP per kg of its own mass, per g over, per tick. So a light,
+## strong part survives what breaks a heavy, weak one: glass shatters,
+## Kevlar holds.
+func _run_crash_damage(delta: float) -> void:
+	if not crash_damage:
+		_speed_history.clear()
+		return
+	var damage: Dictionary = {}
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if not is_instance_valid(body) or body.freeze:
+			continue
+		var history: Array = _speed_history.get(body, [])
+		history.append(body.linear_velocity)
+		if history.size() > CRASH_WINDOW + 1:
+			history.pop_front()
+		_speed_history[body] = history
+		if _alive_time < CRASH_GRACE or history.size() <= CRASH_WINDOW:
+			continue
+		var change: Vector3 = (history[history.size() - 1] as Vector3) - (history[0] as Vector3)
+		var g: float = change.length() / (CRASH_WINDOW * delta) / 9.81
+		if g <= CRASH_SAFE_G:
+			continue
+		for piece in _body_pieces.get(body, []):
+			var entry: Dictionary = _pieces[piece]
+			var uid: int = entry["uid"]
+			damage[uid] = float(damage.get(uid, 0.0)) + float(entry["mass"]) * (g - CRASH_SAFE_G) * CRASH_DAMAGE
+	if not damage.is_empty():
+		damage_parts(damage)
+
+
+## Draws the belts between pulleys that share one: two straight runs from
+## rim to rim on either side.
+func _draw_belts() -> void:
+	var belts: Array = []
+	for item in _meshes:
+		var mesh: Dictionary = item
+		if bool(mesh.get("belt", false)):
+			belts.append(mesh)
+	if belts.is_empty():
+		if _belt_mesh != null:
+			_belt_mesh.visible = false
+		return
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var drawn := 0
+	for item in belts:
+		var mesh: Dictionary = item
+		var frame_a: Array = part_frame(mesh["a"])
+		var frame_b: Array = part_frame(mesh["b"])
+		if frame_a.is_empty() or frame_b.is_empty():
+			continue
+		var gear_a: Dictionary = _gears.get(int(mesh["a"]), {})
+		var gear_b: Dictionary = _gears.get(int(mesh["b"]), {})
+		if gear_a.is_empty() or gear_b.is_empty():
+			continue
+		var place_a: Transform3D = frame_a[0]
+		var place_b: Transform3D = frame_b[0]
+		var normal: Vector3 = place_a.basis.y.normalized()
+		var between: Vector3 = place_b.origin - place_a.origin
+		between -= normal * between.dot(normal)
+		if between.length() < 0.01:
+			continue
+		var side: Vector3 = normal.cross(between.normalized())
+		var width: float = float(gear_a["thickness"]) * 0.6
+		var radius_a: float = gear_a["radius"]
+		var radius_b: float = gear_b["radius"]
+		for sign_side in [1.0, -1.0]:
+			var s: float = sign_side
+			var from: Vector3 = place_a.origin + side * radius_a * s
+			var to: Vector3 = place_b.origin + side * radius_b * s
+			var half := normal * width * 0.5
+			for corner in [from - half, from + half, to + half, from - half, to + half, to - half]:
+				surface.add_vertex(corner)
+			drawn += 1
+	if drawn == 0:
+		return
+	if _belt_mesh == null:
+		_belt_mesh = MeshInstance3D.new()
+		_belt_mesh.top_level = true
+		var look := StandardMaterial3D.new()
+		look.albedo_color = Color(0.08, 0.08, 0.09)
+		look.cull_mode = BaseMaterial3D.CULL_DISABLED
+		look.roughness = 0.9
+		_belt_mesh.material_override = look
+		_belt_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_belt_mesh)
+	_belt_mesh.visible = true
+	_belt_mesh.global_transform = Transform3D.IDENTITY
+	surface.generate_normals()
+	_belt_mesh.mesh = surface.commit()
+
+
+## Gear trains whose ratios disagree round a loop (or with gears fixed
+## together on one body) cannot turn at all. Returns how many meshes break
+## the ratios already set, for the spawn message.
+func _check_gear_trains() -> int:
+	var ratio: Dictionary = {}     # gear uid -> its speed as a multiple of its train's first gear
+	var links: Dictionary = {}     # gear uid -> [[other uid, factor: other's speed = factor × this one's]]
+	for key in _gears:
+		links[key] = []
+	for item in _meshes:
+		var mesh: Dictionary = item
+		var a: int = mesh["a"]
+		var b: int = mesh["b"]
+		if not links.has(a) or not links.has(b):
+			continue
+		# weight_a × speed_a = sense × weight_b × speed_b
+		var factor: float = float(mesh["weight_a"]) / (float(mesh["sense"]) * float(mesh["weight_b"]))
+		(links[a] as Array).append([b, factor])
+		(links[b] as Array).append([a, 1.0 / factor])
+	# Gears fixed on one body with parallel shafts turn together.
+	var uids: Array = _gears.keys()
+	for i in uids.size():
+		for j in range(i + 1, uids.size()):
+			var first: Dictionary = _gears[uids[i]]
+			var second: Dictionary = _gears[uids[j]]
+			if _piece_body(first["piece"]) != _piece_body(second["piece"]):
+				continue
+			var lined: float = (first["axis"] as Vector3).dot(second["axis"])
+			if absf(lined) > 0.99 and int(first["carrier"]) == int(second["carrier"]):
+				(links[uids[i]] as Array).append([uids[j], signf(lined)])
+				(links[uids[j]] as Array).append([uids[i], signf(lined)])
+	var conflicts := 0
+	for start in uids:
+		if ratio.has(start):
+			continue
+		ratio[start] = 1.0
+		var queue: Array = [start]
+		while not queue.is_empty():
+			var current = queue.pop_back()
+			for link in links[current]:
+				var other = link[0]
+				var expected: float = float(ratio[current]) * float(link[1])
+				if ratio.has(other):
+					if absf(float(ratio[other]) - expected) > 0.001 * maxf(absf(expected), 1.0):
+						conflicts += 1
+				else:
+					ratio[other] = expected
+					queue.append(other)
+	return conflicts / 2   # each disagreement is seen from both ends
+
+
+## Parks the build where it stands (far from the player) or sets it going
+## again. Parked bodies are frozen; their speeds are kept and given back.
+func set_parked(on: bool) -> void:
+	if on == parked:
+		return
+	parked = on
+	if on:
+		for item in _bodies:
+			var body: RigidBody3D = item
+			if is_instance_valid(body) and not body.freeze:
+				_parked[body] = [body.linear_velocity, body.angular_velocity]
+				body.freeze = true
+	else:
+		for key in _parked:
+			var body: RigidBody3D = key
+			if not is_instance_valid(body):
+				continue
+			body.freeze = false
+			body.linear_velocity = _parked[key][0]
+			body.angular_velocity = _parked[key][1]
+		_parked.clear()
+		_speed_history.clear()
+
+
+## Where the build is: the place of its first body, or null if none.
+func where() -> Variant:
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if is_instance_valid(body):
+			return body.global_position
+	return null
 
 
 # --- Re-centring ---------------------------------------------------------------
@@ -2267,6 +2890,10 @@ func _run_thrusters() -> void:
 		var on: bool = _input_value(links, "on", 1.0) != 0.0
 		var throttle: float = clampf(_input_value(links, "throttle", 1.0), -1.0, 1.0)
 		var push: float = thrust * throttle if on else 0.0
+		if push != 0.0 and engines != null:
+			# One that does not run without fuel takes it from its tanks.
+			push *= engines.thruster_fuel(_uid_of(thruster[0]), absf(push), get_physics_process_delta_time())
+		_outputs[_uid_of(thruster[0])] = {"thrust": push}
 		flame.visible = push != 0.0
 		if push == 0.0 or body.freeze:
 			continue

@@ -164,6 +164,7 @@ func _build_square(square: Vector2i) -> void:
 		var walls := SurfaceTool.new()
 		walls.begin(Mesh.PRIMITIVE_TRIANGLES)
 		var body := StaticBody3D.new()
+		body.physics_material_override = Units.world_surface()
 		body.name = "Buildings_%d_%d" % [square.x, square.y]
 		body.collision_layer = Units.LAYER_WORLD
 		body.collision_mask = 0
@@ -488,6 +489,7 @@ func _build_bridges(spans: Array) -> void:
 	if spans.is_empty():
 		return
 	var body := StaticBody3D.new()
+	body.physics_material_override = Units.world_surface()
 	body.name = "Bridges"
 	body.collision_layer = Units.LAYER_WORLD
 	body.collision_mask = 0
