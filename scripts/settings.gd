@@ -8,8 +8,14 @@ extends RefCounted
 ##   tree_distance  how far away trees are drawn, in metres
 ##   show_fps       show frames per second beside the speed
 ##   sky            "cycle" (day and night), "day" or "night"
+##   render_scale   the share of full resolution the 3D view is drawn at, 50 to 100 (%)
+##   msaa           edge smoothing: "off", "2x" or "4x"
+##   shadows        whether the sun casts shadows
+##   volume_*       master, effects, machines, ambience and interface volumes, 0 to 100
 ##
 ## The physics always runs 240 steps a second, whatever the frame rate.
+
+const Sound = preload("res://scripts/sound.gd")
 
 const PATH := "user://settings.cfg"
 const SKIES := ["cycle", "day", "night"]
@@ -20,7 +26,16 @@ const DEFAULTS := {
 	"tree_distance": 2600.0,
 	"show_fps": true,
 	"sky": "cycle",
+	"render_scale": 100,
+	"msaa": "2x",
+	"shadows": true,
+	"volume_master": 80,
+	"volume_effects": 80,
+	"volume_machines": 80,
+	"volume_ambience": 70,
+	"volume_interface": 60,
 }
+const MSAA := ["off", "2x", "4x"]
 
 
 static func load_settings() -> Dictionary:
@@ -35,6 +50,11 @@ static func load_settings() -> Dictionary:
 		values["frame_mode"] = "vsync"
 	if not SKIES.has(str(values["sky"])):
 		values["sky"] = "cycle"
+	if not MSAA.has(str(values["msaa"])):
+		values["msaa"] = "2x"
+	values["render_scale"] = clampi(int(values["render_scale"]), 50, 100)
+	for key in ["volume_master", "volume_effects", "volume_machines", "volume_ambience", "volume_interface"]:
+		values[key] = clampi(int(values[key]), 0, 100)
 	return values
 
 
@@ -59,3 +79,8 @@ static func apply(values: Dictionary, forest: Node) -> void:
 			Engine.max_fps = 0
 	if forest != null:
 		forest.set_draw_distance(float(values["tree_distance"]))
+	var root := (Engine.get_main_loop() as SceneTree).root
+	root.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	root.scaling_3d_scale = float(values["render_scale"]) / 100.0
+	root.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][MSAA.find(str(values["msaa"]))]
+	Sound.apply_volumes(values)

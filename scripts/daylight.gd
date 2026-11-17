@@ -81,6 +81,10 @@ func _ready() -> void:
 	_apply(true)
 
 
+func set_shadows(on: bool) -> void:
+	_sun.shadow_enabled = on
+
+
 func set_mode(new_mode: String) -> void:
 	mode = new_mode if ["cycle", "day", "night"].has(new_mode) else "cycle"
 	if mode == "day":
@@ -100,6 +104,11 @@ func set_time(fraction: float) -> void:
 func clock_text() -> String:
 	var hours := fposmod(6.0 + day_fraction * 24.0, 24.0)
 	return "%02d:%02d" % [int(hours), int(fposmod(hours * 60.0, 60.0))]
+
+
+## 0 in daylight, 1 at full night, between at dusk and dawn.
+func night_amount() -> float:
+	return 1.0 - smoothstep(-0.16, 0.02, _sun_direction().y)
 
 
 func is_night() -> bool:

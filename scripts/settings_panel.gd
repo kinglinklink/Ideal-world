@@ -1,21 +1,60 @@
 extends PanelContainer
 ## The settings window, opened from the Settings button at the top of the
-## screen. Every change applies at once and is saved for next time.
+## screen, the pause menu or the title screen. Four tabs: Display, Sound,
+## World and Controls. Every change applies at once and is saved for next
+## time. It works while the game is paused.
 
 const Settings = preload("res://scripts/settings.gd")
+const Sound = preload("res://scripts/sound.gd")
 
 signal changed(values: Dictionary)
 signal jump_time(fraction: float)   # 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight
+signal closed
+
+const MODES := ["vsync", "cap", "unlimited"]
+const VOLUMES := [
+	["volume_master", "Master"], ["volume_effects", "Effects"], ["volume_machines", "Machines"],
+	["volume_ambience", "Wind and nature"], ["volume_interface", "Clicks"],
+]
+const CONTROLS := [
+	"Walking",
+	"  W A S D        walk (or swim)          Shift   run",
+	"  Space          jump, swim up, or stand up from a seat",
+	"  E              sit in the nearest seat",
+	"  Scroll         zoom from first person out to third person",
+	"  Right mouse    hold to turn the camera",
+	"  Esc            free the cursor (first person); again for the pause menu",
+	"  P              back to the build pad      M   full map",
+	"",
+	"Building",
+	"  1 to 5         Place, Delete, Config, Transform, Paint (again to put away)",
+	"  Left click     use the tool               R / T / Y   turn 90° about X / Y / Z",
+	"  Ctrl+Z / Ctrl+Y   undo / redo",
+	"  Transform: Shift+click add, arrows and Page Up/Down move,",
+	"             Ctrl+C / X / V copy, cut, paste, Ctrl+Shift+V paste in place,",
+	"             Ctrl+A select all, Delete remove",
+	"  Config: Shift+C / Shift+V copy and paste a part's size and settings",
+	"  Enter          Spawn, or back to Build",
+	"",
+	"Spawned",
+	"  Keys you bind in input blocks work while you sit in a seat.",
+	"  F1 or the Guide button: what every part does.",
+]
 
 var values: Dictionary = {}
 var _forest: Node = null
 var _mode: OptionButton
 var _cap: SpinBox
+var _scale: HSlider
+var _scale_label: Label
+var _msaa: OptionButton
+var _shadows: CheckBox
 var _trees: HSlider
 var _trees_label: Label
 var _fps: CheckBox
 var _sky: OptionButton
-const MODES := ["vsync", "cap", "unlimited"]
+var _volume_sliders: Dictionary = {}
+var _volume_labels: Dictionary = {}
 
 
 func setup(forest: Node) -> void:
@@ -28,20 +67,29 @@ func setup(forest: Node) -> void:
 
 func _build() -> void:
 	visible = false
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(380, 0)
+	custom_minimum_size = Vector2(560, 470)
+	visibility_changed.connect(func() -> void:
+		if not visible:
+			closed.emit())
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	add_child(column)
 
 	var title := Label.new()
 	title.text = "Settings"
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 22)
 	column.add_child(title)
 
-	var frame_row := HBoxContainer.new()
-	column.add_child(frame_row)
-	frame_row.add_child(_caption("Frame rate"))
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.focus_mode = Control.FOCUS_NONE
+	column.add_child(tabs)
+
+	# --- Display ---
+	var display := _page(tabs, "Display")
+	var frame_row := _row(display, "Frame rate")
 	_mode = OptionButton.new()
 	_mode.focus_mode = Control.FOCUS_NONE
 	_mode.add_item("VSync")
@@ -57,24 +105,78 @@ func _build() -> void:
 	_cap.value_changed.connect(_on_cap)
 	frame_row.add_child(_cap)
 
-	var tree_row := HBoxContainer.new()
-	column.add_child(tree_row)
-	tree_row.add_child(_caption("Tree distance"))
-	_trees = HSlider.new()
-	_trees.min_value = 500
-	_trees.max_value = 5000
-	_trees.step = 100
-	_trees.custom_minimum_size = Vector2(150, 0)
-	_trees.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_trees.focus_mode = Control.FOCUS_NONE
+	var scale_row := _row(display, "Resolution")
+	_scale = _slider(50, 100, 5)
+	_scale.value_changed.connect(func(value: float) -> void:
+		values["render_scale"] = int(value)
+		_commit())
+	scale_row.add_child(_scale)
+	_scale_label = Label.new()
+	scale_row.add_child(_scale_label)
+
+	var msaa_row := _row(display, "Edge smoothing")
+	_msaa = OptionButton.new()
+	_msaa.focus_mode = Control.FOCUS_NONE
+	for option in ["Off", "2×", "4×"]:
+		_msaa.add_item(option)
+	_msaa.item_selected.connect(func(index: int) -> void:
+		values["msaa"] = Settings.MSAA[clampi(index, 0, 2)]
+		_commit())
+	msaa_row.add_child(_msaa)
+
+	var tree_row := _row(display, "Tree distance")
+	_trees = _slider(500, 5000, 100)
 	_trees.value_changed.connect(_on_trees)
 	tree_row.add_child(_trees)
 	_trees_label = Label.new()
 	tree_row.add_child(_trees_label)
 
-	var sky_row := HBoxContainer.new()
-	column.add_child(sky_row)
-	sky_row.add_child(_caption("Time of day"))
+	_shadows = CheckBox.new()
+	_shadows.text = "Shadows"
+	_shadows.focus_mode = Control.FOCUS_NONE
+	_shadows.toggled.connect(func(on: bool) -> void:
+		values["shadows"] = on
+		_commit())
+	display.add_child(_shadows)
+
+	_fps = CheckBox.new()
+	_fps.text = "Show frames per second"
+	_fps.focus_mode = Control.FOCUS_NONE
+	_fps.toggled.connect(_on_fps)
+	display.add_child(_fps)
+
+	var presets := HBoxContainer.new()
+	display.add_child(presets)
+	presets.add_child(_caption("Quick set"))
+	var low := _small_button("Laptop (fast)")
+	low.pressed.connect(func() -> void: _preset(60, 70, "off", false, 1200.0))
+	presets.add_child(low)
+	var high := _small_button("Desktop (best)")
+	high.pressed.connect(func() -> void: _preset(0, 100, "4x", true, 3600.0))
+	presets.add_child(high)
+
+	display.add_child(_note("Lower the resolution, smoothing, shadows or tree distance to speed up a slow\ncomputer or keep a laptop cool. Physics always runs 240 steps a second."))
+
+	# --- Sound ---
+	var sound := _page(tabs, "Sound")
+	for pair in VOLUMES:
+		var key: String = pair[0]
+		var row := _row(sound, str(pair[1]))
+		var slider := _slider(0, 100, 1)
+		slider.value_changed.connect(func(value: float) -> void:
+			values[key] = int(value)
+			_commit())
+		slider.drag_ended.connect(func(_moved: bool) -> void: Sound.play_ui("click"))
+		row.add_child(slider)
+		var label := Label.new()
+		row.add_child(label)
+		_volume_sliders[key] = slider
+		_volume_labels[key] = label
+	sound.add_child(_note("Machines are motors, jets, rockets, propellers and engines.\nEffects are guns, explosions and things falling down."))
+
+	# --- World ---
+	var world := _page(tabs, "World")
+	var sky_row := _row(world, "Time of day")
 	_sky = OptionButton.new()
 	_sky.focus_mode = Control.FOCUS_NONE
 	_sky.add_item("Day and night (20 min)")
@@ -82,53 +184,109 @@ func _build() -> void:
 	_sky.add_item("Always night")
 	_sky.item_selected.connect(_on_sky)
 	sky_row.add_child(_sky)
-
-	var jump_row := HBoxContainer.new()
-	column.add_child(jump_row)
-	jump_row.add_child(_caption("Jump to"))
+	var jump_row := _row(world, "Jump to")
 	for pair in [["Dawn", 0.0], ["Noon", 0.25], ["Dusk", 0.47], ["Night", 0.75]]:
-		var jump := Button.new()
-		jump.text = str(pair[0])
-		jump.focus_mode = Control.FOCUS_NONE
+		var jump := _small_button(str(pair[0]))
 		var fraction: float = pair[1]
 		jump.pressed.connect(func() -> void: jump_time.emit(fraction))
 		jump_row.add_child(jump)
+	world.add_child(_note("A day lasts 20 minutes: 10 of daylight, 10 of night.\nRunway lights come on after dusk."))
 
-	_fps = CheckBox.new()
-	_fps.text = "Show frames per second"
-	_fps.focus_mode = Control.FOCUS_NONE
-	_fps.toggled.connect(_on_fps)
-	column.add_child(_fps)
+	# --- Controls ---
+	var controls := _page(tabs, "Controls")
+	var keys := Label.new()
+	keys.text = "\n".join(PackedStringArray(CONTROLS))
+	keys.add_theme_font_size_override("font_size", 13)
+	controls.add_child(keys)
 
-	var note := Label.new()
-	note.text = "Lower the frame limit or tree distance to keep a laptop cool.\nPhysics always runs 240 steps a second."
-	note.add_theme_font_size_override("font_size", 12)
-	note.modulate = Color(1, 1, 1, 0.7)
-	column.add_child(note)
-
-	var close := Button.new()
-	close.text = "Close"
-	close.focus_mode = Control.FOCUS_NONE
+	var close := _small_button("Close")
 	close.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close.pressed.connect(func() -> void: visible = false)
 	column.add_child(close)
 
 
+func _page(tabs: TabContainer, title: String) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = title
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(scroll)
+	var page := VBoxContainer.new()
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 10)
+	scroll.add_child(page)
+	return page
+
+
+func _row(parent: Control, caption: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	parent.add_child(row)
+	row.add_child(_caption(caption))
+	return row
+
+
+func _slider(low: float, high: float, step: float) -> HSlider:
+	var slider := HSlider.new()
+	slider.min_value = low
+	slider.max_value = high
+	slider.step = step
+	slider.custom_minimum_size = Vector2(200, 0)
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.focus_mode = Control.FOCUS_NONE
+	return slider
+
+
+func _small_button(text: String) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.pressed.connect(func() -> void: Sound.play_ui("click"))
+	return button
+
+
+func _note(text: String) -> Label:
+	var note := Label.new()
+	note.text = text
+	note.add_theme_font_size_override("font_size", 12)
+	note.modulate = Color(1, 1, 1, 0.7)
+	return note
+
+
 func _caption(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.custom_minimum_size = Vector2(110, 0)
+	label.custom_minimum_size = Vector2(130, 0)
 	return label
+
+
+func _preset(cap: int, resolution: int, msaa: String, shadows: bool, trees: float) -> void:
+	if cap > 0:
+		values["frame_mode"] = "cap"
+		values["frame_cap"] = cap
+	else:
+		values["frame_mode"] = "vsync"
+	values["render_scale"] = resolution
+	values["msaa"] = msaa
+	values["shadows"] = shadows
+	values["tree_distance"] = trees
+	_commit()
 
 
 func _show_values() -> void:
 	_mode.select(MODES.find(str(values["frame_mode"])))
 	_cap.set_value_no_signal(int(values["frame_cap"]))
 	_cap.editable = values["frame_mode"] == "cap"
+	_scale.set_value_no_signal(int(values["render_scale"]))
+	_scale_label.text = "%d%%" % int(values["render_scale"])
+	_msaa.select(Settings.MSAA.find(str(values["msaa"])))
+	_shadows.set_pressed_no_signal(bool(values["shadows"]))
 	_trees.set_value_no_signal(float(values["tree_distance"]))
 	_trees_label.text = "%.1f km" % (float(values["tree_distance"]) / 1000.0)
 	_fps.set_pressed_no_signal(bool(values["show_fps"]))
 	_sky.select(Settings.SKIES.find(str(values["sky"])))
+	for key in _volume_sliders:
+		var slider: HSlider = _volume_sliders[key]
+		slider.set_value_no_signal(int(values[key]))
+		(_volume_labels[key] as Label).text = "%d%%" % int(values[key])
 
 
 func _commit() -> void:

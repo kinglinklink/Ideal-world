@@ -12,14 +12,14 @@ const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Minimap = preload("res://scripts/minimap.gd")
 const WorldMap = preload("res://scripts/world_map.gd")
+const Sound = preload("res://scripts/sound.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
-const SettingsPanel = preload("res://scripts/settings_panel.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 20"
+const VERSION := "Build 21"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -84,7 +84,9 @@ var _signals_scroll: ScrollContainer
 var _signals_box: VBoxContainer
 var _minimap: Control
 var daylight: Node = null            # daylight.gd, for the clock
+var menus: Node = null               # menus.gd: settings, guide, pause
 var _clock_label: Label
+var _part_total := 0
 var _waypoint_label: Label
 var _world_map: Control              # world_map.gd, opened with M
 var _garage_button: Button
@@ -110,6 +112,9 @@ func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
 	controller.connect("message", _on_message)
 	controller.connect("spawn_changed", _on_changed_with_value)
 	grid.connect("parts_changed", _on_changed)
+	grid.connect("parts_changed", _on_parts_sound)
+	controller.connect("spawn_changed", _on_spawn_sound)
+	_part_total = grid.part_count()
 	_refresh()
 
 
@@ -124,10 +129,11 @@ func set_garage_open(open: bool) -> void:
 	_garage_button.text = "Close garage" if open else "Open garage"
 
 
-## Loads and applies the saved settings. `forest` is forest.gd and
-## `the_daylight` daylight.gd.
-func setup_settings(forest: Node, the_daylight: Node) -> void:
+## Loads and applies the saved settings. `forest` is forest.gd,
+## `the_daylight` daylight.gd and `panel` the settings window (settings_panel.gd).
+func setup_settings(forest: Node, the_daylight: Node, panel: PanelContainer) -> void:
 	daylight = the_daylight
+	_settings_panel = panel
 	_settings_panel.setup(forest)
 	_settings_panel.connect("changed", _on_settings_changed)
 	_settings_panel.connect("jump_time", _on_jump_time)
@@ -138,6 +144,8 @@ func _on_settings_changed(values: Dictionary) -> void:
 	_fps_label.visible = bool(values.get("show_fps", true))
 	if daylight != null and str(values.get("sky", "cycle")) != daylight.mode:
 		daylight.set_mode(str(values.get("sky", "cycle")))
+	if daylight != null:
+		daylight.set_shadows(bool(values.get("shadows", true)))
 
 
 func _on_jump_time(fraction: float) -> void:
@@ -152,6 +160,10 @@ func _on_jump_time(fraction: float) -> void:
 ## Opens or closes the full map (the M key).
 func toggle_world_map() -> void:
 	_world_map.toggle()
+
+
+func world_map_open() -> bool:
+	return _world_map.visible
 
 
 ## The map of the lake behind the mini map, and the places to label on it.
@@ -182,6 +194,7 @@ func _button(text: String, min_width: float = 0.0, toggle: bool = false) -> Butt
 	button.toggle_mode = toggle
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(min_width, 34)
+	button.pressed.connect(func() -> void: Sound.play_ui("click"))
 	return button
 
 
@@ -244,11 +257,16 @@ func _build_interface() -> void:
 	respawn.pressed.connect(func() -> void: respawn_pressed.emit())
 	top_buttons.add_child(respawn)
 	var settings := _button("Settings", 100.0)
-	settings.pressed.connect(func() -> void: _settings_panel.visible = not _settings_panel.visible)
+	settings.pressed.connect(func() -> void:
+		if menus != null:
+			menus.toggle_settings())
 	top_buttons.add_child(settings)
-	_settings_panel = SettingsPanel.new()
-	_settings_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	top.add_child(_settings_panel)
+	var guide := _button("Guide (F1)", 110.0)
+	guide.tooltip_text = "What every part does, its settings, inputs and outputs"
+	guide.pressed.connect(func() -> void:
+		if menus != null:
+			menus.toggle_guide())
+	top_buttons.add_child(guide)
 	_message_label = _outlined(_label("", 18))
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
@@ -1306,6 +1324,21 @@ func _on_message(text: String) -> void:
 
 func _on_changed() -> void:
 	_refresh()
+
+
+## A knock when a part goes on or comes off the build.
+func _on_parts_sound() -> void:
+	var total: int = grid.part_count()
+	if total > _part_total:
+		Sound.play_ui("place")
+	elif total < _part_total:
+		Sound.play_ui("remove")
+	_part_total = total
+
+
+func _on_spawn_sound(spawned: Variant) -> void:
+	if bool(spawned):
+		Sound.play_ui("spawn")
 
 
 func _on_changed_with_value(_value: Variant) -> void:

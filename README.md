@@ -14,7 +14,10 @@ Working now:
 - A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - **Respawn** (button at the top, or P) puts you back at the build pad from anywhere
-- **Settings** (button at the top): frame rate (VSync, a limit from 1 to 240, or unlimited), how far away trees are drawn, and whether to show frames per second. Saved between runs.
+- **A title screen** when the game starts (Play, Parts guide, Settings, Quit), and a **pause menu**: Esc (once the cursor is free; in first person the first Esc frees it) pauses the game with Resume, Parts guide, Settings, Back to the build pad, Title screen and Quit.
+- **Settings** (button at the top, or from the menus), in four tabs, saved between runs. *Display:* frame rate (VSync, a limit from 1 to 240, or unlimited), resolution (50 to 100%), edge smoothing (off, 2×, 4×), shadows, tree distance, frames per second on screen, and quick presets for a laptop or a desktop. *Sound:* master, effects, machines, wind and nature, and clicks. *World:* day and night, always day or always night, and jump to a time. *Controls:* every key.
+- **The parts guide** (F1, or the Guide button): a page for every one of the 78 parts saying what it does, how to use it and where its limits are, with its default size, every setting (units, default and range) and every input and output, plus pages on how welding, signals, fluids, flying, water, damage, the map and performance work. Search finds parts by name or by anything on their page.
+- **Sound.** Guns, cannons, explosions and buildings coming down; motors, propellers, jets, rockets and thrusters that rise in pitch and volume as they work harder, heard from where they are; a pop for every firing of a combustion cylinder; wind that rises with your speed; birds by day and crickets at night; clicks and knocks for the interface and for placing and removing parts. Every sound is made from scratch by `tools/make_sounds.py`, so nothing was downloaded.
 - A mini map in the top-right corner, north up, drawn over the real lake, with the islands, airports and buildings labelled. It zooms out as you speed up, from 600 m across standing still to 12 km across in a fast plane.
 - Grass round the pad, and about 600,000 pines across the islands and the land inside the wall, built near the camera as you go
 - All five tools: Place, Delete, Config, Transform and Paint
@@ -82,7 +85,8 @@ Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any num
 | Enter | Spawn the build, or go back to building |
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
-| Esc | Free or recapture the cursor (first person) |
+| Esc | Free the cursor (first person); with the cursor free, pause. Closes the map, guide and settings. |
+| F1 | Parts guide |
 | M | Open or close the full map. Scroll to zoom, drag to move it, click to set a waypoint, right-click to clear it. |
 | P | Back to the build pad |
 | 1 to 5 | Place, Delete, Config, Transform, Paint. Press the same key again to put the tool away. |
@@ -106,7 +110,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 20"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 21"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -219,6 +223,10 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
 | `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
 | `scripts/logic.gd` | Logic blocks, sensors, light panels, vanish blocks, propellers and lift-gas tanks |
+| `scripts/sound.gd` | Sound: effects, machine loops, wind and nature, volumes |
+| `scripts/menus.gd` | Title screen, pause menu, and the windows they open |
+| `scripts/parts_guide.gd`, `parts_guide_text.gd` | The parts guide window and its pages |
+| `tools/make_sounds.py` | Makes every sound in `sounds/` from scratch |
 | `scripts/engines.gd` | Fluid networks, fuel, pumps, cylinders, jet engines and rockets |
 | `scripts/daylight.gd` | Day and night: sun, moon, sky, stars and runway lights |
 | `scripts/world_map.gd` | The full map (M) and waypoints |

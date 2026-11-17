@@ -2082,6 +2082,11 @@ func link_source(links: Dictionary, input_id: String) -> int:
 
 
 ## Lets another script publish a part's outputs, for links to read.
+## What a part is putting out now: output id -> value. Empty if nothing.
+func outputs_of(uid: int) -> Dictionary:
+	return _outputs.get(uid, {})
+
+
 func set_outputs(uid: int, values: Dictionary) -> void:
 	_outputs[uid] = values
 

@@ -40,6 +40,7 @@ const BuildGrid = preload("res://scripts/build_grid.gd")
 const Units = preload("res://scripts/units.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Aero = preload("res://scripts/aero.gd")
+const Sound = preload("res://scripts/sound.gd")
 
 const FLUID_TYPES := ["fluid_cylinder", "pump", "valve", "fluid_pipe", "fuel_tank", "pressure_tank",
 		"combustion_cylinder", "compressor", "combustor", "turbine", "nozzle", "thruster"]
@@ -462,6 +463,8 @@ func cylinder_force(uid: int, out: float, moving: float, _delta: float) -> float
 		var burnt_kg := minf(fuel_litres * fuel.y, air_kg / AIR_PER_FUEL)
 		var heat := burnt_kg / maxf(fuel.y, 1e-6) * fuel.x
 		if heat > 0.0:
+			Sound.play_at("piston_pop", _position_of(uid), clampf(linear_to_db(maxf(area / 0.0177, 0.1)), -14.0, 6.0) - 4.0,
+					6.0 + sqrt(area) * 20.0, randf_range(0.9, 1.1) * clampf(sqrt(0.0177 / maxf(area, 1e-4)), 0.5, 2.0))
 			pressure += heat * (GAMMA - 1.0) / volume
 			cylinder["phase"] = "power"
 			cylinder["p0"] = pressure

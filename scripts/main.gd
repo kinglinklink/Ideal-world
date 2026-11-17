@@ -24,6 +24,8 @@ const Logic = preload("res://scripts/logic.gd")
 const Engines = preload("res://scripts/engines.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Daylight = preload("res://scripts/daylight.gd")
+const Sound = preload("res://scripts/sound.gd")
+const Menus = preload("res://scripts/menus.gd")
 
 # The garage sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
@@ -50,6 +52,11 @@ const START_HEADING := PI
 
 func _ready() -> void:
 	_make_sky_and_sun()
+
+	# Sound: effects, machines, wind and the birds and crickets.
+	var sound: Node = Sound.new()
+	sound.name = "Sound"
+	add_child(sound)
 
 	var grid: Node3D = BuildGrid.new()
 	grid.name = "BuildGrid"
@@ -131,7 +138,20 @@ func _ready() -> void:
 	_hud = hud
 	hud.connect("garage_button_pressed", _on_garage_button)
 	hud.connect("respawn_pressed", _respawn)
-	hud.setup_settings(terrain.forest, _daylight)
+	# Title screen, pause menu, settings and the parts guide, over everything.
+	var menus: CanvasLayer = Menus.new()
+	menus.name = "Menus"
+	add_child(menus)
+	menus.player = player
+	menus.hud = hud
+	menus.version = "Ideal World  %s" % Hud.VERSION
+	menus.connect("respawn_requested", _respawn)
+	hud.menus = menus
+	hud.setup_settings(terrain.forest, _daylight, menus.settings_panel)
+	menus.show_title()
+	sound.spawner = spawner
+	sound.player = player
+	sound.daylight = _daylight
 
 
 func _unhandled_input(event: InputEvent) -> void:
