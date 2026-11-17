@@ -154,9 +154,9 @@ func _show_part(id: String) -> void:
 	if not inputs.is_empty() or not outputs.is_empty():
 		text += "\n[font_size=19][b]Signals[/b][/font_size]  [color=#9aa](Config tool → Link)[/color]\n"
 		for port in inputs:
-			text += "  ⇢  in:  [b]%s[/b]  [color=#9aa](%s)[/color]\n" % [port[1], _kind(str(port[2]))]
+			text += "  •  in:  [b]%s[/b]  [color=#9aa](%s)[/color]\n" % [port[1], _kind(str(port[2]))]
 		for port in outputs:
-			text += "  ⇠  out: [b]%s[/b]  [color=#9aa](%s)[/color]\n" % [port[1], _kind(str(port[2]))]
+			text += "  •  out: [b]%s[/b]  [color=#9aa](%s)[/color]\n" % [port[1], _kind(str(port[2]))]
 	_page.clear()
 	_page.append_text(text)
 	_page.scroll_to_line(0)
