@@ -141,11 +141,15 @@ static func play_ui(key: String) -> void:
 static func gun(key: String, where: Vector3, loudness: float = 0.0, reach: float = 40.0) -> void:
 	if instance == null:
 		return
+	instance._gun(key, where, loudness, reach)
+
+
+func _gun(key: String, where: Vector3, loudness: float, reach: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
-	if key == "gunshot" and now - float(instance._last_gun) < GUN_GAP:
+	if key == "gunshot" and now - _last_gun < GUN_GAP:
 		return
-	instance._last_gun = now
-	instance._play_at(key, where, loudness, reach, randf_range(0.94, 1.06))
+	_last_gun = now
+	_play_at(key, where, loudness, reach, randf_range(0.94, 1.06))
 
 
 func _play_at(key: String, where: Vector3, loudness: float, reach: float, pitch: float) -> void:

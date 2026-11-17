@@ -425,8 +425,8 @@ func cylinder_force(uid: int, out: float, moving: float, _delta: float) -> float
 	if str(cylinder["kind"]) == "gas":
 		# Between network updates the gas in this cylinder follows its own volume.
 		var n: float = _gas[uid]["n"]
-		var pressure := n * GAS_CONSTANT * AIR_TEMPERATURE / maxf(_gas_volume(uid), 1e-9)
-		return (pressure - ambient) * area
+		var gas_pressure := n * GAS_CONSTANT * AIR_TEMPERATURE / maxf(_gas_volume(uid), 1e-9)
+		return (gas_pressure - ambient) * area
 	if str(cylinder["kind"]) != "combustion":
 		return 0.0
 
