@@ -7,16 +7,19 @@ extends RefCounted
 ##   frame_cap      1 to 240
 ##   tree_distance  how far away trees are drawn, in metres
 ##   show_fps       show frames per second beside the speed
+##   sky            "cycle" (day and night), "day" or "night"
 ##
 ## The physics always runs 240 steps a second, whatever the frame rate.
 
 const PATH := "user://settings.cfg"
+const SKIES := ["cycle", "day", "night"]
 const SECTION := "settings"
 const DEFAULTS := {
 	"frame_mode": "vsync",
 	"frame_cap": 60,
 	"tree_distance": 2600.0,
 	"show_fps": true,
+	"sky": "cycle",
 }
 
 
@@ -30,6 +33,8 @@ static func load_settings() -> Dictionary:
 	values["tree_distance"] = clampf(float(values["tree_distance"]), 500.0, 5000.0)
 	if not ["vsync", "cap", "unlimited"].has(str(values["frame_mode"])):
 		values["frame_mode"] = "vsync"
+	if not SKIES.has(str(values["sky"])):
+		values["sky"] = "cycle"
 	return values
 
 

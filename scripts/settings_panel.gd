@@ -5,6 +5,7 @@ extends PanelContainer
 const Settings = preload("res://scripts/settings.gd")
 
 signal changed(values: Dictionary)
+signal jump_time(fraction: float)   # 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight
 
 var values: Dictionary = {}
 var _forest: Node = null
@@ -13,6 +14,7 @@ var _cap: SpinBox
 var _trees: HSlider
 var _trees_label: Label
 var _fps: CheckBox
+var _sky: OptionButton
 const MODES := ["vsync", "cap", "unlimited"]
 
 
@@ -70,6 +72,28 @@ func _build() -> void:
 	_trees_label = Label.new()
 	tree_row.add_child(_trees_label)
 
+	var sky_row := HBoxContainer.new()
+	column.add_child(sky_row)
+	sky_row.add_child(_caption("Time of day"))
+	_sky = OptionButton.new()
+	_sky.focus_mode = Control.FOCUS_NONE
+	_sky.add_item("Day and night (20 min)")
+	_sky.add_item("Always day")
+	_sky.add_item("Always night")
+	_sky.item_selected.connect(_on_sky)
+	sky_row.add_child(_sky)
+
+	var jump_row := HBoxContainer.new()
+	column.add_child(jump_row)
+	jump_row.add_child(_caption("Jump to"))
+	for pair in [["Dawn", 0.0], ["Noon", 0.25], ["Dusk", 0.47], ["Night", 0.75]]:
+		var jump := Button.new()
+		jump.text = str(pair[0])
+		jump.focus_mode = Control.FOCUS_NONE
+		var fraction: float = pair[1]
+		jump.pressed.connect(func() -> void: jump_time.emit(fraction))
+		jump_row.add_child(jump)
+
 	_fps = CheckBox.new()
 	_fps.text = "Show frames per second"
 	_fps.focus_mode = Control.FOCUS_NONE
@@ -104,6 +128,7 @@ func _show_values() -> void:
 	_trees.set_value_no_signal(float(values["tree_distance"]))
 	_trees_label.text = "%.1f km" % (float(values["tree_distance"]) / 1000.0)
 	_fps.set_pressed_no_signal(bool(values["show_fps"]))
+	_sky.select(Settings.SKIES.find(str(values["sky"])))
 
 
 func _commit() -> void:
@@ -125,6 +150,11 @@ func _on_cap(value: float) -> void:
 
 func _on_trees(value: float) -> void:
 	values["tree_distance"] = value
+	_commit()
+
+
+func _on_sky(index: int) -> void:
+	values["sky"] = Settings.SKIES[clampi(index, 0, Settings.SKIES.size() - 1)]
 	_commit()
 
 

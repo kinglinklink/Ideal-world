@@ -90,6 +90,16 @@ const MACHINES := {
 		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
 			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
 		"joints": [[0, 1, "slide", 1, Vector3(0, 0, 0)]]},
+	# Fluid and combustion cylinders: a barrel and a rod end like a piston's,
+	# moved by the pressure inside (engines.gd) instead of a drive.
+	"fluid_cylinder": {"role": "cylinder",
+		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
+			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
+		"joints": [[0, 1, "slide", 1, Vector3(0, 0, 0)]]},
+	"combustion_cylinder": {"role": "cylinder",
+		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
+			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
+		"joints": [[0, 1, "slide", 1, Vector3(0, 0, 0)]]},
 	"solenoid": {"role": "solenoid",
 		"pieces": [["base", Vector3(0, -0.125, 0), Vector3(1, 0.75, 1), Vector3(1, 1, 1)],
 			["top", Vector3(0, 0.375, 0), Vector3(1, 0.25, 1), Vector3(1, 1, 1)]],
@@ -131,6 +141,7 @@ const MACHINES := {
 }
 
 var spawned := false
+var engines: Node = null       # engines.gd: pressures for cylinders, fuel for thrusters
 var generation := 0            # goes up by one at every spawn, so other scripts can tell a new one
 var occupied_seat := 0         # uid of the seat the character is sitting in; set by the build controller
 
@@ -735,11 +746,12 @@ func _build_piece(body: RigidBody3D, piece: int, centre: Vector3) -> bool:
 		var spec: Array = _piece_spec(piece, record)
 		var piece_name: String = spec[0]
 		var options := {"half": piece_name}
-		if piece_name == "top" and (type == "piston" or type == "solenoid") and size_m.y > 0.0:
+		var cylinder := type == "fluid_cylinder" or type == "combustion_cylinder"
+		if piece_name == "top" and (type == "piston" or type == "solenoid" or cylinder) and size_m.y > 0.0:
 			# Enough rod to show when it is run right out.
 			var travel: float = float(props.get("max_length", props.get("stroke", 1.0))) * Units.CELL
 			options["reach"] = snappedf(clampf(travel / size_m.y, 0.0, 64.0), 0.01)
-		mesh = PartLibrary.get_mesh(type, options)
+		mesh = PartLibrary.get_mesh("piston" if cylinder else type, options)
 		shape_key = "%s %s %s" % [type, piece_name, size_units]
 		if type == "wheel" and piece_name == "top":
 			# The tyre is round, so that it rolls.
@@ -1447,8 +1459,20 @@ func _add_slider(uid: int, role: String, joint: Generic6DOFJoint3D, a: int, b: i
 	elif role == "solenoid":
 		longest = float(props.get("stroke", 0.5)) * Units.CELL
 		force = float(props.get("force", 500.0))
+	var hydraulic := false
+	if role == "cylinder":
+		longest = float(props.get("stroke", 1.0)) * Units.CELL
+		hydraulic = str(record["type"]) == "fluid_cylinder" \
+				and str(props.get("fluid", "Hydraulic oil")) == "Hydraulic oil"
+		force = 1.0
 
-	if role == "spring":
+	if role == "spring" or (role == "cylinder" and not hydraulic):
+		# Free along its line: the pressure inside pushes it (engines.gd).
+		joint.set_flag_x(Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_LIMIT, role == "cylinder")
+		if role == "cylinder":
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_LOWER_LIMIT, -longest - 0.01)
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_UPPER_LIMIT, longest + 0.01)
+	elif role == "spring":
 		# A spring is free to move along its line; the spring force is applied by hand.
 		joint.set_flag_x(Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_LIMIT, false)
 	else:
@@ -1471,6 +1495,7 @@ func _add_slider(uid: int, role: String, joint: Generic6DOFJoint3D, a: int, b: i
 		"setpoint": 0.0, "hold": 0.0,   # measured from where it was built
 		"built": size_m.y,              # spring: its length as built
 		"coils": null, "coils_place": Transform3D.IDENTITY, "coils_size": size_m,
+		"hydraulic": hydraulic, "limit": force,
 	}
 	if role == "spring":
 		# The coils are drawn on the base and stretched to reach the top.
@@ -1522,6 +1547,9 @@ func _run_sliders(delta: float) -> void:
 		if role == "spring":
 			_run_spring(slider, a_body, b_body, axis, point_a, point_b, out, moving, delta)
 			_outputs[uid] = {"length": (float(slider["built"]) + out) / Units.CELL}
+			continue
+		if role == "cylinder":
+			_run_cylinder(slider, a_body, b_body, axis, point_a, point_b, out, moving, delta)
 			continue
 
 		var start: float = slider["start"]
@@ -1582,6 +1610,71 @@ func _set_slider_motor(slider: Dictionary, wanted: float, moving: float) -> void
 	if absf(wanted - moving) > 0.001:
 		_wake(_piece_body(slider["a"]))
 		_wake(_piece_body(slider["b"]))
+
+
+## A fluid or combustion cylinder. A hydraulic one is driven at the speed
+## the pumps feeding it give, with the force their pressure allows, and
+## holds still (the oil locked in) when they stop. A gas or combustion one
+## is pushed by the pressure inside it less the air outside, both worked
+## out by engines.gd; it cannot be pushed in past closed.
+func _run_cylinder(slider: Dictionary, a_body: RigidBody3D, b_body: RigidBody3D, axis: Vector3,
+		point_a: Vector3, point_b: Vector3, out: float, moving: float, delta: float) -> void:
+	var uid: int = slider["uid"]
+	var longest: float = slider["longest"]
+	if bool(slider["hydraulic"]):
+		var drive: Array = [0.0, 20000000.0 * 0.01]
+		if engines != null:
+			drive = engines.hydraulic_drive(uid, out)
+		var speed: float = drive[0]
+		var limit: float = maxf(float(drive[1]), 1.0)
+		if absf(limit - float(slider["limit"])) > limit * 0.01:
+			var joint: Generic6DOFJoint3D = slider["joint"]
+			joint.set_param_x(Generic6DOFJoint3D.PARAM_LINEAR_MOTOR_FORCE_LIMIT, limit)
+			slider["limit"] = limit
+		# Oil in, the rod goes out; none, it stays where it is.
+		var setpoint := clampf(float(slider["setpoint"]) + speed * delta, 0.0, longest)
+		slider["setpoint"] = setpoint
+		_set_slider_motor(slider, speed * (1.0 if setpoint > 0.0 and setpoint < longest else 0.0)
+				+ SERVO_GAIN * (setpoint - out) / delta, moving)
+		return
+	var force := 0.0
+	if engines != null:
+		force = engines.cylinder_force(uid, out, moving, delta)
+	# A hard stop at closed, held by a stiff spring the masses can bear.
+	if out < 0.0:
+		var looseness := 0.0
+		if not a_body.freeze:
+			looseness += 1.0 / a_body.mass
+		if not b_body.freeze:
+			looseness += 1.0 / b_body.mass
+		if looseness > 0.0:
+			var shared_mass: float = 1.0 / looseness
+			force += 0.2 * shared_mass / (delta * delta) * -out - 0.5 * shared_mass / delta * minf(moving, 0.0)
+	force = clampf(force, -50000000.0, 50000000.0)
+	if absf(force) > 0.0001:
+		if not a_body.freeze:
+			a_body.sleeping = false
+			a_body.apply_force(-axis * force, point_a - a_body.global_position)
+		if not b_body.freeze:
+			b_body.sleeping = false
+			b_body.apply_force(axis * force, point_b - b_body.global_position)
+
+
+## Hangs something drawn (a flame) on a part, so it moves with the part and
+## goes when the part is destroyed. `make` gets the part's place inside its
+## body and its size, and returns the node.
+func attach_extra(uid: int, make: Callable) -> Node3D:
+	var piece: int = uid * PIECES
+	if not _pieces.has(piece):
+		return null
+	var entry: Dictionary = _pieces[piece]
+	var record: Dictionary = _records[uid]
+	var node: Node3D = make.call(entry["place"], Units.to_metres(record["size"] as Vector3i))
+	var body: RigidBody3D = entry["body"]
+	body.add_child(node)
+	var extras: Array = entry["extras"]
+	extras.append(node)
+	return node
 
 
 ## A spring pushes its two ends apart when shorter than its rest length and
@@ -2267,6 +2360,10 @@ func _run_thrusters() -> void:
 		var on: bool = _input_value(links, "on", 1.0) != 0.0
 		var throttle: float = clampf(_input_value(links, "throttle", 1.0), -1.0, 1.0)
 		var push: float = thrust * throttle if on else 0.0
+		if push != 0.0 and engines != null:
+			# One that does not run without fuel takes it from its tanks.
+			push *= engines.thruster_fuel(_uid_of(thruster[0]), absf(push), get_physics_process_delta_time())
+		_outputs[_uid_of(thruster[0])] = {"thrust": push}
 		flame.visible = push != 0.0
 		if push == 0.0 or body.freeze:
 			continue

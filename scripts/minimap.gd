@@ -25,6 +25,9 @@ var _islands: Array = []       # [Vector2, name]
 var _places: Array = []        # [Vector2, name]
 var _towns: Array = []         # [Vector2, name]
 var _range := NEAR_RANGE
+var waypoint := Vector2.ZERO    # map x and z, set on the full map (world_map.gd)
+var has_waypoint := false
+const WAYPOINT := Color(1.0, 0.3, 0.35)
 
 
 func _ready() -> void:
@@ -52,6 +55,37 @@ func set_world(world: Dictionary, places: Array) -> void:
 		var spot: Array = town["at"]
 		_towns.append([Vector2(float(spot[0]), float(spot[1])), str(town["name"])])
 	_places = places
+
+
+# What the full map draws too.
+func picture() -> Texture2D:
+	return _picture
+
+
+func picture_area() -> Rect2:
+	return _picture_area
+
+
+func islands() -> Array:
+	return _islands
+
+
+func towns() -> Array:
+	return _towns
+
+
+func places() -> Array:
+	return _places
+
+
+## Metres and compass bearing (0 north, 90 east) from the player to the
+## waypoint, or an empty array if there is none.
+func waypoint_reading() -> Array:
+	if not has_waypoint or player == null:
+		return []
+	var at := Origin.to_map(player.global_position)
+	var offset := waypoint - Vector2(at.x, at.z)
+	return [offset.length(), fposmod(rad_to_deg(atan2(offset.x, -offset.y)), 360.0)]
 
 
 func _process(delta: float) -> void:
@@ -118,6 +152,19 @@ func _draw() -> void:
 			draw_circle(spot, 3.0, PLACE)
 			draw_string(font, spot + Vector2(5.0, 4.0), str(place[1]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10,
 					Color(1.0, 0.92, 0.6, 0.9))
+
+	# The waypoint: a red mark, held at the edge when it is off the map.
+	if has_waypoint:
+		var mark := _to_map(waypoint.x, waypoint.y, centre, pixels_per_metre)
+		var middle_point := extent * 0.5
+		var inside := Rect2(Vector2(8.0, 8.0), extent - Vector2(16.0, 16.0))
+		if not inside.has_point(mark):
+			var away := mark - middle_point
+			var reach := minf(absf((extent.x * 0.5 - 8.0) / maxf(absf(away.x), 0.001)),
+					absf((extent.y * 0.5 - 8.0) / maxf(absf(away.y), 0.001)))
+			mark = middle_point + away * reach
+		draw_line(middle_point, mark, Color(WAYPOINT, 0.5), 1.5)
+		draw_circle(mark, 4.5, WAYPOINT)
 
 	# The player: a pointer showing which way the character faces.
 	var heading: float = player.get_heading()

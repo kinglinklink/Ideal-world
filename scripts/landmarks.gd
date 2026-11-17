@@ -54,6 +54,7 @@ func setup(world: Dictionary) -> void:
 			_paved_airport(runway)
 		else:
 			_bush_strip(runway)
+		_runway_lights(runway)
 	for item in world.get("docks", []):
 		_dock(item)
 	for item in world.get("buildings", []):
@@ -87,6 +88,51 @@ static func _point(value: Variant) -> Vector2:
 
 
 # --- Wild Horse Island airport -------------------------------------------------
+
+## Lights along both edges of a runway, white every 60 m, and green across
+## each end. They are in the "night_lights" group: daylight.gd shows them
+## after dusk.
+func _runway_lights(runway: Dictionary) -> void:
+	var length := float(runway["length"])
+	var width := float(runway["width"])
+	var place := frame(_point(runway["centre"]), float(runway["height_mid"]), float(runway["heading"]))
+	place.basis = place.basis * Basis(Vector3.RIGHT, atan(float(runway.get("slope", 0.0))))
+	var spots: Array = []   # [position along the runway's own axes, colour]
+	var half := length * 0.5
+	var t := -half
+	while t <= half + 0.1:
+		for side in [-1.0, 1.0]:
+			spots.append([Vector3(float(side) * (width * 0.5 + 1.5), 0.5, t), Color(1.0, 0.95, 0.8)])
+		t += 60.0
+	for end in [-1.0, 1.0]:
+		var across := -width * 0.5
+		while across <= width * 0.5 + 0.1:
+			spots.append([Vector3(across, 0.5, float(end) * (half + 3.0)), Color(0.3, 1.0, 0.45)])
+			across += 4.0
+	var bulb := BoxMesh.new()
+	bulb.size = Vector3(1.0, 1.0, 1.0)
+	var look := StandardMaterial3D.new()
+	look.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	look.vertex_color_use_as_albedo = true
+	bulb.material = look
+	var batch := MultiMesh.new()
+	batch.transform_format = MultiMesh.TRANSFORM_3D
+	batch.use_colors = true
+	batch.mesh = bulb
+	batch.instance_count = spots.size()
+	for index in spots.size():
+		var spot: Array = spots[index]
+		batch.set_instance_transform(index, Transform3D(Basis.IDENTITY, spot[0]))
+		batch.set_instance_color(index, spot[1])
+	var lights := MultiMeshInstance3D.new()
+	lights.name = str(runway.get("name", "Runway")).replace(" ", "") + "Lights"
+	lights.multimesh = batch
+	lights.transform = place
+	lights.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lights.visible = false
+	lights.add_to_group("night_lights")
+	add_child(lights)
+
 
 func _paved_airport(runway: Dictionary) -> void:
 	var centre := _point(runway["centre"])

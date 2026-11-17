@@ -134,6 +134,7 @@ static func _build_table() -> void:
 	_table["combustion_cylinder"] = [
 		_number("bore", "Bore", "blocks", 0.6, 0.005, 16.0, 0.005),
 		_number("stroke", "Stroke", "blocks", 0.6, 0.005, 64.0, 0.005),
+		_flag("auto_spark", "Fires by itself at the top (when Spark is not linked)", true),
 	]
 	_table["compressor"] = [_number("pressure_ratio", "Pressure ratio", "", 8.0, 1.0, 100.0, 0.1)]
 	_table["combustor"] = [_number("max_fuel_flow", "Max fuel flow", "L/s", 0.1, 0.0, 1000.0, 0.001)]
@@ -170,7 +171,7 @@ static func _build_table() -> void:
 	_table["number_gate"] = [
 		_choice("operation", "Operation", [
 			"Constant", "Add", "Subtract", "Multiply", "Divide", "Absolute value",
-			"Min", "Max", "Clamp", "Compare", "Select", "Map range",
+			"Min", "Max", "Clamp", "Compare", "Select", "Map range", "Modulo", "Between",
 		]),
 		_number("value", "Constant", "", 0.0, -1000000000.0, 1000000000.0, 0.001),
 	]

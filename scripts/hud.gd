@@ -11,6 +11,7 @@ const SaveManager = preload("res://scripts/save_manager.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Minimap = preload("res://scripts/minimap.gd")
+const WorldMap = preload("res://scripts/world_map.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
 
@@ -18,7 +19,7 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 18"
+const VERSION := "Build 19"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -82,6 +83,10 @@ var _signals_title: Label
 var _signals_scroll: ScrollContainer
 var _signals_box: VBoxContainer
 var _minimap: Control
+var daylight: Node = null            # daylight.gd, for the clock
+var _clock_label: Label
+var _waypoint_label: Label
+var _world_map: Control              # world_map.gd, opened with M
 var _garage_button: Button
 var _spawn_button: Button
 var _tabs: Control                   # the category tabs up the left edge
@@ -119,15 +124,34 @@ func set_garage_open(open: bool) -> void:
 	_garage_button.text = "Close garage" if open else "Open garage"
 
 
-## Loads and applies the saved settings. `forest` is forest.gd.
-func setup_settings(forest: Node) -> void:
+## Loads and applies the saved settings. `forest` is forest.gd and
+## `the_daylight` daylight.gd.
+func setup_settings(forest: Node, the_daylight: Node) -> void:
+	daylight = the_daylight
 	_settings_panel.setup(forest)
 	_settings_panel.connect("changed", _on_settings_changed)
+	_settings_panel.connect("jump_time", _on_jump_time)
 	_on_settings_changed(_settings_panel.values)
 
 
 func _on_settings_changed(values: Dictionary) -> void:
 	_fps_label.visible = bool(values.get("show_fps", true))
+	if daylight != null and str(values.get("sky", "cycle")) != daylight.mode:
+		daylight.set_mode(str(values.get("sky", "cycle")))
+
+
+func _on_jump_time(fraction: float) -> void:
+	if daylight == null:
+		return
+	if daylight.mode != "cycle":
+		_settings_panel.values["sky"] = "cycle"   # a jump starts the clock again
+		_settings_panel.call("_commit")
+	daylight.set_time(fraction)
+
+
+## Opens or closes the full map (the M key).
+func toggle_world_map() -> void:
+	_world_map.toggle()
 
 
 ## The map of the lake behind the mini map, and the places to label on it.
@@ -195,7 +219,7 @@ func _build_interface() -> void:
 	# Help text, top left.
 	var help := _outlined(_label(
 			"WASD walk or swim   Shift run   Space jump (swim up)   E sit in a seat   Scroll zoom\n"
-			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the pad\n"
+			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the pad   M map\n"
 			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint (press again to put away)   Left click use tool\n"
 			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -336,6 +360,8 @@ func _build_interface() -> void:
 	readouts.add_child(saves_button)
 	_build_only.append(saves_button)
 	_speed_label = _readout(readouts)
+	_waypoint_label = _readout(readouts)
+	_clock_label = _readout(readouts)
 	_fps_label = _readout(readouts)
 	_readout(readouts).text = "Ideal World  %s" % VERSION
 
@@ -345,6 +371,12 @@ func _build_interface() -> void:
 	_minimap.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_minimap.player = player
 	root.add_child(_minimap)
+
+	# The full map, over everything, opened with M.
+	_world_map = WorldMap.new()
+	_world_map.minimap = _minimap
+	_world_map.player = player
+	add_child(_world_map)
 
 	# Saves window, screen centre, hidden until the Saves button is pressed.
 	_saves_panel = _build_saves_panel()
@@ -1145,6 +1177,14 @@ func _process(delta: float) -> void:
 	if player == null:
 		return
 	_fps_label.text = "FPS  %d" % int(Engine.get_frames_per_second())
+	if daylight != null:
+		_clock_label.text = "Time  %s" % daylight.clock_text()
+	var reading: Array = _minimap.waypoint_reading()
+	_waypoint_label.visible = not reading.is_empty()
+	if not reading.is_empty():
+		var metres: float = reading[0]
+		var distance := "%d m" % int(metres) if metres < 2000.0 else "%.1f km" % (metres / 1000.0)
+		_waypoint_label.text = "Waypoint  %s  bearing %03d°" % [distance, int(round(float(reading[1]))) % 360]
 	var moving: Vector3 = player.ride_velocity if player.seated else player.velocity
 	# Altitude is real: metres above sea level. The lake is at 881 m.
 	_speed_label.text = "Speed  %.1f m/s    %.1f g    Altitude  %.0f m" % [

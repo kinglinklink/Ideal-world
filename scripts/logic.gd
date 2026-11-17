@@ -174,9 +174,16 @@ func _run_gate(uid: int, delta: float, last_pass: bool) -> void:
 			"Map range":
 				# A from the range B to C onto 0 to 1.
 				result = (a - b) / (c - b) if absf(c - b) > 1e-9 else 0.0
+			"Modulo":
+				# A wrapped into 0 up to B: a crank's angle into one turn, say.
+				result = fposmod(a, b) if absf(b) > 1e-9 else 0.0
+			"Between":
+				# On while A is between B and C: a spark window, say.
+				is_true = a >= minf(b, c) and a <= maxf(b, c)
+				result = 1.0 if is_true else 0.0
 		if not is_finite(result):
 			result = 0.0
-		if str(props.get("operation", "")) != "Compare":
+		if not ["Compare", "Between"].has(str(props.get("operation", ""))):
 			is_true = result != 0.0
 		spawner.set_outputs(uid, {"result": result, "is_true": 1.0 if is_true else 0.0})
 	elif type == "pid_controller":

@@ -26,7 +26,7 @@ Working now:
 - All four combat parts work once spawned: machine gun, large cannon, ammo generator and explosive block. Parts have health, and a body that loses parts breaks into separate chunks.
 - **All eleven logic parts work once spawned** (see [Logic and sensors](#logic-and-sensors)): input, boolean gate, number logic, PID controller, speed, altitude, attitude and distance sensors, impact detector, light panel and vanish block
 - **The propeller and lift-gas tank work.** A propeller on a motor pulls along its spin axis according to its speed, blade count and pitch, and loads the motor in return. A lift-gas tank lifts straight up by its setting per block, scaled by its Amount input, and weakens as the air thins.
-- Display models for the 13 fluid and engine parts. These are models only for now.
+- **The fluid and engine parts work** (see [Fluids and engines](#fluids-and-engines)): fuel tanks, pumps, valves, pipes, hydraulic and gas cylinders, pressure tanks, combustion cylinders for engines you build yourself, jet engines from a compressor, combustor, turbine and nozzle, fuel-fed thrusters and solid rockets
 - Twenty-nine materials with real densities, from foam to gold, plus free choice of color, and one ideal material, **Frictionless surface**: nothing grips it, and once spawned it cannot be moved or damaged
 - Resizing any part in steps of 0.005 block (1.25 mm), with live volume, mass and health
 - Total mass and a center-of-mass marker for the whole build
@@ -35,14 +35,24 @@ Working now:
 - Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
 
-Not built yet: the fluid and engine parts. Once spawned these are simply welded solid.
+### Fluids and engines
+
+Fluid parts that touch face to face join into a **network**: tanks, pipes, pumps, valves, cylinders and engine parts. A valve that is closed splits the network there (Open input, Amount over 0, or "Open with no input"). A pump runs at its max flow × Rate (−1 to 1; full if Rate is not linked) while On is on (always, if On is not linked). What a network does depends on what is in it:
+
+- **Fuel.** A fuel tank holds its volume in fuel (34 MJ/L and 0.75 kg/L, like petrol, unless you change them), starting at its fill. It weighs its shell (15% of a solid block) plus its fuel, so it gets lighter as fuel burns and the center of mass moves. Level is out in %. Combustors, combustion cylinders (through a pump) and thrusters with "Runs without fuel" off take their fuel from the tanks in their network, and stop when it runs out.
+- **Hydraulics.** A fluid cylinder set to hydraulic oil is moved by the pumps in its network: the rod goes out at the pumps' flow over the cylinders' area (back in with a negative Rate), pushing with up to the pumps' max pressure × its area. With the pumps stopped, the oil is locked and the rod holds where it is (up to 20 MPa). Two cylinders on one pump share the flow.
+- **Gas.** Pressure tanks and fluid cylinders set to gas share one pressure, by the ideal gas law. A gas cylinder pushes its rod out with (pressure − outside air) × area, so it is an air spring: push the rod in and the pressure rises. A pump in a gas network pumps outside air in, up to its max pressure (or lets it out, run backward).
+- **Combustion cylinders** are the heart of a piston engine you build yourself: link the rod to a crankshaft with a linkage bar (ball joints), put a pump and a fuel tank touching the cylinder (or joined to it by pipes), and turn the crank to start it (a motor makes a good starter). The pump sends fuel in, at most what one cylinder of air can burn. With "Fires by itself at the top" on, it fires just past the top of its stroke; or link Spark to your own timing (number logic's Modulo turns the crank's angle into 0 to 360°, and Between makes a firing window). The fuel burns at once and the pressure jumps; the gas expands as the rod goes out, pushing the crank round, then the cylinder breathes out and in near the bottom and squeezes the fresh air (9 to 1) on the way back up. The pump's Rate is the throttle. A cylinder 0.6 blocks across and 0.6 long burns about 0.3 mL a firing, so a pump max flow of about 0.02 L/s per cylinder gives full throttle at a few thousand rpm. Pressure out is in kPa.
+- **Jet engines.** A compressor, a combustor, a turbine and a nozzle in one network (with a fuel tank) make a jet. The combustor burns its max fuel flow × Fuel rate (full if not linked). The spool winds up over a few seconds as fuel flows; air flow is air density × the compressor's face area × 100 m/s at full spool; the heat speeds that air up at the ideal efficiency for the compressor's pressure ratio, and the thrust (air flow × the speed the jet gains) comes out of the back of the nozzle, pushing along its −Z like a thruster. Thrust falls as you fly faster. Compressor and turbine put out the spool speed in rpm, the nozzle its thrust. A compressor 4 blocks across with 0.1 L/s of fuel makes about 16 kN standing still; give it 1 L/s for about 50 kN.
+- **Solid rockets** light when Ignite switches on and push along −Z with their thrust for their burn time, getting lighter as the propellant burns, then go out. "Never burns out" keeps them going forever.
+- **Fuel-fed thrusters** (Runs without fuel off) burn fuel from their network in proportion to thrust, about 0.5 L/s for each 1,000 N.
 
 ### Logic and sensors
 
 Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any number other than 0 counts as on. Signals pass through a chain of up to four gates in the same physics tick.
 
 - **Boolean gate:** AND, OR, NOT (of A), XOR, NAND and NOR. **Latch:** A switches it on, B switches it off. **Timer:** when A switches on, the result stays on for the timer length.
-- **Number logic:** an unlinked B uses the Constant setting, so "Add" with only A linked adds the constant. Add, Subtract (A − B), Multiply, Divide (A ÷ B, 0 if B is 0), Absolute value (of A), Min, Max, Clamp (A between B and C), Compare (on if A > B), Select (B if A is on, else C), Map range (A from B…C onto 0…1). "Comparison is true" is on whenever the result is not 0.
+- **Number logic:** an unlinked B uses the Constant setting, so "Add" with only A linked adds the constant. Add, Subtract (A − B), Multiply, Divide (A ÷ B, 0 if B is 0), Absolute value (of A), Min, Max, Clamp (A between B and C), Compare (on if A > B), Select (B if A is on, else C), Map range (A from B…C onto 0…1), Modulo (A wrapped into 0 up to B), Between (on while A is between B and C). "Comparison is true" is on whenever the result is not 0.
 - **PID controller:** output = Kp × error + Ki × its running total + Kd × its rate of change, where error = setpoint − measurement, held between the lowest and highest output. The running total stops growing while the output is held at a limit, and the rate is taken from the measurement, so a sudden change of setpoint does not jolt it.
 - **Speed sensor:** m/s. **Altitude sensor:** metres above sea level (the lake is at 881 m). **Attitude sensor:** pitch (nose up positive), roll (right side down positive) and yaw (compass heading, 0 north, 90 east) in degrees, plus each rate in degrees per second, all of the sensor's own forward (−Z) and up (+Y).
 - **Distance sensor:** metres from the sensor straight ahead along its −Z to the first part, building, ground or water, up to its range; it reads the range if nothing is there.
@@ -72,6 +82,8 @@ Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any num
 | Scroll wheel | Zoom between first person and third person |
 | Hold right mouse | Turn the camera (third person) |
 | Esc | Free or recapture the cursor (first person) |
+| M | Open or close the full map. Scroll to zoom, drag to move it, click to set a waypoint, right-click to clear it. |
+| P | Back to the build pad |
 | 1 to 5 | Place, Delete, Config, Transform, Paint. Press the same key again to put the tool away. |
 | Ctrl+Z / Ctrl+Y | Undo / redo (also the Undo and Redo buttons, bottom right) |
 | Left click | Use the current tool |
@@ -93,7 +105,7 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 18"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 19"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
@@ -145,6 +157,8 @@ The world is Flathead Lake in northwest Montana, at true size: 44 km long and 25
 - **Small airports by the towns:** every town without one has a 700 m × 20 m paved runway on the flattest open ground near it, clear of its buildings and roads, with an apron, hangar and tower: Bigfork, Lakeside, Somers, Rollins, Dayton, Elmo, Big Arm, Woods Bay, Yellow Bay and Finley Point.
 - **Wizard towers:** six enormous round stone towers with pointed purple roofs and gold finials, at random places on dry land each time the game starts (find them on the mini map). Each is 190 to 240 m across (wider than the Cromwell château) and 430 to 580 m tall to the top of its wall, with the roof 250 to 310 m more. They can be destroyed: see [Destruction](#destruction).
 - **The real towns**, from OpenStreetMap: Polson, Bigfork, Lakeside, Somers, Rollins, Woods Bay, Big Arm, Elmo, Dayton, Finley Point and Yellow Bay, with every mapped road and building inside the wall (about 4,000 buildings and thousands of kilometres of road). Roads are drawn on the ground: asphalt highways with a yellow centre line, side streets, and brown gravel tracks. Buildings stand on their real outlines at their real or estimated height and are solid, so you have to fly over them or drive round them. Bridges over water, such as US 93 at Polson, are solid decks you can drive across. The town names show on the mini map. Map data © OpenStreetMap contributors, ODbL.
+- **Day and night:** a whole day takes 20 minutes, 10 of daylight and 10 of night. The sun rises in the east, crosses the southern sky and sets in the west in an orange glow; at night the moon follows it across, the stars come out, and the runway lights come on at every airport. The time is shown at the bottom right. Settings can hold it at day or at night, or jump to dawn, noon, dusk or night.
+- **The full map** (M) shows the whole lake and the land round it with the towns, islands, airports and wizard towers. Click it to set a **waypoint**: it shows on the mini map (at the edge, with a line, when it is out of sight) and its distance and compass bearing appear at the bottom right.
 - **Altitude** on screen is real, in metres above sea level, and the air thins with real altitude, so wings lose a little lift at the lake's 881 m.
 
 ### Destruction
@@ -204,6 +218,9 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/forest.gd` | Every tree, drawn in 1 km squares, solid near the character |
 | `scripts/landmarks.gd` | The airports, the Melita dock and lodge, the Cromwell villa and the carrier |
 | `scripts/logic.gd` | Logic blocks, sensors, light panels, vanish blocks, propellers and lift-gas tanks |
+| `scripts/engines.gd` | Fluid networks, fuel, pumps, cylinders, jet engines and rockets |
+| `scripts/daylight.gd` | Day and night: sun, moon, sky, stars and runway lights |
+| `scripts/world_map.gd` | The full map (M) and waypoints |
 | `scripts/towers.gd` | The wizard towers: placing, building, damage and collapse |
 | `scripts/towns.gd` | The real towns: roads, buildings and bridges, built in 1 km squares near the camera, and buildings being destroyed |
 | `scripts/origin.gd` | Re-centring the world on the player |

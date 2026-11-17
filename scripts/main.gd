@@ -21,7 +21,9 @@ const Terrain = preload("res://scripts/terrain.gd")
 const Spawner = preload("res://scripts/spawner.gd")
 const Combat = preload("res://scripts/combat.gd")
 const Logic = preload("res://scripts/logic.gd")
+const Engines = preload("res://scripts/engines.gd")
 const Origin = preload("res://scripts/origin.gd")
+const Daylight = preload("res://scripts/daylight.gd")
 
 # The garage sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(24.0, 7.0, 16.0)   # width, height, depth in metres
@@ -41,6 +43,7 @@ var _spawner: Node3D
 var _combat: Node3D
 var _terrain: Node3D
 var _controller: Node3D
+var _daylight: Node3D          # daylight.gd: sun, moon, sky and the time of day
 var _start := Vector3.ZERO     # where the character starts and respawns, in map positions
 const START_HEADING := PI
 
@@ -85,6 +88,12 @@ func _ready() -> void:
 	add_child(logic)
 	logic.setup(spawner)
 
+	# Fuel, pumps, cylinders, jet engines and rockets.
+	var engines: Node3D = Engines.new()
+	engines.name = "Engines"
+	add_child(engines)
+	engines.setup(spawner)
+
 	# The map: ground, lake, forests, airports and the wall round the edge.
 	# Set up before the first physics step, so the ground is solid under the
 	# character from the start.
@@ -122,7 +131,7 @@ func _ready() -> void:
 	_hud = hud
 	hud.connect("garage_button_pressed", _on_garage_button)
 	hud.connect("respawn_pressed", _respawn)
-	hud.setup_settings(terrain.forest)
+	hud.setup_settings(terrain.forest, _daylight)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -130,6 +139,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_P \
 			and get_viewport().gui_get_focus_owner() == null:
 		_respawn()
+	elif key != null and key.pressed and not key.echo and key.physical_keycode == KEY_M \
+			and get_viewport().gui_get_focus_owner() == null:
+		_hud.toggle_world_map()
 
 
 ## Sends the character back to the build pad.
@@ -169,39 +181,10 @@ func _shift_world(shift: Vector3) -> void:
 
 
 func _make_sky_and_sun() -> void:
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.22, 0.47, 0.88)
-	sky_material.sky_horizon_color = Color(0.68, 0.82, 0.95)
-	sky_material.ground_horizon_color = Color(0.68, 0.82, 0.95)
-	sky_material.ground_bottom_color = Color(0.30, 0.42, 0.30)
-
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_SKY
-	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	# Haze, so the far mountains fade into the sky.
-	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.70, 0.80, 0.90)
-	environment.fog_density = 0.00005
-	environment.fog_sky_affect = 0.0
-	environment.fog_aerial_perspective = 0.4
-
-	var world_environment := WorldEnvironment.new()
-	world_environment.name = "WorldEnvironment"
-	world_environment.environment = environment
-	add_child(world_environment)
-
-	var sun := DirectionalLight3D.new()
-	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-	sun.light_energy = 1.2
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 250.0
-	add_child(sun)
+	var daylight: Node3D = Daylight.new()
+	daylight.name = "Daylight"
+	add_child(daylight)
+	_daylight = daylight
 
 
 ## The noise picture the ground and water shaders read for grass mottling
