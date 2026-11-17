@@ -225,5 +225,71 @@ def main():
     write("splash", splash + 0.3 * lowpass(rng.standard_normal(len(t)), 600) * envelope(t, 0.05, 0.4))
 
 
+    # --- Weather, disasters, traffic and racing (made last, so the sounds
+    # above keep the same random noise they always had) ---
+
+    # Rain: a dense hiss of drops with a soft patter in it.
+    t = times(6.0)
+    rain = shaped_noise(6.0, band(400, 6000, 0.5))
+    patter = np.zeros(len(t))
+    for at in rng.integers(0, len(t) - 200, 2400):
+        length = rng.integers(30, 120)
+        patter[at:at + length] += rng.uniform(0.2, 1.0) * rng.standard_normal(length) * np.exp(-np.arange(length) / 20.0)
+    write("rain_loop", rain * 0.7 + lowpass(patter, 4000) * 0.5, loop=True, peak=0.6)
+
+    # A tornado: a deep, churning roar, like a freight train, that swells.
+    t = times(6.0)
+    roar = shaped_noise(6.0, lambda f: band(25, 700, 0.7)(f) / (f / 40.0) ** 0.7)
+    churn = 0.7 + 0.3 * tone(t, 0.5) * tone(t, 1.0 / 3.0, 0.7)
+    howl = shaped_noise(6.0, band(300, 900, 2.0)) * (0.5 + 0.5 * tone(t, 1.0 / 6.0))
+    write("tornado_loop", roar * churn + 0.3 * howl, loop=True)
+
+    # Engine sounds for traffic: a car's hum and a light plane's drone.
+    t = times(1.0)
+    car = sum(tone(t, 30 * k) / k for k in range(1, 18)) * 0.4 + 0.3 * shaped_noise(1.0, band(80, 900))
+    write("car_loop", car, loop=True, peak=0.6)
+    t = times(1.0)
+    plane = sum(tone(t, 60 * k) / k ** 0.8 for k in range(1, 24)) * 0.4 + 0.4 * shaped_noise(1.0, band(150, 2500))
+    write("plane_loop", plane * (0.8 + 0.2 * np.maximum(tone(t, 60), 0)), loop=True, peak=0.6)
+
+
+    # Thunder: a sharp crack that rolls away into a long rumble.
+    t = times(5.0)
+    crack = lowpass(rng.standard_normal(len(t)), 3500) * envelope(t, 0.005, 0.12)
+    roll = lowpass(rng.standard_normal(len(t)), 160) * envelope(t, 0.2, 1.6) * (0.7 + 0.3 * tone(t, 1.3))
+    write("thunder", crack * 0.6 + roll * 3.5)
+
+    # The ground shaking: a long, low rumble that grows and dies away.
+    t = times(7.0)
+    shake = lowpass(rng.standard_normal(len(t)), 90) * envelope(t, 2.0, 2.5)
+    write("rumble", shake + 0.4 * tone(t, 28) * envelope(t, 2.0, 2.5))
+
+    # A volcano erupting: an enormous boom and a roar that goes on.
+    t = times(6.0)
+    blast = lowpass(rng.standard_normal(len(t)), 1800) * envelope(t, 0.003, 0.3)
+    boom = np.sin(2 * np.pi * np.cumsum(40 * np.exp(-t / 0.8) + 18) / RATE) * envelope(t, 0.005, 1.5)
+    roar = lowpass(rng.standard_normal(len(t)), 400) * envelope(t, 0.4, 3.0)
+    write("eruption", blast * 0.8 + boom * 1.2 + roar * 2.5)
+
+    # A wall of water arriving: a rushing roar.
+    t = times(4.0)
+    rush = shaped_noise(4.0, lambda f: band(60, 2500, 0.6)(f) / (f / 100.0) ** 0.4) * envelope(t, 0.8, 1.8)
+    write("wave_crash", rush)
+
+    # Racing: the countdown beeps, the start, passing a ring, and money.
+    t = times(0.25)
+    write("beep", tone(t, 880) * envelope(t, 0.002, 0.08), peak=0.6)
+    t = times(0.6)
+    write("go", (tone(t, 1320) + 0.5 * tone(t, 1760)) * envelope(t, 0.002, 0.25), peak=0.7)
+    t = times(0.5)
+    write("checkpoint", (tone(t, 1046) * envelope(t, 0.002, 0.1)
+                         + tone(t, 1568) * envelope(np.maximum(t - 0.08, 0), 0.002, 0.15) * (t > 0.08)), peak=0.6)
+    t = times(0.9)
+    coins = np.zeros(len(t))
+    for n, at in enumerate([0.0, 0.07, 0.14, 0.24]):
+        lt = np.maximum(t - at, 0)
+        coins += (tone(t, 2093 + 300 * n) + 0.5 * tone(t, 3136 + 300 * n)) * envelope(lt, 0.001, 0.12) * (t >= at)
+    write("cash", coins, peak=0.6)
+
 if __name__ == "__main__":
     main()

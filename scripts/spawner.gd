@@ -28,6 +28,8 @@ const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const Aero = preload("res://scripts/aero.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
+const Stress = preload("res://scripts/stress.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 ## Emitted when a part's health runs out and it is removed.
 signal part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary)
@@ -164,8 +166,11 @@ var _speed_history: Dictionary = {} # body -> Array of its last CRASH_WINDOW + 1
 var _alive_time := 0.0             # seconds since spawning
 var _parked: Dictionary = {}       # body -> [linear velocity, angular velocity] while parked far from the player
 var parked := false
+var race_hold := false             # held parked at a race start (races.gd)
 var gear_conflicts := 0            # gear trains whose ratios disagree, found at spawn
 var _belt_mesh: MeshInstance3D = null
+var applied: Dictionary = {}       # piece -> force put on it this check (world), for stress.gd
+var stress: Node = null            # stress.gd
 ## Damage from hard knocks (Settings): on unless switched off.
 static var crash_damage := true
 var _body_pieces: Dictionary = {}  # body -> Array of the pieces in it
@@ -290,6 +295,13 @@ static func _piece_centre(piece: int, record: Dictionary) -> Vector3:
 ## {"parts", "bodies", "mass" (kg), "hinges" (joints free to move), "locked"
 ## (joints whose two sides ended up welded to the same body, so they cannot
 ## move), "thrusters", "panels"}.
+func _ready() -> void:
+	stress = Stress.new()
+	stress.name = "Stress"
+	stress.spawner = self
+	add_child(stress)
+
+
 func spawn(grid: Node3D) -> Dictionary:
 	despawn()
 	_grid_frame = grid.global_transform
@@ -580,6 +592,9 @@ func despawn() -> void:
 	_belt_mesh = null
 	occupied_seat = 0
 	spawned = false
+	applied.clear()
+	if stress != null:
+		stress.clear()
 
 
 ## The body a piece is in, or null if the piece is gone.
@@ -849,6 +864,8 @@ func _new_body(fixed: bool) -> RigidBody3D:
 	# character: see the note on layers in units.gd.
 	body.collision_layer = Units.LAYER_BODIES
 	body.collision_mask = Units.LAYER_WORLD | Units.LAYER_BODIES
+	# Contacts are reported so the stress check knows where the body rests.
+	body.max_contacts_reported = 8
 	body.name = "Body%d" % _body_count
 	_body_count += 1
 	return body
@@ -1102,6 +1119,7 @@ func _run_body_drag() -> void:
 		var axes: Array = _drag[spawned_body]["axes"]
 		var frame: Transform3D = spawned_body.global_transform
 		var density: float = Aero.air_density(frame.origin.y)
+		var wind: Vector3 = Weather.wind_at(frame.origin)
 		var pushed := false
 		for axis in 3:
 			var pair: Array = axes[axis]
@@ -1112,7 +1130,7 @@ func _run_body_drag() -> void:
 			point[axis] = spawned_body.center_of_mass[axis]
 			var arm: Vector3 = frame.basis * point
 			var direction: Vector3 = frame.basis[axis].normalized()
-			var speed: float = velocity_at(spawned_body, arm).dot(direction)
+			var speed: float = (velocity_at(spawned_body, arm) - wind).dot(direction)
 			if absf(speed) < 0.5:
 				continue
 			var force: float = 0.5 * density * BODY_DRAG * area * speed * absf(speed)
@@ -2454,6 +2472,70 @@ func record_of(uid: int) -> Dictionary:
 	return _records[uid]
 
 
+# --- For stress.gd, rigging.gd and the replay ------------------------------------
+
+## Notes a force put straight on a piece (world space), for the stress view.
+func note_force(piece: int, force: Vector3) -> void:
+	if not Stress.view and not Stress.failure:
+		return
+	applied[piece] = (applied.get(piece, Vector3.ZERO) as Vector3) + force
+
+
+func all_bodies() -> Array:
+	return _bodies
+
+
+func body_pieces(body: RigidBody3D) -> Array:
+	return _body_pieces.get(body, [])
+
+
+func piece_boxes() -> Dictionary:
+	return _boxes
+
+
+func welds(a: int, b: int) -> bool:
+	return _boxes.has(a) and _boxes.has(b) and _welds(a, b, _boxes)
+
+
+func contact_area(a: int, b: int) -> float:
+	return _contact(_boxes[a], _boxes[b])
+
+
+## Where a body's own origin sits in the grid's space (bodies keep the
+## grid's axes, moved to their centre of mass when made).
+func body_origin_in_grid(body: RigidBody3D) -> Vector3:
+	for item in _body_pieces.get(body, []):
+		var piece: int = item
+		var entry: Dictionary = _pieces[piece]
+		return _piece_centre(piece, _records[_uid_of(piece)]) - (entry["centre"] as Vector3)
+	return Vector3.ZERO
+
+
+## A piece's centre of mass in its body's own space.
+func centre_of_piece(piece: int) -> Vector3:
+	var entry: Dictionary = _pieces.get(piece, {})
+	return entry.get("centre", Vector3.ZERO)
+
+
+func mass_of_piece(piece: int) -> float:
+	var entry: Dictionary = _pieces.get(piece, {})
+	return float(entry.get("mass", 0.0))
+
+
+func material_of_piece(piece: int) -> String:
+	var record: Dictionary = _records.get(_uid_of(piece), {})
+	return str(record.get("material", "steel"))
+
+
+func piece_mesh(piece: int) -> MeshInstance3D:
+	var entry: Dictionary = _pieces.get(piece, {})
+	return entry.get("mesh") as MeshInstance3D
+
+
+func piece_body(piece: int) -> RigidBody3D:
+	return _piece_body(piece)
+
+
 ## Changes the mass of a part that is in one piece, such as an ammo
 ## generator as it fills. Its body is brought up to date.
 func set_part_mass(uid: int, mass: float) -> void:
@@ -2480,6 +2562,7 @@ func _physics_process(delta: float) -> void:
 	_run_buoyancy(delta)
 	_alive_time += delta
 	_run_crash_damage(delta)
+	stress.run(_alive_time)
 
 
 func _process(_delta: float) -> void:
@@ -2842,10 +2925,12 @@ func _run_buoyancy(delta: float) -> void:
 		var data: Array = _floats[body]
 		var reach: float = data[2]
 		var place := body.global_transform
-		if place.origin.y - reach > surface:
+		var level: float = Weather.water_height(place.origin)
+		if place.origin.y - reach > maxf(surface, level) + 0.5:
 			continue   # well clear of the water
-		if not terrain.lake_at(place.origin):
+		if not terrain.lake_at(place.origin) and not Weather.flooded(place.origin, terrain.ground_at(place.origin)):
 			continue
+		var current: Vector3 = Weather.water_velocity(place.origin)
 		var points: PackedVector3Array = data[0]
 		var volumes: PackedFloat32Array = data[1]
 		var centre := place * body.center_of_mass
@@ -2853,14 +2938,14 @@ func _run_buoyancy(delta: float) -> void:
 		var drag_cap := body.mass / maxf(float(count), 1.0) / delta * 0.5
 		for index in count:
 			var at: Vector3 = place * points[index]
-			var depth := surface - at.y
+			var depth := Weather.water_height(at) - at.y
 			var volume: float = volumes[index]
 			var height := clampf(pow(volume, 1.0 / 3.0), 0.1, FLOAT_CELL)
 			var under := clampf(depth / height + 0.5, 0.0, 1.0)
 			if under <= 0.0:
 				continue
 			var force := Vector3(0.0, WATER_DENSITY * 9.81 * volume * under, 0.0)
-			var moving: Vector3 = body.linear_velocity + body.angular_velocity.cross(at - centre)
+			var moving: Vector3 = body.linear_velocity + body.angular_velocity.cross(at - centre) - current
 			var speed := moving.length()
 			if speed > 0.0001:
 				var area := pow(volume, 2.0 / 3.0)
@@ -2899,7 +2984,9 @@ func _run_thrusters() -> void:
 			continue
 		var frame: Basis = body.global_transform.basis
 		body.sleeping = false
-		body.apply_force(frame * (place.basis * Vector3(0.0, 0.0, -push)), frame * place.origin)
+		var thrust_force: Vector3 = frame * (place.basis * Vector3(0.0, 0.0, -push))
+		body.apply_force(thrust_force, frame * place.origin)
+		note_force(thruster[0], thrust_force)
 	_thrusters = alive
 
 
@@ -2948,11 +3035,12 @@ func _run_aero(delta: float) -> void:
 		var area: float = panel[3]
 		var dragless: bool = panel[4]
 		var arm: Vector3 = frame.basis * centre
-		var moving: Vector3 = velocity_at(body, arm)
+		var moving: Vector3 = velocity_at(body, arm) - Weather.wind_at(frame.origin + arm)
 		var density: float = Aero.air_density(frame.origin.y + arm.y)
 		var force: Vector3 = Aero.panel_force(moving, frame.basis * flat, area, dragless, density)
 		# A tiny, light body in a fast airflow could be thrown about by one
 		# tick's force. Never push harder than would stop it dead in two ticks.
 		force = force.limit_length(0.5 * body.mass * moving.length() / delta)
 		body.apply_force(force, arm)
+		note_force(panel[0], force)
 	_panels = alive

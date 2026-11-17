@@ -27,6 +27,15 @@ const Daylight = preload("res://scripts/daylight.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Menus = preload("res://scripts/menus.gd")
 const Fleet = preload("res://scripts/fleet.gd")
+const Replay = preload("res://scripts/replay.gd")
+const GameHud = preload("res://scripts/game_hud.gd")
+const Stress = preload("res://scripts/stress.gd")
+const Rigging = preload("res://scripts/rigging.gd")
+const Weather = preload("res://scripts/weather.gd")
+const Disasters = preload("res://scripts/disasters.gd")
+const WeatherPanel = preload("res://scripts/weather_panel.gd")
+const Traffic = preload("res://scripts/traffic.gd")
+const Races = preload("res://scripts/races.gd")
 
 # The hangar sits behind the start point, with its door facing the build pad.
 const GARAGE_SIZE := Vector3(56.0, 15.0, 40.0)  # width, height at the eaves, depth in metres
@@ -53,11 +62,29 @@ var _controller: Node3D
 var _daylight: Node3D          # daylight.gd: sun, moon, sky and the time of day
 var _fleet: Node3D             # fleet.gd: saved builds spawned out as vehicles
 var _start := Vector3.ZERO     # where the character starts and respawns, in map positions
+var _replay: Node               # replay.gd: the last 30 seconds, played back
+var _game_hud: CanvasLayer      # game_hud.gd: health, cash, announcements
+var _respawn_after_replay := false
+var _rigging: Node              # rigging.gd: magnets, winches and couplers of the pad's build
+var _weather: Node              # weather.gd
+var _disasters: Node            # disasters.gd
+var _weather_panel: RefCounted  # weather_panel.gd
+var _panel_timer := 0.0
+var _races: Node               # races.gd: races, cargo runs and the people who offer them
+var _recent_hurt := 0.0         # health lost in the last second or so, for the crash replay
+const CRASH_REPLAY_HURT := 35.0 # lose this much in a moment while riding and the replay plays
 const START_HEADING := PI
 
 
 func _ready() -> void:
 	_make_sky_and_sun()
+
+	# Weather, wind, waves and the seasons.
+	var weather: Node = Weather.new()
+	weather.name = "Weather"
+	add_child(weather)
+	weather.daylight = _daylight
+	_weather = weather
 
 	# Sound: effects, machines, wind and the birds and crickets.
 	var sound: Node = Sound.new()
@@ -107,13 +134,21 @@ func _ready() -> void:
 	add_child(engines)
 	engines.setup(spawner)
 
+	# Magnets, winches and couplers.
+	var rigging: Node = Rigging.new()
+	rigging.name = "Rigging"
+	add_child(rigging)
+	rigging.setup(spawner)
+	_rigging = rigging
+
 	# The map: ground, lake, forests, airports and the wall round the edge.
 	# Set up before the first physics step, so the ground is solid under the
 	# character from the start.
 	var terrain: Node3D = Terrain.new()
 	terrain.name = "Terrain"
 	add_child(terrain)
-	terrain.setup(player, spawner, _grass_noise())
+	var noise := _grass_noise()
+	terrain.setup(player, spawner, noise)
 	player.terrain = terrain
 	spawner.terrain = terrain
 	combat.terrain = terrain
@@ -173,6 +208,62 @@ func _ready() -> void:
 	sound.player = player
 	sound.daylight = _daylight
 
+	# Health, cash and announcements.
+	var game_hud: CanvasLayer = GameHud.new()
+	game_hud.name = "GameHud"
+	add_child(game_hud)
+	game_hud.player = player
+	_game_hud = game_hud
+	player.died.connect(_on_player_died)
+	player.hurt_taken.connect(_on_hurt)
+
+	# The replay: key 0 once something is spawned, and after dying.
+	var replay: Node = Replay.new()
+	replay.name = "Replay"
+	add_child(replay)
+	replay.spawner = spawner
+	replay.fleet = _fleet
+	replay.player = player
+	replay.controller = controller
+	replay.screens = [hud, game_hud]
+	replay.finished.connect(_on_replay_finished)
+	_replay = replay
+
+	# Tornadoes, hurricanes, tsunamis, earthquakes and the volcano, and the
+	# Weather window that sets the weather and starts them.
+	var disasters: Node = Disasters.new()
+	disasters.name = "Disasters"
+	add_child(disasters)
+	disasters.weather = _weather
+	disasters.terrain = terrain
+	disasters.daylight = _daylight
+	disasters.game_hud = game_hud
+	disasters.player = player
+	disasters.noise = noise
+	_disasters = disasters
+	_weather.player = player
+	_weather_panel = WeatherPanel.new()
+	_weather_panel.build(game_hud, _weather, disasters)
+	hud.weather_pressed.connect(func() -> void:
+		_weather_panel.toggle()
+		player.cursor_free = true)
+
+	# Cars on the highways and planes in the sky; races and cargo runs.
+	var traffic: Node = Traffic.new()
+	traffic.name = "Traffic"
+	add_child(traffic)
+	traffic.setup(terrain, player)
+	var races: Node = Races.new()
+	races.name = "Races"
+	add_child(races)
+	races.player = player
+	races.controller = controller
+	races.fleet = _fleet
+	races.game_hud = game_hud
+	races.setup(terrain, traffic.roads)
+	controller.talk_handler = Callable(races, "talk")
+	_races = races
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
@@ -182,11 +273,56 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key != null and key.pressed and not key.echo and key.physical_keycode == KEY_M \
 			and get_viewport().gui_get_focus_owner() == null:
 		_hud.toggle_world_map()
+	elif key != null and key.pressed and not key.echo and key.physical_keycode == KEY_9 \
+			and get_viewport().gui_get_focus_owner() == null and bool(_controller.spawned):
+		Stress.view = not Stress.view
+		_game_hud.announce("", "Stress view on: blue easy, red at breaking point" if Stress.view else "Stress view off", 2.5)
 
 
-## Sends the character back to the build pad.
+## Sends the character back to the hangar, in front of its door. The world
+## is first shifted back to where it started, so the spawn point is always
+## the same fixed map position however far away the character was.
 func _respawn() -> void:
+	if Origin.offset != Vector3.ZERO:
+		_shift_world(-Origin.offset)
 	_controller.respawn(Origin.to_world(_start), START_HEADING)
+	_player.heal_full()
+
+
+## Dying: whatever race was on is lost, the replay shows how it happened,
+## and the character comes back at the hangar when it ends.
+func _on_player_died(cause: String) -> void:
+	_game_hud.announce("YOU DIED", "Killed by %s" % cause, 3.0, Color(1.0, 0.3, 0.25))
+	get_tree().call_group("races", "player_died")
+	_respawn_after_replay = true
+	if not _replay.start("You died: %s" % cause):
+		_respawn_after_replay = false
+		get_tree().create_timer(2.0).timeout.connect(_respawn)
+
+
+## A big crash you live through plays the replay too.
+func _on_hurt(amount: float) -> void:
+	_game_hud.flash_hurt(amount)
+	_recent_hurt += amount
+	if _recent_hurt >= CRASH_REPLAY_HURT and not _player.dead and bool(_player.seated) and not _replay.active:
+		_recent_hurt = 0.0
+		get_tree().create_timer(0.6).timeout.connect(func() -> void:
+			if not _player.dead and not _replay.active:
+				_replay.start("Big crash!"))
+
+
+func _on_replay_finished(_reason: String) -> void:
+	if _respawn_after_replay:
+		_respawn_after_replay = false
+		_respawn()
+
+
+func _process(delta: float) -> void:
+	_recent_hurt = maxf(_recent_hurt - delta * 30.0, 0.0)
+	_panel_timer -= delta
+	if _panel_timer <= 0.0 and _weather_panel != null:
+		_panel_timer = 0.5
+		_weather_panel.refresh()
 
 
 # --- Keeping the world centred on the player ------------------------------------
@@ -219,6 +355,9 @@ func _shift_world(shift: Vector3) -> void:
 			var node: Node3D = child
 			node.position -= shift
 	_combat.shift_origin(shift)
+	_rigging.shift_origin(shift)
+	if _races != null:
+		_races.shift_origin(shift)
 	_terrain.origin_shifted()
 
 

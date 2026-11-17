@@ -13,7 +13,17 @@ Working now:
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - A steel hangar behind the start point (56 × 40 m, 15 m to the eaves), with exposed I-beam frames, roof trusses and cross-bracing inside and a 44 m roller door facing the build pad. The **Open hangar** button at the top of the screen rolls the door up and back down.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
-- **Respawn** (button at the top, or P) puts you back at the build pad from anywhere
+- **Respawn** (button at the top, or P) puts you back in front of the hangar from anywhere, at full health
+- **Health and the replay.** You can be hurt by crashes, falls, blasts, lava and turns past 20 g, and you heal slowly. Key **0** (once something is spawned) replays the last 30 seconds from a camera that follows what you were riding; a big crash plays it on its own, and so does dying, after which you come back at the hangar. See [Health and the replay](#health-and-the-replay).
+- **Weather, seasons and disasters** (the **Weather** button): rain, thunderstorms with lightning, snow, fog, gusty wind that every wing and body feels, waves on the lake that boats ride, a year of seasons every 10 game days, and tornadoes, hurricanes, tsunamis, earthquakes and a volcano. See [Weather and disasters](#weather-and-disasters).
+- **Races and cargo runs for cash**: air races from 100 to 500 m/s at five airports and car races on the highway at three towns, against rivals who boast when you get close; cargo to fly between any two airports. See [Races, cargo and cash](#races-cargo-and-cash).
+- **Traffic**: cars on the highways near you and light planes flying between the airports
+- **Six caves** with tunnels wide enough to drive down into huge caverns and deeper crystal caverns below them
+- **The Polson bridge rebuilt big**: a cable-stayed bridge over the Flathead River with two 72 m towers and a deck that humps 16 m over the water
+- **The stress view** (key 9): every part coloured by its load, blue to red at breaking point; overloaded parts break off
+- **Modules**: save a selection (a wing, an engine pod) and put it into any build
+- **New parts**: graph screen (plots up to four signals, on the part and on your screen), electromagnet, winch and hook, and coupler (with fuel transfer for mid-air refuelling)
+- Top speed for bodies raised to 750 m/s (it was the physics engine's 500 m/s)
 - **A title screen** when the game starts (Play, Parts guide, Settings, Quit), and a **pause menu**: Esc (once the cursor is free; in first person the first Esc frees it) pauses the game with Resume, Parts guide, Settings, Back to the build pad, Title screen and Quit.
 - **Settings** (button at the top, or from the menus), in four tabs, saved between runs. *Display:* frame rate (VSync, a limit from 1 to 240, or unlimited), resolution (50 to 100%), edge smoothing (off, 2×, 4×), shadows, tree distance, frames per second on screen, and quick presets for a laptop or a desktop. *Sound:* master, effects, machines, wind and nature, and clicks. *World:* day and night, always day or always night, and jump to a time. *Controls:* every key.
 - **The parts guide** (F1, or the Guide button): a page for every one of the 78 parts saying what it does, how to use it and where its limits are, with its default size, every setting (units, default and range) and every input and output, plus pages on how welding, signals, fluids, flying, water, damage, the map and performance work. Search finds parts by name or by anything on their page.
@@ -37,6 +47,43 @@ Working now:
 - Undo and redo for every change, up to 100 steps back
 - Signal linking in the Config tool: connect any part's input to another part's output, with lines showing the links. Links are stored and saved now and carry signals once Spawn and Logic are built.
 - Settings for every functional part in the Config tool: motor torque and speed, piston lengths, speed and easing, gear teeth, light color, blast radius and so on. They are stored and saved now and take effect once Spawn is built.
+
+### Health and the replay
+
+You have 100 health, shown low in the middle of the screen. Hard knocks hurt: a change of speed faster than 20 g averaged over 50 ms drains it at 40 health a second per g over, so a fall of about 20 m or a crash at about 25 m/s hurts badly, and a fall of 60 m or a crash at 35 m/s kills. A long turn past 20 g hurts too. Blasts hurt out to half again their radius, and lava and lava bombs burn. Health comes back at 4 a second once you have gone 6 seconds unhurt. The wind pushes on you on foot: you stagger in a gale and a tornado picks you up. Settings → World can turn hurting off.
+
+The last 30 seconds of every spawned body and of you are always being recorded, 30 times a second. Press 0 once something is spawned to play them back with the game paused: drag to turn the camera, wheel to zoom, Restart, Speed (1x, 2x, 0.25x, 0.5x) and Skip (or Space or Esc). Parts that broke off show whole until the moment they broke. A crash that costs 35 health in a moment while you ride plays the replay on its own; dying plays it and then puts you back at the hangar, and loses any race.
+
+### The stress view and structural failure
+
+Key 9 while spawned colours every part by its load: blue easy, through green and yellow, to red at its breaking point; the left of the screen shows the most loaded part. Each part carries its weight and its share of the body's acceleration and turning, plus the thrust, lift and contact forces put straight on it; the parts form a tree out from the one nearest the centre of mass, and each passes its load through the face it shares with the next, as stress = force ÷ area + bending moment ÷ section modulus. Strengths are real: balsa 10 MPa, wood 40, aluminium 270, steel 400, titanium 880, carbon fibre 600, Kevlar 1,500. With structural failure on (Settings → World), a part past its strength for two checks in a row breaks off.
+
+### Weather and disasters
+
+Open the Weather window with the Weather button. On Auto the weather changes every few minutes, by season: clear, cloudy, rain, thunderstorm (lightning, and thunder heard at the speed of sound), snow or fog. You can set it, set the season, or set the wind's speed and direction yourself.
+
+- **Wind** blows everywhere with gusts and grows with height (the 1/7 power law). Wings, propellers and every body's outline feel the air's speed relative to them.
+- **Waves** grow with the wind: four swells travelling with it, the same in the water you see and in the buoyancy, about 1 m high at 10 m/s and up to 3.5 m.
+- **Seasons:** a year lasts 10 game days. The snow line comes down from about 2,350 m in summer to the lake in midwinter, the grass goes gold in autumn and brown in winter, and some trees turn yellow.
+- **Tornado:** forms a few kilometres away and wanders your way for about three minutes; 95 m/s winds round its core, air drawn in along the ground and a strong updraft, so it drags cars in and lifts them, and smashes the buildings and towers in its path.
+- **Hurricane:** four minutes of 46 m/s winds, driving rain and the biggest waves.
+- **Tsunami:** an earthquake under the lake far out, then a 14 m wave spreading at 55 m/s that lifts and carries boats and runs up the shore.
+- **Earthquake:** the ground shakes; loose things hop about.
+- **Volcano:** the tallest mountain inside the wall (2,063 m, west of Lakeside), its summit hollowed into a glowing crater. When it erupts it rumbles, blows, throws glowing lava bombs that burst where they land, sends six rivers of lava down the steepest ground, and its ash darkens the sky for kilometres.
+
+With random disasters on (Settings → World), one strikes on its own every 20 to 40 minutes, announced with where it is.
+
+### Races, cargo and cash
+
+People stand under signs at every airport, and beside the highway in Polson, Bigfork and Lakeside. Walk up and press E.
+
+- **Air races:** Rookie Loop at Wild Horse Island (rivals at 100 m/s), Island Hopper at Polson airport (200), Lake Circuit at Bigfork airport (300), Mountain Gauntlet at Somers Mountain airport (400) and Speed Demon at Lakeside Ridge airport (500). Pick one of your saved builds: it is put on the runway, you are sat in it, and after a countdown you race three rivals through a loop of rings in order and back over the airport. The next ring is yellow with a beam of light over it; the last is green.
+- **Car races:** the same on the highway, through gates every 600 m: Polson (34 m/s), Bigfork (48) and Lakeside (65).
+- **Rivals** fly or drive a smooth line at their own top speed, slowing for turns tighter than they can take. Get close and one boasts in a big bubble and speeds up by up to 20 m/s for a few seconds.
+- **Prizes:** first wins the race's prize, second half, third a quarter; best times are kept. F2 gives up; dying loses.
+- **Cargo runs:** from any airport to any other, a light, medium or heavy crate. Carry it however you like (a cargo bay, a magnet, a winch hook) and set it down gently in the green ring at the other end. Pay by distance and weight, half again if quick; a hard knock smashes the crate.
+
+Cash and best times are kept in the user folder (`profile.json`).
 
 ### Fluids and engines
 
@@ -242,8 +289,24 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/settings.gd` | Loading, saving and applying the settings |
 | `scripts/settings_panel.gd` | The settings window |
 | `scripts/map_info.gd` | Where the baked map data sits; written by `tools/bake_map.py` |
+| `scripts/replay.gd` | Records the last 30 seconds and plays them back |
+| `scripts/game_hud.gd`, `graph_view.gd` | Health, cash, announcements, windows, and graph screens drawn on screen |
+| `scripts/profile.gd` | Cash and best race times, kept between games |
+| `scripts/stress.gd` | The stress view and structural failure |
+| `scripts/rigging.gd` | Electromagnets, winches and hooks, couplers and fuel transfer |
+| `scripts/weather.gd`, `weather_panel.gd` | Weather, wind, waves and seasons, and the Weather window |
+| `scripts/disasters.gd`, `tornado.gd` | Tornadoes, hurricanes, tsunamis, earthquakes and the volcano |
+| `scripts/caves.gd` | The caves: tunnels, caverns, crystals and the headlamp |
+| `scripts/roads.gd` | The highway network for traffic and car races |
+| `scripts/traffic.gd` | Cars on the highways and planes between the airports |
+| `scripts/races.gd` | Air and car races, rivals, cargo runs and the people who offer them |
+| `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd` | Headless tests: `godot --headless --path . -s tools/smoke_test.gd` |
+| `tools/check_shaders.gd` | Compiles every shader and reports failures |
+| `tools/find_caves.py` | Searches the heights for cave sites |
 | `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |
-| `shaders/water.gdshader` | The lake surface |
+| `shaders/water.gdshader` | The lake surface, its waves and a tsunami |
+| `shaders/tree_crown.gdshader` | The pines through the seasons |
+| `shaders/swirl.gdshader` | A tornado's funnel and its skirt of dust |
 | `map/` | The downloaded elevation data |
 | `map_data/` | The baked map: heights, trees, buildings, wall, mini map picture |
 | `tools/fetch_terrain.py` | Downloads the elevation data (run on your own computer) |

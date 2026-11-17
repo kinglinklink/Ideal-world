@@ -13,6 +13,7 @@ const Units = preload("res://scripts/units.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Aero = preload("res://scripts/aero.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 const GATE_PASSES := 4       # chains of up to this many gates settle in one tick
 const GRAVITY := 9.81
@@ -22,6 +23,12 @@ const PROP_EFFICIENCY := 0.8
 const SEA_LEVEL_AIR := 1.225
 const GATES := ["boolean_gate", "number_gate", "pid_controller", "pwm_generator"]
 const SENSORS := ["speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor", "impact_detector"]
+const GRAPH_RATE := 30.0          # samples per second on a graph screen
+const GRAPH_DRAW_EVERY := 0.1     # seconds between redraws of the picture on a screen
+const GRAPH_SIZE := Vector2i(256, 160)
+const GRAPH_LINES := ["a", "b", "c", "d"]
+const GRAPH_COLORS := [Color(1.0, 0.85, 0.2), Color(0.3, 0.9, 1.0), Color(1.0, 0.4, 0.8), Color(0.45, 1.0, 0.45)]
+const MAX_GRAPHS := 12            # screens past this many still record but are not drawn in the world
 
 var spawner: Node3D = null    # spawner.gd
 var terrain: Node3D = null    # terrain.gd, for the distance sensor to see the ground
@@ -34,10 +41,15 @@ var _lights: Array = []       # {"uid", "glow" material, "lamp" OmniLight3D or n
 var _vanish: Array = []       # {"uid", "gone"}
 var _props: Array = []        # {"uid", "radius", "advance", "factor"}
 var _tanks: Array = []        # {"uid", "lift"}
+var _graphs: Array = []       # see _new_graph
+var _graph_clock := 0.0
+var _graph_timer := 0.0
+var _graph_draw := 0.0
 
 
 func setup(the_spawner: Node3D) -> void:
 	spawner = the_spawner
+	add_to_group("logic")
 
 
 func _physics_process(delta: float) -> void:
@@ -59,6 +71,7 @@ func _physics_process(delta: float) -> void:
 	_run_vanish()
 	_run_propellers()
 	_run_tanks()
+	_run_graphs(delta)
 
 
 func _start() -> void:
@@ -90,6 +103,8 @@ func _start() -> void:
 			var advance := 0.75 * radius * tan(pitch)
 			_props.append({"uid": uid, "radius": radius, "advance": advance,
 					"factor": PROP_BLADE_FACTOR * blades})
+		elif type == "graph_display":
+			_graphs.append(_new_graph(uid, props, size_m))
 		elif type == "lift_gas_tank":
 			var cells := size_m.x * size_m.y * size_m.z / pow(Units.CELL, 3)
 			_tanks.append({"uid": uid, "lift": maxf(float(props.get("lift_per_block", 1.0)), 0.0) * cells})
@@ -109,6 +124,8 @@ func _clear() -> void:
 	_vanish.clear()
 	_props.clear()
 	_tanks.clear()
+	_graphs.clear()
+	_graph_clock = 0.0
 
 
 # --- Gates -------------------------------------------------------------------
@@ -432,7 +449,7 @@ func _run_propellers() -> void:
 		var advance: float = prop["advance"]
 		var radius: float = prop["radius"]
 		var pitch_speed := spin * advance
-		var inflow := _velocity_at(body, frame.origin).dot(axis)
+		var inflow := (_velocity_at(body, frame.origin) - Weather.wind_at(frame.origin)).dot(axis)
 		var density := Aero.air_density(Origin.to_map(frame.origin).y)
 		var disc := PI * radius * radius
 		var thrust: float = density * disc * float(prop["factor"]) * (pitch_speed - inflow) * absf(pitch_speed)
@@ -440,6 +457,7 @@ func _run_propellers() -> void:
 			continue
 		body.sleeping = false
 		body.apply_force(axis * thrust, frame.origin - body.global_position)
+		spawner.note_force(uid * 8, axis * thrust)
 		# The torque it takes to turn: against the spin, or with it when the
 		# air drives it round (windmilling).
 		body.apply_torque(-axis * thrust * advance / PROP_EFFICIENCY)
@@ -468,3 +486,183 @@ func _run_tanks() -> void:
 			continue
 		body.sleeping = false
 		body.apply_force(Vector3.UP * lift, frame.origin - body.global_position)
+		spawner.note_force(uid * 8, Vector3.UP * lift)
+
+
+# --- Graph screens -------------------------------------------------------------
+
+## A graph screen: up to four lines plotted against time, drawn on both of
+## its big faces and, for the vehicle the character sits in, on screen too
+## (game_hud.gd reads graphs_for_screen).
+func _new_graph(uid: int, props: Dictionary, _size_m: Vector3) -> Dictionary:
+	var graph := {
+		"uid": uid,
+		"window": clampf(float(props.get("window", 10.0)), 1.0, 600.0),
+		"low": float(props.get("low", 0.0)),
+		"high": float(props.get("high", 0.0)),
+		"labels": [str(props.get("label_a", "A")), str(props.get("label_b", "B")),
+				str(props.get("label_c", "C")), str(props.get("label_d", "D"))],
+		"on_screen": bool(props.get("on_screen", true)),
+		"times": PackedFloat32Array(),
+		"values": [PackedFloat32Array(), PackedFloat32Array(), PackedFloat32Array(), PackedFloat32Array()],
+		"linked": [false, false, false, false],
+		"image": null,
+		"texture": null,
+	}
+	var record: Dictionary = spawner.record_of(uid)
+	var links: Dictionary = record.get("links", {})
+	for index in 4:
+		(graph["linked"] as Array)[index] = links.has(GRAPH_LINES[index])
+	if _graphs.size() < MAX_GRAPHS:
+		var image := Image.create_empty(GRAPH_SIZE.x, GRAPH_SIZE.y, false, Image.FORMAT_RGBA8)
+		image.fill(Color(0.02, 0.04, 0.03))
+		var texture := ImageTexture.create_from_image(image)
+		graph["image"] = image
+		graph["texture"] = texture
+		var look := StandardMaterial3D.new()
+		look.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		look.albedo_texture = texture
+		look.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+		for side in [1.0, -1.0]:
+			var facing: float = side
+			spawner.attach_extra(uid, func(place: Transform3D, size: Vector3) -> Node3D:
+				var quad := QuadMesh.new()
+				quad.size = Vector2(size.x * 0.9, size.y * 0.86)
+				var screen := MeshInstance3D.new()
+				screen.mesh = quad
+				screen.material_override = look
+				screen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				# The quad faces +Z; turned half round for the back face.
+				var turn := Basis.IDENTITY if facing > 0.0 else Basis(Vector3.UP, PI)
+				screen.transform = place * Transform3D(turn, Vector3(0.0, 0.0, facing * (size.z * 0.5 + 0.003)))
+				return screen)
+	return graph
+
+
+func _run_graphs(delta: float) -> void:
+	if _graphs.is_empty():
+		return
+	_graph_clock += delta
+	_graph_timer -= delta
+	if _graph_timer <= 0.0:
+		_graph_timer = 1.0 / GRAPH_RATE
+		for item in _graphs:
+			_sample_graph(item)
+	_graph_draw -= delta
+	if _graph_draw <= 0.0:
+		_graph_draw = GRAPH_DRAW_EVERY
+		for item in _graphs:
+			var graph: Dictionary = item
+			if graph["image"] != null and not spawner.record_of(int(graph["uid"])).is_empty():
+				_draw_graph(graph)
+
+
+func _sample_graph(graph: Dictionary) -> void:
+	var record: Dictionary = spawner.record_of(int(graph["uid"]))
+	if record.is_empty():
+		return
+	var links: Dictionary = record.get("links", {})
+	var times: PackedFloat32Array = graph["times"]
+	times.append(_graph_clock)
+	var values: Array = graph["values"]
+	for index in 4:
+		var line: PackedFloat32Array = values[index]
+		line.append(spawner.input_value(links, GRAPH_LINES[index], 0.0))
+		values[index] = line
+	# Forget what has scrolled off the left edge.
+	var oldest := _graph_clock - float(graph["window"])
+	var drop := 0
+	while drop < times.size() - 2 and times[drop] < oldest:
+		drop += 1
+	if drop > 0:
+		times = times.slice(drop)
+		for index in 4:
+			values[index] = (values[index] as PackedFloat32Array).slice(drop)
+	graph["times"] = times
+
+
+## The range a graph's lines are drawn over: its settings, or the lines'
+## own lowest and highest if the settings' two ends are the same.
+static func graph_range(graph: Dictionary) -> Vector2:
+	var low: float = graph["low"]
+	var high: float = graph["high"]
+	if high > low:
+		return Vector2(low, high)
+	low = INF
+	high = -INF
+	var values: Array = graph["values"]
+	var linked: Array = graph["linked"]
+	for index in 4:
+		if not linked[index]:
+			continue
+		for value in (values[index] as PackedFloat32Array):
+			low = minf(low, value)
+			high = maxf(high, value)
+	if low > high:
+		return Vector2(-1.0, 1.0)
+	if high - low < 0.000001:
+		return Vector2(low - 1.0, high + 1.0)
+	var margin := (high - low) * 0.08
+	return Vector2(low - margin, high + margin)
+
+
+func _draw_graph(graph: Dictionary) -> void:
+	var image: Image = graph["image"]
+	var width := GRAPH_SIZE.x
+	var height := GRAPH_SIZE.y
+	image.fill(Color(0.02, 0.04, 0.03))
+	# A faint grid: quarters up the screen, and the zero line brighter.
+	var span := graph_range(graph)
+	for quarter in range(1, 4):
+		var row := int(height * quarter / 4.0)
+		for x in range(0, width, 2):
+			image.set_pixel(x, row, Color(0.1, 0.22, 0.14))
+	if span.x < 0.0 and span.y > 0.0:
+		var zero_row := int((1.0 - (0.0 - span.x) / (span.y - span.x)) * (height - 1))
+		for x in width:
+			image.set_pixel(x, clampi(zero_row, 0, height - 1), Color(0.25, 0.45, 0.3))
+	var times: PackedFloat32Array = graph["times"]
+	var values: Array = graph["values"]
+	var linked: Array = graph["linked"]
+	var window: float = graph["window"]
+	if times.size() >= 2:
+		var newest: float = times[times.size() - 1]
+		for index in 4:
+			if not linked[index]:
+				continue
+			var line: PackedFloat32Array = values[index]
+			var color: Color = GRAPH_COLORS[index]
+			var last := Vector2i(-1, -1)
+			for sample in times.size():
+				var x := int((1.0 - (newest - times[sample]) / window) * (width - 1))
+				var fraction := (line[sample] - span.x) / (span.y - span.x)
+				var y := int((1.0 - clampf(fraction, 0.0, 1.0)) * (height - 1))
+				var point := Vector2i(clampi(x, 0, width - 1), y)
+				if last.x >= 0:
+					_line(image, last, point, color)
+				last = point
+	(graph["texture"] as ImageTexture).update(image)
+
+
+## A straight line of pixels from `a` to `b`.
+static func _line(image: Image, a: Vector2i, b: Vector2i, color: Color) -> void:
+	var steps := maxi(absi(b.x - a.x), absi(b.y - a.y))
+	if steps == 0:
+		image.set_pixelv(a, color)
+		return
+	for step in steps + 1:
+		var t := float(step) / steps
+		image.set_pixel(int(round(lerpf(a.x, b.x, t))), int(round(lerpf(a.y, b.y, t))), color)
+
+
+## The graphs to draw on screen: those set to show there, on the vehicle
+## the character is sitting in. Each is the dictionary from _new_graph.
+func graphs_for_screen() -> Array:
+	var shown: Array = []
+	if spawner == null or not bool(spawner.spawned) or int(spawner.occupied_seat) == 0:
+		return shown
+	for item in _graphs:
+		var graph: Dictionary = item
+		if bool(graph["on_screen"]) and not spawner.record_of(int(graph["uid"])).is_empty():
+			shown.append(graph)
+	return shown

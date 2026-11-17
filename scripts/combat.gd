@@ -67,6 +67,7 @@ func shift_origin(shift: Vector3) -> void:
 
 
 func setup(the_spawner: Node3D) -> void:
+	add_to_group("combat")
 	spawner = the_spawner
 	spawner.connect("part_destroyed", _on_part_destroyed)
 
@@ -527,7 +528,50 @@ func _set_off_blasts() -> void:
 			var structure: Node = item_structure
 			for spot in structure.blast(centre, radius, peak):
 				_add_dust(spot)
+		_hurt_player(centre, radius)
 	spawner.damage_parts(damage)
+
+
+## A blast from outside the build (a lava bomb, a lightning strike): damages
+## and pushes this build's parts within `radius` of `centre` (world), as an
+## explosive's blast does, but nothing else. disasters.gd deals with the
+## buildings and the character once.
+func damage_near(centre: Vector3, radius: float, peak: float) -> void:
+	if spawner == null or not bool(spawner.spawned):
+		return
+	var damage: Dictionary = {}
+	for key in spawner.live_parts():
+		var uid: int = key
+		var place: Array = spawner.part_place(uid)
+		if place.is_empty():
+			continue
+		var point: Vector3 = place[0]
+		var distance: float = point.distance_to(centre)
+		if distance >= radius:
+			continue
+		var dealt: float = peak * (1.0 - distance / radius)
+		damage[uid] = float(damage.get(uid, 0.0)) + dealt
+		var body: RigidBody3D = place[1]
+		if body != null and not body.freeze:
+			var away: Vector3 = point - centre
+			if away.length_squared() < 0.000001:
+				away = Vector3.UP
+			body.sleeping = false
+			body.apply_impulse(away.normalized() * dealt * BLAST_PUSH, point - body.global_position)
+	spawner.damage_parts(damage)
+
+
+## A blast hurts the character too, out to half again its radius plus a
+## metre: up to 120 HP at the middle.
+func _hurt_player(centre: Vector3, radius: float) -> void:
+	var someone: Node = get_tree().get_first_node_in_group("player")
+	if someone == null or not someone.has_method("hurt"):
+		return
+	var body := someone as Node3D
+	var reach := radius * 1.5 + 1.0
+	var distance := (body.global_position + Vector3(0.0, 0.9, 0.0)).distance_to(centre)
+	if distance < reach:
+		someone.hurt(120.0 * (1.0 - distance / reach), "an explosion")
 
 
 # --- Buildings and towers ------------------------------------------------------

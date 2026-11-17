@@ -9,6 +9,7 @@ extends CharacterBody3D
 
 const Units = preload("res://scripts/units.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 const WALK_SPEED := 4.0       # m/s
 const RUN_SPEED := 7.5        # m/s
@@ -33,6 +34,21 @@ const BODY_RADIUS := 0.3 * BODY_SCALE
 const BODY_HEIGHT := 1.8 * BODY_SCALE
 const HIP_HEIGHT := 0.75 * BODY_SCALE    # from the feet up to the hip joint
 const THIGH_HALF := 0.11 * BODY_SCALE    # half the thickness of a leg
+const MAX_HP := 100.0
+const HURT_WINDOW := 12       # ticks (50 ms) over which a change of speed is measured for injury
+const SAFE_G := 20.0          # average g over that window that does no harm
+const HURT_RATE := 40.0       # HP per second per g over the safe level
+const REGEN_DELAY := 6.0      # seconds after the last hurt before health comes back
+const REGEN_RATE := 4.0       # HP per second coming back
+
+## Whether the character can be hurt. The settings change it.
+static var damage_enabled := true
+## How hard the camera shakes, in metres (earthquakes, eruptions). Set by disasters.gd.
+static var camera_shake := 0.0
+const WIND_PUSH := 0.5 * 1.2 * 1.0 * 0.7 / MASS   # ½ ρ Cd A / m: how the wind pushes a standing person
+
+signal died(cause: String)
+signal hurt_taken(amount: float)
 
 var yaw := 0.0
 var pitch := -0.35
@@ -53,8 +69,12 @@ var _g_velocity := Vector3.ZERO       # the velocity at the last tick, for measu
 # After a teleport: ticks left in which a platform the character last stood on
 # (say a plane it walked onto, then flew away in) may not carry it off.
 var _settle_ticks := 0
-var _settle_at := Vector3.ZERO
 var _g_skip := true                   # skip one measurement after sitting down or standing up
+var hp := MAX_HP                      # health: at 0 the character dies (see main.gd)
+var dead := false
+var _since_hurt := 100.0              # seconds since the character was last hurt
+var _hurt_history: Array = []         # the last HURT_WINDOW + 1 velocities, for injuries
+var last_hurt_cause := ""
 var _step_offset := 0.0       # smooths the view after stepping up a ledge
 var _step_height := 0.55      # tallest ledge the character walks straight up, in metres
 var _pivot: Node3D
@@ -71,6 +91,7 @@ var _air_blend := 0.0         # 0 on the ground, 1 in the air
 
 
 func _ready() -> void:
+	add_to_group("player")
 	# Always at least one grid cell, and never less than a tall stair.
 	_step_height = maxf(Units.CELL * 1.05, 0.55)
 	collision_layer = Units.LAYER_PLAYER
@@ -156,7 +177,6 @@ func teleport(at: Vector3, heading: float) -> void:
 	# for the first few steps the character is held where it was put.
 	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
 	_settle_ticks = 3
-	_settle_at = at
 	yaw = heading
 	_model.rotation.y = heading
 	_g_skip = true
@@ -215,6 +235,7 @@ func _zoom_out() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_run_regen(delta)
 	if seated:
 		# No walking while seated. The build tools hold the character on its seat.
 		velocity = Vector3.ZERO
@@ -287,7 +308,16 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 		wanted = Vector3(velocity.x, 0.0, velocity.z)
 
+	# The wind pushes on the body: nothing on a calm day, a stagger in a gale,
+	# and a tornado picks you up.
+	var air := Weather.wind_at(global_position + Vector3(0.0, 1.0, 0.0)) - velocity
+	if air.length() > 12.0:
+		velocity += air * air.length() * WIND_PUSH * delta
 	var pushing := Vector3.ZERO   # the total force put on bodies this tick
+	# Where the character stood before moving, for undoing a stale platform's
+	# carry just after a teleport. Kept relative to this tick only, so it stays
+	# right if the world re-centres in between.
+	var before_move := global_position
 	if grounded and _try_step_up(delta):
 		# The step already moved us forward. Settle onto the new floor.
 		var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -299,7 +329,7 @@ func _physics_process(delta: float) -> void:
 		pushing = _push_bodies(wanted, grip_force, delta)
 	if _settle_ticks > 0:
 		_settle_ticks -= 1
-		global_position = Vector3(_settle_at.x, maxf(global_position.y, _settle_at.y - 0.5), _settle_at.z)
+		global_position = Vector3(before_move.x, maxf(global_position.y, before_move.y - 0.5), before_move.z)
 		velocity = Vector3.ZERO
 		_floor_body = null
 		pushing = Vector3.ZERO
@@ -333,7 +363,7 @@ func _physics_process(delta: float) -> void:
 func _in_deep_water() -> bool:
 	if terrain == null:
 		return false
-	var depth := MapInfo.LAKE_Y - global_position.y
+	var depth := Weather.water_height(global_position) - global_position.y
 	if depth < FLOAT_DEPTH * 0.8:
 		return false
 	return terrain.lake_at(global_position)
@@ -345,7 +375,7 @@ func _in_deep_water() -> bool:
 ## out of the water, for climbing onto a dock or a boat.
 func _swim(direction: Vector3, typing: bool, delta: float) -> void:
 	_floor_body = null
-	var depth := MapInfo.LAKE_Y - global_position.y
+	var depth := Weather.water_height(global_position) - global_position.y
 	# Buoyancy: the deeper the body, the harder the water pushes it up,
 	# balancing gravity at FLOAT_DEPTH.
 	var lift := GRAVITY * clampf(depth / FLOAT_DEPTH, 0.0, 2.0)
@@ -374,11 +404,73 @@ func _measure_g(moving: Vector3, delta: float) -> void:
 	if _g_skip:
 		_g_skip = false
 		_g_velocity = moving
+		_hurt_history.clear()
 		return
 	var acceleration := (moving - _g_velocity) / delta
 	_g_velocity = moving
 	var felt := (acceleration + Vector3(0.0, GRAVITY, 0.0)).length() / GRAVITY
 	g_force = lerpf(g_force, felt, 1.0 - exp(-delta / G_SMOOTHING))
+	_check_injury(moving, delta)
+
+
+## Injury from hard knocks and crushing turns. The change of speed is
+## measured over HURT_WINDOW ticks (50 ms), which irons out jolts from the
+## physics; past SAFE_G on average, health drains at HURT_RATE per g over.
+## So a fall of about 20 m or a crash at about 25 m/s hurts badly, a fall of
+## 60 m or a crash at 35 m/s kills, and a sustained turn past 20 g drains
+## health fast.
+func _check_injury(moving: Vector3, delta: float) -> void:
+	_hurt_history.append(moving)
+	if _hurt_history.size() > HURT_WINDOW + 1:
+		_hurt_history.pop_front()
+	if _hurt_history.size() <= HURT_WINDOW:
+		return
+	var span := HURT_WINDOW * delta
+	var change: Vector3 = (_hurt_history[_hurt_history.size() - 1] as Vector3) - (_hurt_history[0] as Vector3)
+	# What is felt: the change of speed less what gravity alone would do.
+	var felt: float = (change / span + Vector3(0.0, GRAVITY, 0.0)).length() / GRAVITY
+	if felt > SAFE_G:
+		hurt((felt - SAFE_G) * HURT_RATE * delta, "a crash" if felt > SAFE_G * 2.0 else "too many g")
+
+
+## Takes health. At none the character dies: `died` goes out once.
+func hurt(amount: float, cause: String) -> void:
+	if dead or amount <= 0.0 or not damage_enabled:
+		return
+	hp = maxf(hp - amount, 0.0)
+	_since_hurt = 0.0
+	last_hurt_cause = cause
+	hurt_taken.emit(amount)
+	if hp <= 0.0:
+		dead = true
+		died.emit(cause)
+
+
+## Full health again, alive: after a respawn.
+func heal_full() -> void:
+	hp = MAX_HP
+	dead = false
+	_since_hurt = 100.0
+	_hurt_history.clear()
+	_g_skip = true
+
+
+func _run_regen(delta: float) -> void:
+	_since_hurt += delta
+	if not dead and _since_hurt > REGEN_DELAY and hp < MAX_HP:
+		hp = minf(hp + REGEN_RATE * delta, MAX_HP)
+
+
+## The model's place in the world, for the replay.
+func model_transform() -> Transform3D:
+	return _model.global_transform
+
+
+## A copy of the character's model, for the replay to move about.
+func model_copy() -> Node3D:
+	var copy: Node3D = _model.duplicate()
+	copy.visible = true
+	return copy
 
 
 ## The loose (spawned, unanchored) body under the character's feet, or null.
@@ -525,13 +617,17 @@ func _process(delta: float) -> void:
 	_pivot.position.y = EYE_HEIGHT + _step_offset
 	_pivot.rotation = Vector3(pitch, yaw, 0.0)
 	_camera.position = Vector3(0.0, 0.0, zoom)
-	# Keep a third-person camera from dipping under the ground.
+	if camera_shake > 0.001:
+		_camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-0.5, 0.5)) * camera_shake
+	# Keep a third-person camera from dipping under the ground (but not in a
+	# cave, where the ground is overhead).
 	if not is_first_person():
 		var lifted := _camera.global_position
 		var ground := 0.0
 		if terrain != null:
 			ground = terrain.ground_at(lifted)
-		if lifted.y < ground + 0.2:
+		var in_cave: bool = terrain != null and global_position.y < terrain.ground_at(global_position) - 2.0
+		if lifted.y < ground + 0.2 and not in_cave:
 			lifted.y = ground + 0.2
 			_camera.global_position = lifted
 

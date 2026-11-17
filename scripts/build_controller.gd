@@ -16,6 +16,7 @@ const BuildGrid = preload("res://scripts/build_grid.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Player = preload("res://scripts/player.gd")
+const SaveManager = preload("res://scripts/save_manager.gd")
 
 ## NONE means every tool is put away: nothing is aimed, placed or selected.
 enum Tool { NONE = -1, PLACE, DELETE, CONFIG, TRANSFORM, PAINT }
@@ -59,6 +60,7 @@ var link_source_uid := 0       # Config: the source part clicked, waiting for an
 var seat_uid := 0              # the seat the character is sitting in, 0 for none
 var near_seat_uid := 0         # the nearest seat within reach, 0 for none
 var fleet: Node3D = null       # fleet.gd: vehicles spawned from saves, whose seats can be sat in too
+var talk_handler: Callable = Callable()   # races.gd: E talks to someone nearby instead of sitting, if it says so
 var _seat_owner: Node = null   # the spawner of the seat sat in; null for a seat on the build grid
 var _near_owner: Node = null   # likewise for the seat in reach
 
@@ -265,6 +267,8 @@ func _on_key(key: InputEventKey) -> void:
 	if (code == KEY_ENTER or code == KEY_KP_ENTER) and not key.ctrl_pressed:
 		toggle_spawn()   # Enter does the same as the Spawn button
 		return
+	if code == KEY_E and not key.ctrl_pressed and seat_uid == 0 and talk_handler.is_valid() and bool(talk_handler.call()):
+		return   # talked to someone
 	if spawned:
 		# The build tools are put away. Only sitting down still works.
 		if code == KEY_E and not key.ctrl_pressed:
@@ -665,6 +669,37 @@ func _paste_at(base: Vector3i) -> bool:
 	return true
 
 
+## Saves the selected parts as a module. Returns "" or the problem.
+func save_selection_as_module(module_name: String) -> String:
+	if selection.is_empty():
+		return "Select the parts for the module first, with the Transform tool."
+	copy_selection()
+	return SaveManager.save_module(_clipboard, module_name)
+
+
+## Loads a module in place of the copy, and arms the Transform tool to place
+## it with the next click. Returns "" or the problem.
+func place_module(module_name: String) -> String:
+	var records: Array = SaveManager.load_module(module_name)
+	if records.is_empty():
+		return "Could not read the module \"%s\"." % module_name
+	_clipboard = records
+	_clipboard_anchor = grid.cell_center_units(Vector3i(10, 1, 10))
+	_clipboard_low = Vector3(INF, INF, INF)
+	_clipboard_high = Vector3(-INF, -INF, -INF)
+	for item in records:
+		var record: Dictionary = item
+		var half: Vector3 = BuildGrid.half_extent_units(record)
+		var middle := Vector3(record["pos"] as Vector3i)
+		_clipboard_low = _clipboard_low.min(middle - half)
+		_clipboard_high = _clipboard_high.max(middle + half)
+	set_tool(Tool.TRANSFORM)
+	paste_armed = true
+	selection_changed.emit()
+	_say("Module \"%s\" (%d parts): click where it should go. R / T / Y do not turn it; turn it after with the Transform tool." % [module_name, records.size()])
+	return ""
+
+
 ## Used by the Paste button: the next click in the world pastes there.
 func arm_paste() -> void:
 	if _clipboard.is_empty():
@@ -1046,6 +1081,29 @@ func _seat_place(frame: Array) -> Array:
 	if Vector2(forward.x, forward.z).length() > 0.5:
 		heading = atan2(-forward.x, -forward.z)
 	return [cushion, heading]
+
+
+## Sits the character in the first seat of a spawned vehicle (a fleet
+## vehicle spawned for a race). Returns true if there was a seat.
+func sit_in(vehicle: Node) -> bool:
+	if vehicle == null or not is_instance_valid(vehicle):
+		return false
+	if seat_uid != 0:
+		_leave_seat()
+	for key in vehicle.all_records():
+		var uid: int = key
+		if str((vehicle.all_records()[uid] as Dictionary)["type"]) != "seat":
+			continue
+		var frame: Array = vehicle.seat_frame(uid)
+		if frame.is_empty():
+			continue
+		_seat_owner = vehicle
+		var place: Array = _seat_place(frame)
+		seat_uid = uid
+		near_seat_uid = 0
+		player.sit(place[0], place[1])
+		return true
+	return false
 
 
 func _leave_seat() -> void:

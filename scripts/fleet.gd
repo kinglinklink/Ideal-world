@@ -14,6 +14,7 @@ const Spawner = preload("res://scripts/spawner.gd")
 const Logic = preload("res://scripts/logic.gd")
 const Engines = preload("res://scripts/engines.gd")
 const Combat = preload("res://scripts/combat.gd")
+const Rigging = preload("res://scripts/rigging.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
@@ -34,9 +35,21 @@ var _park_check := 0.0
 
 ## Spawns a saved build in front of `near` (the player). Returns a message to show.
 func spawn_save(save_name: String, near: Node3D) -> String:
+	var result: Array = _spawn(save_name, near.global_position, near.get_heading(), true)
+	return result[0]
+
+
+## Spawns a saved build with its middle at `world_point` (resting on what is
+## under it), facing `heading` (a turn about Y, as the character's). For
+## races. Returns [message, spawner.gd or null].
+func spawn_save_at(save_name: String, world_point: Vector3, heading: float) -> Array:
+	return _spawn(save_name, world_point, heading, false)
+
+
+func _spawn(save_name: String, near_point: Vector3, heading: float, step_out: bool) -> Array:
 	_forget_gone()
 	if vehicles.size() >= MAX_VEHICLES:
-		return "The fleet is full (%d vehicles). Despawn one first." % MAX_VEHICLES
+		return ["The fleet is full (%d vehicles). Despawn one first." % MAX_VEHICLES, null]
 	var grid: Node3D = BuildGrid.new()
 	grid.visible = false
 	add_child(grid)
@@ -44,7 +57,7 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 	if str(loaded.get("error", "")) != "" or grid.part_count() == 0:
 		grid.queue_free()
 		var error := str(loaded.get("error", ""))
-		return error if error != "" else "\"%s\" has no parts." % save_name
+		return [error if error != "" else "\"%s\" has no parts." % save_name, null]
 	grid.set_active(false)
 
 	# Where it goes: in front of the character, its forward (a seat's −Z)
@@ -55,7 +68,6 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 		var box: AABB = BuildGrid.bounds_of(grid.get_part(uid))
 		bounds = box if first else bounds.merge(box)
 		first = false
-	var heading: float = near.get_heading()
 	var turn := Basis(Vector3.UP, heading)
 	var forward := turn * Vector3.FORWARD
 	var reach := maxf(bounds.size.x, bounds.size.z) * 0.5
@@ -65,14 +77,17 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 	var floor_y := 0.0
 	var placed := false
 	for attempt in 6:
-		middle_world = near.global_position + forward * (GAP + reach + float(attempt) * (reach + 4.0))
-		floor_y = _rest_height(middle_world, turn, bounds, near.global_position.y)
-		if _box_is_clear(middle_world, turn, bounds, floor_y + 0.4):
+		if step_out:
+			middle_world = near_point + forward * (GAP + reach + float(attempt) * (reach + 4.0))
+		else:
+			middle_world = near_point
+		floor_y = _rest_height(middle_world, turn, bounds, near_point.y)
+		if not step_out or _box_is_clear(middle_world, turn, bounds, floor_y + 0.4):
 			placed = true
 			break
 	if not placed:
 		grid.queue_free()
-		return "There is no clear space in front of you for \"%s\". Face open ground and try again." % save_name
+		return ["There is no clear space in front of you for \"%s\". Face open ground and try again." % save_name, null]
 	var centre_local := Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
 	var origin := Vector3(middle_world.x, 0.0, middle_world.z) - turn * centre_local
 	origin.y = floor_y + 0.4 - bounds.position.y
@@ -97,16 +112,21 @@ func spawn_save(save_name: String, near: Node3D) -> String:
 	combat.setup(spawner)
 	combat.terrain = terrain
 	combat.structures = structures
+	var rigging: Node = Rigging.new()
+	add_child(rigging)
+	rigging.setup(spawner)
 	if int(report.get("bodies", 1)) == 0:
 		spawner.queue_free()
 		logic.queue_free()
 		engines.queue_free()
 		combat.queue_free()
-		return "\"%s\" made no bodies when spawned." % save_name
+		rigging.queue_free()
+		return ["\"%s\" made no bodies when spawned." % save_name, null]
 	vehicles.append({"name": save_name, "spawner": spawner, "logic": logic, "engines": engines, "combat": combat,
+			"rigging": rigging,
 			"parts": int(report.get("parts", 0)), "mass": float(report.get("mass", 0.0))})
-	return "Spawned \"%s\" %.0f m ahead: %d parts, %.0f kg." % [save_name, middle_world.distance_to(near.global_position),
-			int(report.get("parts", 0)), float(report.get("mass", 0.0))]
+	return ["Spawned \"%s\" %.0f m ahead: %d parts, %.0f kg." % [save_name, middle_world.distance_to(near_point),
+			int(report.get("parts", 0)), float(report.get("mass", 0.0))], spawner]
 
 
 ## The height of the top of whatever lies under a vehicle's footprint: the
@@ -123,7 +143,10 @@ func _rest_height(middle: Vector3, turn: Basis, bounds: AABB, eye_y: float) -> f
 			var along := (float(j) / 4.0 - 0.5) * bounds.size.z
 			var probe := middle + turn * Vector3(across, 0.0, along)
 			var ground: float = terrain.ground_at(probe) if terrain != null else eye_y - 1.0
-			highest = maxf(highest, ground)
+			if ground > eye_y + 3.0:
+				ground = eye_y - 60.0   # in a cave: the ground is overhead, find the floor with the ray
+			else:
+				highest = maxf(highest, ground)
 			var ray := PhysicsRayQueryParameters3D.create(Vector3(probe.x, top, probe.z),
 					Vector3(probe.x, ground - 1.0, probe.z), 1 | 4)   # the world and bodies
 			var hit := space.intersect_ray(ray)
@@ -157,7 +180,7 @@ func despawn(index: int) -> void:
 	var vehicle: Dictionary = vehicles[index]
 	if is_instance_valid(vehicle["spawner"]):
 		vehicle["spawner"].despawn()
-	for key in ["logic", "engines", "combat", "spawner"]:
+	for key in ["logic", "engines", "combat", "rigging", "spawner"]:
 		if is_instance_valid(vehicle[key]):
 			(vehicle[key] as Node).queue_free()
 	vehicles.remove_at(index)
@@ -219,6 +242,8 @@ func _physics_process(delta: float) -> void:
 		all.append(main_spawner)
 	for item in all:
 		var spawner: Node = item
+		if bool(spawner.race_hold):
+			continue   # held still at a race start; races.gd lets it go
 		var at: Variant = spawner.where()
 		if at == null:
 			continue
@@ -238,3 +263,5 @@ func shift_origin(shift: Vector3) -> void:
 			var combat: Node3D = item["combat"]
 			combat.position -= shift
 			combat.shift_origin(shift)
+		if is_instance_valid(item.get("rigging")):
+			item["rigging"].shift_origin(shift)
