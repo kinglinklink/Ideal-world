@@ -25,6 +25,7 @@ var _islands: Array = []       # [Vector2, name]
 var _places: Array = []        # [Vector2, name]
 var _towns: Array = []         # [Vector2, name]
 var _range := NEAR_RANGE
+var fleet: Node = null          # fleet.gd: its vehicles are marked
 var waypoint := Vector2.ZERO    # map x and z, set on the full map (world_map.gd)
 var has_waypoint := false
 const WAYPOINT := Color(1.0, 0.3, 0.35)
@@ -76,6 +77,18 @@ func towns() -> Array:
 
 func places() -> Array:
 	return _places
+
+
+## The fleet's vehicles: [Vector2 map x and z, name].
+func vehicle_spots() -> Array:
+	var spots: Array = []
+	if fleet == null:
+		return spots
+	for item in fleet.positions():
+		var pair: Array = item
+		var at := Origin.to_map(pair[0])
+		spots.append([Vector2(at.x, at.z), str(pair[1])])
+	return spots
 
 
 ## Metres and compass bearing (0 north, 90 east) from the player to the
@@ -152,6 +165,14 @@ func _draw() -> void:
 			draw_circle(spot, 3.0, PLACE)
 			draw_string(font, spot + Vector2(5.0, 4.0), str(place[1]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10,
 					Color(1.0, 0.92, 0.6, 0.9))
+
+	# Fleet vehicles: small green squares.
+	for item in vehicle_spots():
+		var spot_info: Array = item
+		var at_map: Vector2 = spot_info[0]
+		var mark_spot := _to_map(at_map.x, at_map.y, centre, pixels_per_metre)
+		if Rect2(Vector2.ZERO, extent).has_point(mark_spot):
+			draw_rect(Rect2(mark_spot - Vector2(3, 3), Vector2(6, 6)), Color(0.45, 1.0, 0.55))
 
 	# The waypoint: a red mark, held at the edge when it is off the map.
 	if has_waypoint:

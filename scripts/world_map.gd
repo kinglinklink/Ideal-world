@@ -132,6 +132,14 @@ func _draw() -> void:
 			draw_string(font, spot + Vector2(7.0, 4.0), str(place[1]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12,
 					Color(0.9, 0.8, 1.0, 0.95) if tower else Color(1.0, 0.92, 0.6, 0.95))
 
+	# Fleet vehicles.
+	for item in minimap.vehicle_spots():
+		var vehicle: Array = item
+		var spot := _to_screen(vehicle[0])
+		draw_rect(Rect2(spot - Vector2(4, 4), Vector2(8, 8)), Color(0.45, 1.0, 0.55))
+		draw_string(font, spot + Vector2(7.0, 4.0), str(vehicle[1]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12,
+				Color(0.7, 1.0, 0.75, 0.95))
+
 	# The waypoint, and a line to it from the player.
 	var here := Vector2.ZERO
 	if player != null:

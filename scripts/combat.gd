@@ -40,6 +40,7 @@ const RAY_MASK := Units.LAYER_WORLD | Units.LAYER_BODIES
 
 var spawner: Node3D = null   # spawner.gd
 var structures: Array = []   # towns.gd, towers.gd: things in the world that can be destroyed
+var resets_world := true     # false for a fleet vehicle's guns: only the pad's Build puts the world back
 var terrain: Node3D = null   # terrain.gd: shots also stop at the ground, near or far
 
 var _generation := -1
@@ -153,9 +154,10 @@ func _start() -> void:
 ## Forgets everything from the last spawn and removes what is still flying.
 func _clear() -> void:
 	_generation = -1
-	for item in structures:
-		var structure: Node = item
-		structure.reset_damage()
+	if resets_world:
+		for item in structures:
+			var structure: Node = item
+			structure.reset_damage()
 	_guns.clear()
 	_generators.clear()
 	_explosives.clear()

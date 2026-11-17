@@ -37,6 +37,7 @@ static var instance: Node = null
 var spawner: Node = null      # spawner.gd
 var player: Node3D = null     # player.gd
 var daylight: Node = null     # daylight.gd
+var fleet: Node = null        # fleet.gd: its vehicles' machines are heard too
 
 var _streams: Dictionary = {}
 var _voices: Array = []       # AudioStreamPlayer3D, reused in turn
@@ -172,6 +173,15 @@ func _play_ui(key: String) -> void:
 
 func _process(_delta: float) -> void:
 	_run_ambience()
+	if fleet != null:
+		for item in fleet.vehicles:
+			var vehicle: Dictionary = item
+			var vehicle_spawner: Node = vehicle["spawner"]
+			if not is_instance_valid(vehicle_spawner) or not bool(vehicle_spawner.spawned):
+				continue
+			if not vehicle.has("sounds"):
+				vehicle["sounds"] = _find_machines(vehicle_spawner)
+			_run_machines(vehicle_spawner, vehicle["sounds"])
 	if spawner == null:
 		return
 	if not bool(spawner.spawned):
@@ -181,9 +191,8 @@ func _process(_delta: float) -> void:
 		return
 	if int(spawner.generation) != _generation:
 		_generation = int(spawner.generation)
-		_machines.clear()
-		_find_machines()
-	_run_machines()
+		_machines = _find_machines(spawner)
+	_run_machines(spawner, _machines)
 
 
 func _run_ambience() -> void:
@@ -204,11 +213,13 @@ func _run_ambience() -> void:
 	_night.volume_db = linear_to_db(maxf(night * quiet * 0.6, 0.0001))
 
 
-## Gives every machine on the new build a looping sound, carried on its part.
-func _find_machines() -> void:
-	var records: Dictionary = spawner.all_records()
+## Gives every machine on a newly spawned build a looping sound, carried on
+## its part. Returns the list for _run_machines.
+func _find_machines(source: Node) -> Array:
+	var found: Array = []
+	var records: Dictionary = source.all_records()
 	for key in records:
-		if _machines.size() >= MAX_MACHINES:
+		if found.size() >= MAX_MACHINES:
 			break
 		var uid: int = key
 		var record: Dictionary = records[uid]
@@ -238,7 +249,7 @@ func _find_machines() -> void:
 		if loop == "" or not _streams.has(loop):
 			continue
 		var stream: AudioStream = _streams[loop]
-		var made: Node3D = spawner.attach_extra(uid, func(place: Transform3D, _size: Vector3) -> Node3D:
+		var made: Node3D = source.attach_extra(uid, func(place: Transform3D, _size: Vector3) -> Node3D:
 			var sound := AudioStreamPlayer3D.new()
 			sound.stream = stream
 			sound.bus = "Machines"
@@ -248,18 +259,19 @@ func _find_machines() -> void:
 			return sound)
 		if made == null:
 			continue
-		_machines.append({"uid": uid, "type": type, "player": made, "full": full, "props": props})
+		found.append({"uid": uid, "type": type, "player": made, "full": full, "props": props})
+	return found
 
 
-func _run_machines() -> void:
-	for item in _machines:
+func _run_machines(source: Node, machines: Array) -> void:
+	for item in machines:
 		var machine: Dictionary = item
 		var sound := machine["player"] as AudioStreamPlayer3D
 		if sound == null or not is_instance_valid(sound):
 			continue
 		var uid: int = machine["uid"]
 		var type: String = machine["type"]
-		var outputs: Dictionary = spawner.outputs_of(uid)
+		var outputs: Dictionary = source.outputs_of(uid)
 		var level := 0.0   # 0 idle to 1 flat out
 		var size := 1.0    # how big it is, for how far it carries
 		match type:

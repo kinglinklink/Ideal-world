@@ -19,7 +19,7 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 21"
+const VERSION := "Build 22"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -87,6 +87,10 @@ var daylight: Node = null            # daylight.gd, for the clock
 var menus: Node = null               # menus.gd: settings, guide, pause
 var _clock_label: Label
 var _part_total := 0
+var fleet: Node = null               # fleet.gd
+var _fleet_panel: PanelContainer
+var _fleet_saves: ItemList
+var _fleet_list: ItemList
 var _waypoint_label: Label
 var _world_map: Control              # world_map.gd, opened with M
 var _garage_button: Button
@@ -155,6 +159,85 @@ func _on_jump_time(fraction: float) -> void:
 		_settings_panel.values["sky"] = "cycle"   # a jump starts the clock again
 		_settings_panel.call("_commit")
 	daylight.set_time(fraction)
+
+
+func set_fleet(the_fleet: Node) -> void:
+	fleet = the_fleet
+	_minimap.fleet = the_fleet
+
+
+func _build_fleet_panel() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.visible = false
+	var margin := MarginContainer.new()
+	for margin_name in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(margin_name, 12)
+	panel.add_child(margin)
+	var box := _column()
+	margin.add_child(box)
+	box.add_child(_label("Fleet", 18))
+	var note := _label("Spawn a saved build out into the world as a vehicle of its own, in front of you.\nIt stays, working, until you despawn it. The build on the pad is separate.", 12)
+	box.add_child(note)
+	box.add_child(_label("Saved builds"))
+	_fleet_saves = ItemList.new()
+	_fleet_saves.custom_minimum_size = Vector2(440, 170)
+	_fleet_saves.focus_mode = Control.FOCUS_NONE
+	_fleet_saves.item_activated.connect(func(_index: int) -> void: _spawn_from_fleet())
+	box.add_child(_fleet_saves)
+	var spawn_row := _row()
+	box.add_child(spawn_row)
+	var spawn_button := _button("Spawn in front of me", 200.0)
+	spawn_button.pressed.connect(_spawn_from_fleet)
+	spawn_row.add_child(spawn_button)
+	box.add_child(_label("Out in the world"))
+	_fleet_list = ItemList.new()
+	_fleet_list.custom_minimum_size = Vector2(440, 120)
+	_fleet_list.focus_mode = Control.FOCUS_NONE
+	box.add_child(_fleet_list)
+	var row := _row()
+	box.add_child(row)
+	var despawn := _button("Despawn", 110.0)
+	despawn.pressed.connect(func() -> void:
+		var picked := _fleet_list.get_selected_items()
+		if fleet != null and not picked.is_empty():
+			fleet.despawn(picked[0])
+		_refresh_fleet())
+	row.add_child(despawn)
+	var despawn_all := _button("Despawn all", 120.0)
+	despawn_all.pressed.connect(func() -> void:
+		if fleet != null:
+			fleet.despawn_all()
+		_refresh_fleet())
+	row.add_child(despawn_all)
+	var close := _button("Close", 90.0)
+	close.pressed.connect(func() -> void: _fleet_panel.visible = false)
+	row.add_child(close)
+	return panel
+
+
+func _refresh_fleet() -> void:
+	_fleet_saves.clear()
+	for save_name in SaveManager.list_saves():
+		_fleet_saves.add_item(str(save_name))
+	_fleet_list.clear()
+	if fleet == null:
+		return
+	for item in fleet.vehicles:
+		var vehicle: Dictionary = item
+		_fleet_list.add_item("%s   (%d parts, %.0f kg)" % [vehicle["name"], int(vehicle["parts"]), float(vehicle["mass"])])
+
+
+func _spawn_from_fleet() -> void:
+	var picked := _fleet_saves.get_selected_items()
+	if fleet == null or picked.is_empty():
+		_on_message("Pick a saved build first.")
+		return
+	var message: String = fleet.spawn_save(_fleet_saves.get_item_text(picked[0]), player)
+	_on_message(message)
+	Sound.play_ui("spawn")
+	_refresh_fleet()
 
 
 ## Opens or closes the full map (the M key).
@@ -261,6 +344,13 @@ func _build_interface() -> void:
 		if menus != null:
 			menus.toggle_settings())
 	top_buttons.add_child(settings)
+	var fleet_button := _button("Fleet", 80.0)
+	fleet_button.tooltip_text = "Spawn saved builds out into the world as vehicles of their own"
+	fleet_button.pressed.connect(func() -> void:
+		_fleet_panel.visible = not _fleet_panel.visible
+		if _fleet_panel.visible:
+			_refresh_fleet())
+	top_buttons.add_child(fleet_button)
 	var guide := _button("Guide (F1)", 110.0)
 	guide.tooltip_text = "What every part does, its settings, inputs and outputs"
 	guide.pressed.connect(func() -> void:
@@ -399,6 +489,10 @@ func _build_interface() -> void:
 	# Saves window, screen centre, hidden until the Saves button is pressed.
 	_saves_panel = _build_saves_panel()
 	root.add_child(_saves_panel)
+
+	# Fleet window, screen centre, from the Fleet button.
+	_fleet_panel = _build_fleet_panel()
+	root.add_child(_fleet_panel)
 
 
 func _readout(parent: Control) -> Label:
@@ -1208,6 +1302,11 @@ func _process(delta: float) -> void:
 	_speed_label.text = "Speed  %.1f m/s    %.1f g    Altitude  %.0f m" % [
 		moving.length(), float(player.g_force), player.global_position.y + MapInfo.BASE_ELEVATION,
 	]
+	var spin: float = controller.seat_spin()
+	if spin > 0.5:
+		_speed_label.text += "    Turning  %.0f°/s" % spin
+	if not bool(controller.spawned):
+		_speed_label.text = "Parts  %d    " % _part_total + _speed_label.text
 	_crosshair.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	_seat_label.text = controller.seat_prompt()
 	if _message_time > 0.0:

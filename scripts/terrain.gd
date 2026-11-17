@@ -57,6 +57,7 @@ var forest: Node3D = null          # forest.gd
 var landmarks: Node3D = null       # landmarks.gd
 var towns: Node3D = null           # towns.gd
 var towers: Node3D = null          # towers.gd
+var fleet: Node3D = null           # fleet.gd: vehicles spawned from saves
 
 var _coarse := PackedByteArray()
 var _detail := PackedByteArray()
@@ -407,6 +408,13 @@ func _plan_tiles() -> void:
 			_want_round(wanted, at, BODY_REACH)
 			if moving.length() > 1.0:
 				_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
+	if fleet != null:
+		for item in fleet.body_motions():
+			var motion: Array = item
+			var at: Vector3 = Origin.to_map(motion[0])
+			var moving: Vector3 = motion[1]
+			_want_round(wanted, at, BODY_REACH)
+			_want_round(wanted, at + moving * LOOKAHEAD, BODY_REACH)
 	if towers != null:
 		for item in towers.debris_motions():
 			var motion: Array = item

@@ -40,6 +40,7 @@ const SERVO_GAIN := 0.2      # share of a position error a servo or piston sets 
 const SOLENOID_SPEED := 5.0  # m/s; a solenoid snaps across as fast as its force allows, up to this
 const WATER_DENSITY := 1000.0   # kg/m^3
 const WATER_DRAG := 0.5         # drag coefficient of a submerged float
+const BODY_DRAG := 1.0          # drag coefficient of a body's outline (a flat face square to the air is 1.2, a rounded one less)
 const FLOAT_CELL := 1.0         # metres; floats are merged into cubes this size
 const MAX_AIR_CELLS := 1500000  # bigger builds skip the sealed-air search
 
@@ -154,6 +155,7 @@ var _bodies: Array = []            # every RigidBody3D
 var terrain: Node3D = null         # terrain.gd, to tell lake from dry land
 var _floats: Dictionary = {}       # body -> [PackedVector3Array points in the body, PackedFloat32Array volumes, reach]
 var _air: Dictionary = {}          # body -> [PackedVector3Array, PackedFloat32Array]: sealed air, merged into cubes
+var _drag: Dictionary = {}         # body -> {"count": pieces it was worked out for, "axes": [[area m², point in the body], x3]}
 var _body_pieces: Dictionary = {}  # body -> Array of the pieces in it
 var _body_count := 0               # for naming bodies
 var _shapes: Dictionary = {}       # collision shapes, shared between identical pieces
@@ -280,6 +282,7 @@ func spawn(grid: Node3D) -> Dictionary:
 	_grid_frame = grid.global_transform
 	for uid in grid.all_uids():
 		_records[uid] = grid.get_part(uid)
+	var forced := _apply_offsetters()
 
 	# Every piece and its box.
 	var all_pieces: Array = []
@@ -302,7 +305,7 @@ func spawn(grid: Node3D) -> Dictionary:
 
 	# Weld them into bodies.
 	var total_mass := 0.0
-	for group in weld_groups(all_pieces, _boxes):
+	for group in _merge_forced(weld_groups(all_pieces, _boxes), forced):
 		var pieces: Array = group
 		# The engine gives one friction value to a whole body, so frictionless
 		# parts get a body of their own. They and everything welded to them
@@ -364,6 +367,108 @@ func spawn(grid: Node3D) -> Dictionary:
 	}
 
 
+## Dynamic offsetters: before welding, everything built on an offsetter's
+## top face (its own +Y), and everything joined on beyond that, is turned
+## about the middle of that face by the offsetter's turn settings and moved
+## by its shift, both along the offsetter's own axes. The offsetter then
+## holds what it moved welded to itself, however far it moved. If what is on
+## top also reaches round to another face of the offsetter, it cannot be told
+## apart from the rest, and nothing moves. Returns [offsetter uid, uids it
+## holds] pairs for _merge_forced.
+func _apply_offsetters() -> Array:
+	var forced: Array = []
+	for key in _records.keys():
+		var uid: int = key
+		var record: Dictionary = _records[uid]
+		if str(record["type"]) != "dynamic_offsetter":
+			continue
+		var props: Dictionary = record.get("props", {})
+		var shift_local := Vector3(float(props.get("shift_x", 0.0)), float(props.get("shift_y", 0.0)),
+				float(props.get("shift_z", 0.0))) * Units.CELL
+		var turn_local := Vector3(float(props.get("turn_x", 0.0)), float(props.get("turn_y", 0.0)),
+				float(props.get("turn_z", 0.0)))
+		if shift_local.length() < 0.0001 and turn_local.length() < 0.01:
+			continue
+		var rot: Basis = record["rot"]
+		var own_box: AABB = BuildGrid.bounds_of(record)
+		var up: Vector3 = rot.y.normalized()
+		var size_m: Vector3 = Units.to_metres(record["size"] as Vector3i)
+		var top_middle: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT + up * size_m.y * 0.5
+		# What sits on the top face, then everything joined on beyond it.
+		var boxes: Dictionary = {}
+		for other_key in _records:
+			if other_key != uid:
+				boxes[other_key] = BuildGrid.bounds_of(_records[other_key])
+		var seeds: Array = []
+		for other_key in boxes:
+			var box: AABB = boxes[other_key]
+			if _touching(box, own_box) and (box.get_center() - top_middle).dot(up) > -0.001:
+				seeds.append(other_key)
+		if seeds.is_empty():
+			continue
+		var moving: Dictionary = {}
+		var queue: Array = seeds.duplicate()
+		for first_part in seeds:
+			moving[first_part] = true
+		var tangled := false
+		while not queue.is_empty() and not tangled:
+			var current: int = queue.pop_back()
+			var current_box: AABB = boxes[current]
+			for other_key in boxes:
+				if moving.has(other_key):
+					continue
+				if not _touching(boxes[other_key], current_box):
+					continue
+				var other_box: AABB = boxes[other_key]
+				if _touching(other_box, own_box) and (other_box.get_center() - top_middle).dot(up) <= -0.001:
+					tangled = true   # it wraps round to the offsetter's other side
+					break
+				moving[other_key] = true
+				queue.append(other_key)
+		if tangled:
+			continue
+		var turn := rot * Basis.from_euler(turn_local * PI / 180.0) * rot.inverse()
+		var shift: Vector3 = rot * shift_local
+		for moved_key in moving:
+			var moved: Dictionary = _records[moved_key]
+			var at: Vector3 = Vector3(moved["pos"] as Vector3i) * Units.UNIT
+			var new_at: Vector3 = top_middle + turn * (at - top_middle) + shift
+			moved["pos"] = Vector3i((new_at / Units.UNIT).round())
+			moved["rot"] = (turn * (moved["rot"] as Basis)).orthonormalized()
+		forced.append([uid, seeds])
+	return forced
+
+
+## Joins the weld groups that an offsetter holds together (see _apply_offsetters).
+static func _merge_forced(groups: Array, forced: Array) -> Array:
+	if forced.is_empty():
+		return groups
+	var group_of: Dictionary = {}   # piece -> index into groups
+	for index in groups.size():
+		for piece in groups[index]:
+			group_of[piece] = index
+	for item in forced:
+		var pair: Array = item
+		var holder: int = int(pair[0]) * PIECES
+		for held_uid in pair[1]:
+			var held: int = int(held_uid) * PIECES
+			if not group_of.has(holder) or not group_of.has(held):
+				continue
+			var keep: int = group_of[holder]
+			var gone: int = group_of[held]
+			if keep == gone:
+				continue
+			for piece in groups[gone]:
+				(groups[keep] as Array).append(piece)
+				group_of[piece] = keep
+			groups[gone] = []
+	var merged: Array = []
+	for group in groups:
+		if not (group as Array).is_empty():
+			merged.append(group)
+	return merged
+
+
 ## Removes every spawned body and joint.
 func despawn() -> void:
 	for entry in _joints:
@@ -397,6 +502,7 @@ func despawn() -> void:
 	_racks.clear()
 	_floats.clear()
 	_air.clear()
+	_drag.clear()
 	occupied_seat = 0
 	spawned = false
 
@@ -454,6 +560,14 @@ func seat_velocity(uid: int) -> Vector3:
 
 ## The spawned seat nearest to a point in the world and within `reach`
 ## metres of it. Returns its uid, or 0 for none.
+## How fast a spawned seat's body is turning, in degrees per second.
+func seat_spin(uid: int) -> float:
+	if not _seats.has(uid):
+		return 0.0
+	var body: RigidBody3D = _piece_body(_seats[uid][0])
+	return rad_to_deg(body.angular_velocity.length()) if body != null else 0.0
+
+
 func nearest_seat(world_point: Vector3, reach: float) -> int:
 	var best := 0
 	var best_distance := reach
@@ -824,7 +938,113 @@ func _refresh_body(body: RigidBody3D) -> void:
 	body.mass = maxf(mass, 0.001)
 	body.center_of_mass = centre
 	body.physics_material_override.friction = grip / mass   # the mass-weighted average of its materials
+	body.inertia = _inertia_of(pieces, centre, mass)
 	_rebuild_floats(body)
+	var drag: Dictionary = _drag.get(body, {})
+	if int(drag.get("count", -1)) != pieces.size():
+		_drag[body] = {"count": pieces.size(), "axes": _drag_areas(pieces)}
+
+
+## A body's moments of inertia about its centre of mass, along its own axes,
+## from each piece's real mass and box (a solid box, moved out by the
+## parallel-axis rule). The cross terms are left out, so the engine treats
+## the body's axes as its principal axes.
+func _inertia_of(pieces: Array, centre: Vector3, mass: float) -> Vector3:
+	var total := Vector3.ZERO
+	for piece in pieces:
+		var entry: Dictionary = _pieces[piece]
+		var piece_mass: float = entry["mass"]
+		var size: Vector3 = (_boxes[piece] as AABB).size if _boxes.has(piece) else Vector3.ONE * Units.CELL
+		var away: Vector3 = (entry["centre"] as Vector3) - centre
+		total += piece_mass / 12.0 * Vector3(size.y * size.y + size.z * size.z,
+				size.x * size.x + size.z * size.z, size.x * size.x + size.y * size.y)
+		total += piece_mass * Vector3(away.y * away.y + away.z * away.z,
+				away.x * away.x + away.z * away.z, away.x * away.x + away.y * away.y)
+	# Never quite zero, which the solver cannot take.
+	var least := maxf(mass, 0.001) * 0.0001
+	return Vector3(maxf(total.x, least), maxf(total.y, least), maxf(total.z, least))
+
+
+## How much a body catches the air from each side: for each of its own three
+## axes, the area of its outline seen along that axis (the parts' boxes laid
+## on a grid of quarter-block cells, so overlaps count once), and the middle
+## of that outline, where the drag acts. Aero panels and propellers are left
+## out: they work out their own air forces.
+func _drag_areas(pieces: Array) -> Array:
+	var axes: Array = []
+	var boxes: Array = []
+	for piece in pieces:
+		var uid: int = _uid_of(piece)
+		var record: Dictionary = _records[uid]
+		var type: String = record["type"]
+		if PartLibrary.is_aero_panel(type) or type == "propeller" or not _boxes.has(piece):
+			continue
+		var entry: Dictionary = _pieces[piece]
+		var place: Transform3D = entry["place"]
+		var grid_box: AABB = _boxes[piece]
+		# The piece's box in the body: the part's own middle, plus where the
+		# piece sits from it.
+		var middle: Vector3 = place.origin + (grid_box.get_center() - Vector3(record["pos"] as Vector3i) * Units.UNIT)
+		boxes.append(AABB(middle - grid_box.size * 0.5, grid_box.size))
+	for axis in 3:
+		var u_axis := (axis + 1) % 3
+		var v_axis := (axis + 2) % 3
+		var cells: Dictionary = {}
+		for item in boxes:
+			var box: AABB = item
+			var u0 := int(ceil(box.position[u_axis] / Units.CELL - 0.5))
+			var u1 := int(floor(box.end[u_axis] / Units.CELL - 0.5))
+			var v0 := int(ceil(box.position[v_axis] / Units.CELL - 0.5))
+			var v1 := int(floor(box.end[v_axis] / Units.CELL - 0.5))
+			for u in range(u0, u1 + 1):
+				for v in range(v0, v1 + 1):
+					cells[Vector2i(u, v)] = true
+		var area := cells.size() * Units.CELL * Units.CELL
+		var sum := Vector2.ZERO
+		for key in cells:
+			var cell: Vector2i = key
+			sum += (Vector2(cell) + Vector2(0.5, 0.5)) * Units.CELL
+		var point := Vector3.ZERO
+		if not cells.is_empty():
+			sum /= cells.size()
+			point[u_axis] = sum.x
+			point[v_axis] = sum.y
+		axes.append([area, point])
+	return axes
+
+
+## Air drag on every body, from its outline along each of its own axes:
+## force = ½ × air density × BODY_DRAG × area × speed² against the motion
+## along that axis, acting at the middle of that outline, so a body with more
+## outline behind its centre of mass turns its nose into the wind.
+func _run_body_drag() -> void:
+	for body in _bodies:
+		var spawned_body: RigidBody3D = body
+		if not is_instance_valid(spawned_body) or spawned_body.freeze or not _drag.has(spawned_body):
+			continue
+		var axes: Array = _drag[spawned_body]["axes"]
+		var frame: Transform3D = spawned_body.global_transform
+		var density: float = Aero.air_density(frame.origin.y)
+		var pushed := false
+		for axis in 3:
+			var pair: Array = axes[axis]
+			var area: float = pair[0]
+			if area <= 0.0:
+				continue
+			var point: Vector3 = pair[1]
+			point[axis] = spawned_body.center_of_mass[axis]
+			var arm: Vector3 = frame.basis * point
+			var direction: Vector3 = frame.basis[axis].normalized()
+			var speed: float = velocity_at(spawned_body, arm).dot(direction)
+			if absf(speed) < 0.5:
+				continue
+			var force: float = 0.5 * density * BODY_DRAG * area * speed * absf(speed)
+			# Never more than would stop that motion in one tick.
+			force = minf(absf(force), spawned_body.mass * absf(speed) * 240.0 * 0.5) * signf(force)
+			spawned_body.apply_force(-direction * force, arm)
+			pushed = true
+		if pushed:
+			spawned_body.sleeping = false
 
 
 # --- Damage ------------------------------------------------------------------
@@ -1004,6 +1224,7 @@ func _resplit(body: RigidBody3D) -> void:
 		_bodies.erase(body)
 		_floats.erase(body)
 		_air.erase(body)
+		_drag.erase(body)
 		body.queue_free()
 		return
 
@@ -2138,6 +2359,7 @@ func _physics_process(delta: float) -> void:
 	_run_gears()
 	_run_thrusters()
 	_run_aero(delta)
+	_run_body_drag()
 	_run_buoyancy(delta)
 
 

@@ -11,7 +11,7 @@ Working now:
 - **The map: Flathead Lake, Montana, at true size**, built from real elevation data. You start on Wild Horse Island, with the build pad and garage on the flat bench above Skeeko Bay. See [The map](#the-map).
 - A 32 m × 64 m build pad with a 0.25 m grid (128 × 256 cells, 128 cells high)
 - A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
-- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen takes the door away and puts it back.
+- A hollow garage behind the start point, with its door facing the build pad. The **Open garage** button at the top of the screen rolls the door up and back down.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - **Respawn** (button at the top, or P) puts you back at the build pad from anywhere
 - **A title screen** when the game starts (Play, Parts guide, Settings, Quit), and a **pause menu**: Esc (once the cursor is free; in first person the first Esc frees it) pauses the game with Resume, Parts guide, Settings, Back to the build pad, Title screen and Quit.
@@ -110,13 +110,15 @@ Parts of the same material may overlap. Parts of different materials may not.
 
 Press the green **Spawn** button at the bottom left, or the Enter key, to set the build loose. Press the same button, now labeled **Build**, or Enter again, to put everything back on the pad exactly as it was.
 
-The bottom-right corner shows which build of the game is running (for example "Build 21"). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
+The bottom-right corner shows which build of the game is running (for example "Build 22"). While building it also shows how many parts the build has, and while you sit in a moving vehicle how fast it is turning (°/s). Beside the speed it shows the g-force the character feels: 1 g standing still, 0 g in free fall, more in a hard turn or pull-up, which helps to check that the newest copy is the one open.
 
 This is the basic version. What it does so far:
 
 - **Welding.** Parts whose bounding boxes share a face (or part of one) or overlap are welded into one rigid body. Parts that only meet along an edge or at a corner are not. Separate groups become separate bodies.
 - **Mass.** Each body has the combined mass and center of mass of its parts, from their real volumes and densities. Its friction is the mass-weighted average of its materials.
-- **Gravity and collisions.** Bodies fall, collide, stack and tip over.
+- **Gravity and collisions.** Bodies fall, collide, stack and tip over. Each body's inertia comes from the real mass and place of every part in it, so a heavy engine in the nose makes a plane slow to turn.
+- **Air drag on every body.** For each of its own three axes, a body's outline seen along that axis (in quarter-block cells, overlaps counted once) catches the air: force = ½ × air density × 1.0 × area × speed², acting at the middle of that outline, so a body with more outline behind its centre of mass turns into the wind like a dart. Aero panels and propellers are left out of the outline because they work out their own drag.
+- **The fleet.** The **Fleet** button at the top spawns any saved build out into the world, a few metres in front of you and facing your way, as a vehicle of its own with its own logic, engines and guns. It stays, working, while you build something else on the pad; sit in its seats like any other. Despawn them one by one or all at once. Up to 8; they show as green squares on the mini map and full map.
 - **Pushing.** The character has a mass of 70 kg. Walking into a body pushes it with a force equal to the character's momentum toward it (mass × closing speed) handed over across a quarter of a second, but never harder than the feet can grip: grip × weight, about 687 N on the ground and next to nothing on ice. Friction with the ground decides the rest. A light body slides away, a heavier one moves slowly and holds you back to its speed, and one whose friction is greater than the push does not move at all. Every push is a force in newtons from the game's own code; the physics engine itself never shoves a body out of the character's way.
 - **Weight and grip.** A body you stand on carries your weight, and feels the reaction of your feet: speed up, slow down or push on something while standing on a loose body and it is pushed the other way. The character changes speed only as fast as its grip allows (grip × g), so it takes a moment to get going on the ground, is slippery on ice, and cannot change speed at all on a frictionless surface.
 - **Seats** work the same as on the pad: E to sit, Space to stand up.
@@ -141,7 +143,7 @@ This is the basic version. What it does so far:
 - **Large cannon:** fires along its own −Z. Its size sets the shot: the bore is a fifth of its smaller cross size, the shell is three bores long and made of the projectile material, and the propellant pushes it down the barrel at 100 MPa, so muzzle energy = 100 MPa × bore area × barrel length (the Config tool shows the numbers). Shells fly under gravity and do 1 HP per kJ they carry on impact. A shell goes through any part it destroys, slowed by the energy that took. One shot per 0.5 s per metre of barrel, with recoil.
 - **Ammo generator:** makes its set rate per second up to its storage, starting empty, and gets heavier as it fills (25 g per machine gun round; a cannon shell weighs what the heaviest cannon linked to it fires). Turn off a gun's Unlimited ammo and link its Ammo supply input to a generator of the right type, and each shot takes one.
 - **Explosive block:** goes off when its Detonate input is on, or when it is destroyed. Every part within the blast radius takes 1000 HP per metre of radius at the centre, falling to nothing at the edge, and is pushed away by 1 N·s per HP. An explosive caught in a blast goes off one tick later, so chains of them ripple.
-- A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** is invisible and has no collision once spawned, but still welds.
+- A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** moves and turns everything built on its top face (its own +Y), by its shift and turn settings along its own axes, at spawn, and holds it welded there; then it is invisible and has no collision.
 
 Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. Belts are not drawn. A piston's Pressure output reads 0, and the crankshaft's throw and rod length settings are not used yet (build the linkage from linkage bars). There is no drag on anything but aero panels yet. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
 

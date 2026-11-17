@@ -58,6 +58,9 @@ var link_input: String = ""    # Config: the input waiting for the user to click
 var link_source_uid := 0       # Config: the source part clicked, waiting for an output choice
 var seat_uid := 0              # the seat the character is sitting in, 0 for none
 var near_seat_uid := 0         # the nearest seat within reach, 0 for none
+var fleet: Node3D = null       # fleet.gd: vehicles spawned from saves, whose seats can be sat in too
+var _seat_owner: Node = null   # the spawner of the seat sat in; null for a seat on the build grid
+var _near_owner: Node = null   # likewise for the seat in reach
 
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
@@ -230,7 +233,7 @@ func _on_parts_changed() -> void:
 		link_input = ""
 		link_source_uid = 0
 		selection_changed.emit()
-	if seat_uid != 0 and not spawned:
+	if seat_uid != 0 and not spawned and _seat_owner == null:
 		var frame: Array = _seat_frame(seat_uid)
 		if frame.is_empty():
 			_leave_seat()
@@ -918,6 +921,13 @@ func toggle_spawn() -> void:
 
 # --- Seats -------------------------------------------------------------------
 
+## How fast the vehicle sat in is turning, in degrees per second (0 on foot).
+func seat_spin() -> float:
+	if seat_uid == 0 or _seat_owner == null or not is_instance_valid(_seat_owner):
+		return 0.0
+	return _seat_owner.seat_spin(seat_uid)
+
+
 ## The line the interface shows about sitting, or "" for nothing to say.
 func seat_prompt() -> String:
 	if seat_uid != 0:
@@ -931,29 +941,36 @@ func seat_prompt() -> String:
 func _update_seat() -> void:
 	if grid == null or player == null:
 		return
+	# Key binds work only in the vehicle sat in.
 	if spawner != null:
-		spawner.occupied_seat = seat_uid if spawned else 0   # key binds work only while seated
+		spawner.occupied_seat = seat_uid if spawned and _seat_owner == spawner else 0
+	if fleet != null:
+		for item in fleet.spawners():
+			var vehicle: Node = item
+			vehicle.occupied_seat = seat_uid if vehicle == _seat_owner else 0
 	if seat_uid != 0:
 		_seat_request = false   # E does nothing while seated; only Space stands up
 		var typing: bool = get_viewport().gui_get_focus_owner() != null
 		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
 			_leave_seat()
-		elif spawned:
+		elif _seat_owner != null:
 			# A spawned seat moves, so the sitter is carried along every tick.
 			var frame: Array = _seat_frame(seat_uid)
-			if frame.is_empty():
+			if frame.is_empty() or not is_instance_valid(_seat_owner):
 				_leave_seat()
 			else:
 				var riding: Array = _seat_place(frame)
 				player.hold_seat(riding[0], riding[1])
-				player.ride_velocity = spawner.seat_velocity(seat_uid)
+				player.ride_velocity = _seat_owner.seat_velocity(seat_uid)
 		return
 	if _seat_request or _tick % SEAT_EVERY_TICKS == 0:
 		near_seat_uid = _nearest_seat()
 	if _seat_request:
 		_seat_request = false
+		_seat_owner = _near_owner
 		var frame: Array = _seat_frame(near_seat_uid)
 		if frame.is_empty():
+			_seat_owner = null
 			near_seat_uid = 0
 			_say("There is no seat within reach.")
 			return
@@ -967,8 +984,30 @@ func _update_seat() -> void:
 ## otherwise one on the build grid. Returns its uid, or 0 for none.
 func _nearest_seat() -> int:
 	var chest: Vector3 = player.global_position + Vector3(0.0, Player.BODY_HEIGHT * 0.5, 0.0)
+	# Spawned seats: the build's, then the fleet's, the nearest of them.
+	var owners: Array = []
 	if spawned:
-		return spawner.nearest_seat(chest, SEAT_REACH)
+		owners.append(spawner)
+	if fleet != null:
+		owners.append_array(fleet.spawners())
+	var best := 0
+	var best_distance := INF
+	_near_owner = null
+	for item in owners:
+		var owner_spawner: Node = item
+		var uid: int = owner_spawner.nearest_seat(chest, SEAT_REACH)
+		if uid == 0:
+			continue
+		var frame: Array = owner_spawner.seat_frame(uid)
+		if frame.is_empty():
+			continue
+		var distance: float = (frame[0] as Transform3D).origin.distance_to(chest)
+		if distance < best_distance:
+			best_distance = distance
+			best = uid
+			_near_owner = owner_spawner
+	if best != 0 or spawned:
+		return best
 	var local_chest: Vector3 = grid.global_transform.affine_inverse() * chest
 	return grid.nearest_of_type("seat", local_chest, SEAT_REACH)
 
@@ -978,6 +1017,8 @@ func _nearest_seat() -> int:
 func _seat_frame(uid: int) -> Array:
 	if uid == 0:
 		return []
+	if _seat_owner != null:
+		return _seat_owner.seat_frame(uid) if is_instance_valid(_seat_owner) else []
 	if spawned:
 		return spawner.seat_frame(uid)
 	if not grid.has_part(uid):
@@ -1011,6 +1052,7 @@ func _leave_seat() -> void:
 	if not frame.is_empty():
 		exit_point = _seat_exit(frame)
 	seat_uid = 0
+	_seat_owner = null
 	player.stand_up(exit_point)
 
 
