@@ -44,6 +44,12 @@ const CONCRETE_KINDS := ["warehouse", "industrial", "commercial", "retail", "hos
 const HP_PER_M3 := {"wood": 2.0, "brick": 4.0, "concrete": 6.0}
 const MAX_HP := 150000.0
 const RUBBLE := Color(0.42, 0.39, 0.35)
+const GLASS := Color(0.16, 0.2, 0.25)
+const DOOR := Color(0.32, 0.22, 0.16)
+const TRIM := Color(0.92, 0.92, 0.9)
+const FLOOR_HEIGHT := 3.0          # metres a storey
+const WINDOW_EVERY := 3.2          # metres between windows along a wall
+const PITCHED_KINDS := ["yes", "house", "residential", "detached", "semidetached_house", "garage", "cabin", "farm", "shed", "hut", "bungalow"]
 ## The US 93 bridge at Polson, over the Flathead River where it leaves the
 ## lake: rebuilt big, a cable-stayed bridge that humps POLSON_RISE metres in
 ## the middle so boats and small planes fit underneath.
@@ -287,15 +293,12 @@ func _building(surface: SurfaceTool, body: StaticBody3D, entry: Array, key: Vect
 		var a := outline[index]
 		var b := outline[(index + 1) % outline.size()]
 		_quad(surface, Vector3(a.x, base, a.y), Vector3(b.x, base, b.y), Vector3(b.x, top, b.y), Vector3(a.x, top, a.y))
+	_windows(surface, outline, base, top, kind, shade)
 	surface.set_color(roof_color)
-	var triangles := Geometry2D.triangulate_polygon(outline)
-	if triangles.is_empty():
-		# An outline that crosses itself: fan out from the first corner.
-		for index in range(1, outline.size() - 1):
-			triangles.append_array(PackedInt32Array([0, index, index + 1]))
-	for index in triangles:
-		var corner := outline[index]
-		surface.add_vertex(Vector3(corner.x, top, corner.y))
+	if outline.size() == 4 and PITCHED_KINDS.has(kind) and top - base < 12.0 and _pitched_roof(surface, outline, top):
+		pass
+	else:
+		_flat_roof(surface, outline, top, roof_color)
 	if int(entry[6]) == 0:
 		return 1
 	for piece in Geometry2D.decompose_polygon_in_convex(outline):
@@ -313,6 +316,140 @@ func _building(surface: SurfaceTool, body: StaticBody3D, entry: Array, key: Vect
 		collider.set_meta("piece", key)
 		body.add_child(collider)
 	return 1
+
+
+## Windows in rows, one row a storey, across every wall long enough, and a
+## door in the middle of the longest wall. They stand 3 cm proud of the wall.
+func _windows(surface: SurfaceTool, outline: PackedVector2Array, base: float, top: float, kind: String, shade: int) -> void:
+	var turn := 1.0 if _signed_area(outline) > 0.0 else -1.0
+	var storeys := clampi(int((top - base) / FLOOR_HEIGHT), 1, 40)
+	var big := BIG_KINDS.has(kind)
+	var longest := -1
+	var longest_length := 0.0
+	for index in outline.size():
+		var length := outline[index].distance_to(outline[(index + 1) % outline.size()])
+		if length > longest_length:
+			longest_length = length
+			longest = index
+	for index in outline.size():
+		var a := outline[index]
+		var b := outline[(index + 1) % outline.size()]
+		var along := b - a
+		var length := along.length()
+		if length < 2.5:
+			continue
+		var direction := along / length
+		var out2 := Vector2(direction.y, -direction.x) * turn * 0.03
+		var out := Vector3(out2.x, 0.0, out2.y)
+		var count := int(length / WINDOW_EVERY)
+		var wide := 1.1 if not big else 2.2
+		var tall := 1.3 if not big else 1.0
+		for storey in storeys:
+			var sill := base + storey * FLOOR_HEIGHT + (0.9 if not big else 1.6)
+			if sill + tall > top - 0.3:
+				break
+			for slot in count:
+				var middle := a + direction * ((slot + 0.5) * length / count)
+				if index == longest and storey == 0 and slot == count / 2:
+					continue   # the door goes here
+				if big and (slot + shade) % 3 == 2:
+					continue   # warehouses have fewer windows
+				var left := middle - direction * wide * 0.5
+				var right := middle + direction * wide * 0.5
+				surface.set_color(GLASS)
+				_quad(surface, Vector3(left.x, sill, left.y) + out, Vector3(right.x, sill, right.y) + out,
+						Vector3(right.x, sill + tall, right.y) + out, Vector3(left.x, sill + tall, left.y) + out)
+	if longest >= 0 and longest_length >= 2.5:
+		var a := outline[longest]
+		var b := outline[(longest + 1) % outline.size()]
+		var direction := (b - a).normalized()
+		var out2 := Vector2(direction.y, -direction.x) * turn * 0.04
+		var out := Vector3(out2.x, 0.0, out2.y)
+		var count := maxi(int(longest_length / WINDOW_EVERY), 1)
+		var middle := a + direction * ((count / 2 + 0.5) * longest_length / count)
+		var wide := 1.0 if not big else 4.0
+		var tall := minf(2.1 if not big else 3.6, top - base - 0.2)
+		var left := middle - direction * wide * 0.5
+		var right := middle + direction * wide * 0.5
+		surface.set_color(DOOR if not big else Color(0.45, 0.47, 0.5))
+		_quad(surface, Vector3(left.x, base, left.y) + out, Vector3(right.x, base, right.y) + out,
+				Vector3(right.x, base + tall, right.y) + out, Vector3(left.x, base + tall, left.y) + out)
+
+
+static func _signed_area(outline: PackedVector2Array) -> float:
+	var total := 0.0
+	for index in outline.size():
+		var a := outline[index]
+		var b := outline[(index + 1) % outline.size()]
+		total += a.x * b.y - b.x * a.y
+	return total * 0.5
+
+
+## A gabled roof over a four-cornered house: the ridge along its longer
+## side, rising a third of its width, overhanging 30 cm, with gable ends.
+## Returns false if the outline is too far from a rectangle.
+func _pitched_roof(surface: SurfaceTool, outline: PackedVector2Array, top: float) -> bool:
+	var a := outline[0]
+	var b := outline[1]
+	var c := outline[2]
+	var d := outline[3]
+	if absf((b - a).dot(c - b)) > 0.2 * (b - a).length() * (c - b).length():
+		return false
+	# Long sides a-b and d-c, or b-c and a-d.
+	if (b - a).length() < (c - b).length():
+		var keep := a
+		a = b
+		b = c
+		c = d
+		d = keep
+	var width := (d - a).length()
+	var rise := width / 3.0
+	var across := (d - a).normalized() * 0.3
+	var along := (b - a).normalized() * 0.3
+	var a2 := a - across - along
+	var b2 := b - across + along
+	var c2 := c + across + along
+	var d2 := d + across - along
+	var ridge_a := (a + d) * 0.5 - along
+	var ridge_b := (b + c) * 0.5 + along
+	var eave := top - 0.15
+	_quad(surface, Vector3(a2.x, eave, a2.y), Vector3(b2.x, eave, b2.y), Vector3(ridge_b.x, top + rise, ridge_b.y), Vector3(ridge_a.x, top + rise, ridge_a.y))
+	_quad(surface, Vector3(c2.x, eave, c2.y), Vector3(d2.x, eave, d2.y), Vector3(ridge_a.x, top + rise, ridge_a.y), Vector3(ridge_b.x, top + rise, ridge_b.y))
+	# Undersides, so the roof isn't see-through from below.
+	_quad(surface, Vector3(ridge_a.x, top + rise - 0.1, ridge_a.y), Vector3(ridge_b.x, top + rise - 0.1, ridge_b.y), Vector3(b2.x, eave - 0.1, b2.y), Vector3(a2.x, eave - 0.1, a2.y))
+	_quad(surface, Vector3(ridge_b.x, top + rise - 0.1, ridge_b.y), Vector3(ridge_a.x, top + rise - 0.1, ridge_a.y), Vector3(d2.x, eave - 0.1, d2.y), Vector3(c2.x, eave - 0.1, c2.y))
+	# The gable ends, in the wall colour's trim.
+	surface.set_color(TRIM)
+	var mid_a := (a + d) * 0.5
+	var mid_b := (b + c) * 0.5
+	for triangle in [[a, d, mid_a], [c, b, mid_b]]:
+		var p: Vector2 = triangle[0]
+		var q: Vector2 = triangle[1]
+		var r: Vector2 = triangle[2]
+		for corner in [Vector3(p.x, top, p.y), Vector3(q.x, top, q.y), Vector3(r.x, top + rise, r.y)]:
+			surface.add_vertex(corner)
+		for corner in [Vector3(q.x, top, q.y), Vector3(p.x, top, p.y), Vector3(r.x, top + rise, r.y)]:
+			surface.add_vertex(corner)
+	return true
+
+
+## A flat roof with a low parapet round its edge.
+func _flat_roof(surface: SurfaceTool, outline: PackedVector2Array, top: float, roof_color: Color) -> void:
+	surface.set_color(roof_color)
+	var triangles := Geometry2D.triangulate_polygon(outline)
+	if triangles.is_empty():
+		# An outline that crosses itself: fan out from the first corner.
+		for index in range(1, outline.size() - 1):
+			triangles.append_array(PackedInt32Array([0, index, index + 1]))
+	for index in triangles:
+		var corner := outline[index]
+		surface.add_vertex(Vector3(corner.x, top, corner.y))
+	surface.set_color(roof_color.lightened(0.15))
+	for index in outline.size():
+		var a := outline[index]
+		var b := outline[(index + 1) % outline.size()]
+		_quad(surface, Vector3(a.x, top, a.y), Vector3(b.x, top, b.y), Vector3(b.x, top + 0.5, b.y), Vector3(a.x, top + 0.5, a.y))
+		_quad(surface, Vector3(b.x, top, b.y), Vector3(a.x, top, a.y), Vector3(a.x, top + 0.5, a.y), Vector3(b.x, top + 0.5, b.y))
 
 
 ## What is left of a building brought down: a low heap on its outline.
