@@ -21,6 +21,10 @@ void vertex() {
 }
 
 void fragment() {
+	// Glass lets the light through: it casts no shadow.
+	if (IN_SHADOW_PASS) {
+		discard;
+	}
 	vec3 n = normalize(facing);
 	if (bump > 0.0) {
 		NORMAL = part_normal(at, n, part_weights(n), part_turns(stretch), MODEL_MATRIX, VIEW_MATRIX);
