@@ -8,23 +8,39 @@ render_mode cull_back;
 uniform float autumn = 0.0;        // 0 to 1
 uniform float snow_line_y = 2000.0; // game metres
 uniform float cold = 0.0;          // 0 midsummer to 1 midwinter
+uniform float broadleaf = 0.0;     // 1 for cottonwoods: lighter green, all gold in autumn, bare in winter
 
 varying vec3 tint;
 varying float height;
+varying vec3 spot;
 
 void vertex() {
 	tint = COLOR.rgb;
 	height = (MODEL_MATRIX * vec4(VERTEX, 1.0)).y;
+	spot = VERTEX * 2.3 + MODEL_MATRIX[3].xyz * 0.37;
 }
 
 void fragment() {
 	vec3 c = tint;
-	float larch = step(0.72, fract(tint.r * 91.7 + tint.g * 37.3));
-	c = mix(c, vec3(0.78, 0.58, 0.14), autumn * larch);
-	c = mix(c, c * vec3(1.05, 0.9, 0.7), smoothstep(0.6, 0.9, cold) * larch);
-	vec3 up = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
-	float snowy = smoothstep(snow_line_y - 150.0, snow_line_y, height) * smoothstep(0.1, 0.6, up.y);
-	c = mix(c, vec3(0.9, 0.93, 0.96), snowy);
+	if (broadleaf > 0.5) {
+		// Cottonwoods: a lighter, yellower green, gold in autumn, and the
+		// leaves gone in winter, leaving a sparse grey-brown twig shape.
+		c = tint * vec3(1.35, 1.45, 1.0) + vec3(0.04, 0.05, 0.0);
+		c = mix(c, vec3(0.86, 0.7, 0.18), smoothstep(0.2, 0.7, autumn));
+		float bare = smoothstep(0.45, 0.8, cold);
+		float speck = fract(sin(dot(floor(spot * 3.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+		if (speck < bare * 0.85) {
+			discard;
+		}
+		c = mix(c, vec3(0.42, 0.37, 0.32), bare);
+	} else {
+		float larch = step(0.72, fract(tint.r * 91.7 + tint.g * 37.3));
+		c = mix(c, vec3(0.78, 0.58, 0.14), autumn * larch);
+		c = mix(c, c * vec3(1.05, 0.9, 0.7), smoothstep(0.6, 0.9, cold) * larch);
+		vec3 up = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
+		float snowy = smoothstep(snow_line_y - 150.0, snow_line_y, height) * smoothstep(0.1, 0.6, up.y);
+		c = mix(c, vec3(0.9, 0.93, 0.96), snowy);
+	}
 	ALBEDO = c;
 	ROUGHNESS = 1.0;
 }
