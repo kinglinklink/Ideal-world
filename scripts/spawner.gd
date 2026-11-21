@@ -177,6 +177,11 @@ var air_force := Vector3.ZERO      # aero forces summed since the test stand las
 var air_moment := Vector3.ZERO     # and their moment about the held body's centre of mass (N m x ticks)
 var air_ticks := 0
 var _anchors: Dictionary = {}      # hidden control part uid -> [piece it rides with, offset in that piece's body]
+## Pieces whose shape is not their whole box (wedges, triangles, round and
+## hollow parts): piece -> [type, part's axes, middle (grid, m), size (m)].
+## Welding checks they really meet, not just their boxes.
+static var _shaped: Dictionary = {}
+var _own_shaped: Dictionary = {}   # this build's _shaped (every spawner shares the static one while welding)
 var _belt_mesh: MeshInstance3D = null
 var applied: Dictionary = {}       # piece -> force put on it this check (world), for stress.gd
 var stress: Node = null            # stress.gd
@@ -332,6 +337,8 @@ func spawn(grid: Node3D) -> Dictionary:
 	held_body = null
 
 	# Every piece and its box.
+	_shaped = {}
+	_own_shaped = _shaped
 	var all_pieces: Array = []
 	for uid in _records:
 		var part_uid: int = uid
@@ -350,6 +357,7 @@ func spawn(grid: Node3D) -> Dictionary:
 			var box: AABB = _piece_box(piece, record)
 			_boxes[piece] = box
 			all_pieces.append(piece)
+			_note_shape(piece, record)
 			if immovable:
 				_file_fixed(piece, box)
 
@@ -766,7 +774,49 @@ static func _welds(a: int, b: int, boxes: Dictionary) -> bool:
 	var box_b: AABB = boxes[b]
 	if not _touching(box_a, box_b):
 		return false
+	if (_shaped.has(a) or _shaped.has(b)) and not _shapes_meet(a, b, box_a, box_b):
+		return false
 	return _chooses(a, b, boxes) and _chooses(b, a, boxes)
+
+
+## Notes a piece whose real shape is less than its box, for welding.
+static func _note_shape(piece: int, record: Dictionary) -> void:
+	_shaped.erase(piece)
+	var type: String = record["type"]
+	if not machine_of(record).is_empty() or PartLibrary._row(type)[5] == "box":
+		return
+	_shaped[piece] = [type, record["rot"] as Basis, Vector3(record["pos"] as Vector3i) * Units.UNIT,
+			Units.to_metres(record["size"])]
+
+
+## Whether two touching pieces really meet: some point of the region where
+## their boxes touch lies on or in both of their real shapes. So two
+## triangle panels whose empty halves face each other don't weld.
+static func _shapes_meet(a: int, b: int, box_a: AABB, box_b: AABB) -> bool:
+	var low := Vector3(maxf(box_a.position.x, box_b.position.x), maxf(box_a.position.y, box_b.position.y),
+			maxf(box_a.position.z, box_b.position.z)) - Vector3.ONE * TOUCH
+	var high := Vector3(minf(box_a.end.x, box_b.end.x), minf(box_a.end.y, box_b.end.y),
+			minf(box_a.end.z, box_b.end.z)) + Vector3.ONE * TOUCH
+	const STEPS := 6
+	for i in STEPS + 1:
+		for j in STEPS + 1:
+			for k in STEPS + 1:
+				var point := low + (high - low) * Vector3(i, j, k) / float(STEPS)
+				if _in_shape(a, point) and _in_shape(b, point):
+					return true
+	return false
+
+
+static func _in_shape(piece: int, point: Vector3) -> bool:
+	if not _shaped.has(piece):
+		return true   # a box: the region is inside it already
+	var shape: Array = _shaped[piece]
+	var size: Vector3 = shape[3]
+	var local: Vector3 = (shape[1] as Basis).inverse() * (point - (shape[2] as Vector3))
+	var unit := Vector3(local.x / maxf(size.x, 1e-6), local.y / maxf(size.y, 1e-6), local.z / maxf(size.z, 1e-6))
+	# Slack of about a millimetre, as a share of the part's size.
+	var slack := 0.002 / maxf(minf(size.x, minf(size.y, size.z)), 0.01) + 0.01
+	return PartLibrary.contains_unit_point(str(shape[0]), unit, slack)
 
 
 ## Something that touches several pieces of one machine welds to only one of
@@ -984,7 +1034,7 @@ func _build_piece(body: RigidBody3D, piece: int, centre: Vector3) -> bool:
 		mesh = PartLibrary.mesh_for_record(record)
 		shape_key = type + str(size_units)
 		if not _shapes.has(shape_key):
-			_shapes[shape_key] = PartLibrary.make_shape(type, size_m, true)
+			_shapes[shape_key] = PartLibrary.make_shapes(type, size_m, true)
 	else:
 		# Only this piece of the machine: its model, and a shape for it.
 		var spec: Array = _piece_spec(piece, record)
@@ -1017,12 +1067,20 @@ func _build_piece(body: RigidBody3D, piece: int, centre: Vector3) -> bool:
 	body.add_child(mesh_instance)
 	entry["mesh"] = mesh_instance
 
-	var collider := CollisionShape3D.new()
-	collider.shape = _shapes[shape_key]
-	collider.transform = shape_place
-	collider.set_meta("uid", uid)   # so a hit on this shape can be traced to its part
-	body.add_child(collider)
-	entry["collider"] = collider
+	# One collision shape, or for a hollow part several solid pieces; the
+	# first is the piece's own, the rest go with its extras.
+	var shapes: Variant = _shapes[shape_key]
+	var shape_list: Array = shapes if shapes is Array else [shapes]
+	for index in shape_list.size():
+		var collider := CollisionShape3D.new()
+		collider.shape = shape_list[index]
+		collider.transform = shape_place
+		collider.set_meta("uid", uid)   # so a hit on this shape can be traced to its part
+		body.add_child(collider)
+		if index == 0:
+			entry["collider"] = collider
+		else:
+			extras.append(collider)
 
 	if type == "thruster":
 		var flame := _new_flame(place, size_m)
@@ -1338,6 +1396,9 @@ func _remove_part(uid: int, touched: Array, gone: Array) -> void:
 			# Nodes are freed at the end of the frame. Until then nothing more
 			# should hit this one.
 			collider.disabled = true
+		for extra in entry["extras"]:
+			if extra is CollisionShape3D:
+				(extra as CollisionShape3D).disabled = true
 		var owned: Array = [entry["mesh"], entry["collider"]]
 		owned.append_array(entry["extras"])
 		for thing in owned:
@@ -1374,6 +1435,7 @@ func _resplit(body: RigidBody3D) -> void:
 		body.queue_free()
 		return
 
+	_shaped = _own_shaped
 	var groups: Array = weld_groups(pieces, _boxes)
 	if groups.size() > 1:
 		# The heaviest chunk keeps the body.
@@ -2681,6 +2743,7 @@ func piece_boxes() -> Dictionary:
 
 
 func welds(a: int, b: int) -> bool:
+	_shaped = _own_shaped
 	return _boxes.has(a) and _boxes.has(b) and _welds(a, b, _boxes)
 
 
