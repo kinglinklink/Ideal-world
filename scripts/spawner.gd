@@ -181,7 +181,17 @@ var _anchors: Dictionary = {}      # hidden control part uid -> [piece it rides 
 ## hollow parts): piece -> [type, part's axes, middle (grid, m), size (m)].
 ## Welding checks they really meet, not just their boxes.
 static var _shaped: Dictionary = {}
-var _own_shaped: Dictionary = {}   # this build's _shaped (every spawner shares the static one while welding)
+var _own_shaped: Dictionary = {}
+## Drawing: the plain shapes of each body are merged into one mesh per
+## material, so a big build is a few draw calls rather than one per part.
+## Their own meshes stay, hidden, and come back when a part needs its own
+## look (scorch marks, the stress view).
+const MERGE_EVERY := 0.25          # seconds between rebuilds of one body's merged mesh
+var merging := true
+var _merged: Dictionary = {}       # body -> [MeshInstance3D, piece count it was built from, clock when built]
+var _unmerged: Dictionary = {}     # piece -> true: drawn on its own
+var _merge_clock := 0.0
+var _merged_for_stress := false   # this build's _shaped (every spawner shares the static one while welding)
 var _belt_mesh: MeshInstance3D = null
 var applied: Dictionary = {}       # piece -> force put on it this check (world), for stress.gd
 var stress: Node = null            # stress.gd
@@ -335,6 +345,9 @@ func spawn(grid: Node3D) -> Dictionary:
 	gear_load.clear()
 	_anchors.clear()
 	held_body = null
+	_merged.clear()
+	_unmerged.clear()
+	_merged_for_stress = false
 
 	# Every piece and its box.
 	_shaped = {}
@@ -633,6 +646,9 @@ func despawn() -> void:
 	gear_load.clear()
 	_anchors.clear()
 	held_body = null
+	_merged.clear()
+	_unmerged.clear()
+	_merged_for_stress = false
 	if _belt_mesh != null and is_instance_valid(_belt_mesh):
 		_belt_mesh.queue_free()
 	_belt_mesh = null
@@ -1304,8 +1320,161 @@ func part_nodes(uid: int) -> Array:
 		if not _pieces.has(piece):
 			continue
 		var entry: Dictionary = _pieces[piece]
+		_unmerge(piece)
 		found.append([entry["mesh"], entry["collider"]])
 	return found
+
+
+# --- Merged drawing ------------------------------------------------------------
+
+## Whether a part can be drawn as part of its body's merged mesh: plain
+## shapes and aero panels, not see-through ones.
+static func mergeable(record: Dictionary) -> bool:
+	var type: String = record["type"]
+	if not machine_of(record).is_empty() or MaterialLibrary.is_clear(str(record["material"])):
+		return false
+	var group := PartLibrary.category(type)
+	return group == "Basic" or group == "Structural" or group == "Advanced" or PartLibrary.is_aero_panel(type)
+
+
+## Draws a piece on its own from now on (its look is about to change).
+func _unmerge(piece: int) -> void:
+	if _unmerged.has(piece) or not _pieces.has(piece):
+		return
+	_unmerged[piece] = true
+	var entry: Dictionary = _pieces[piece]
+	var shown := entry["mesh"] as MeshInstance3D
+	if shown != null and is_instance_valid(shown) and shown.has_meta("merged"):
+		shown.visible = true
+		shown.remove_meta("merged")
+		var record: Dictionary = _records.get(_uid_of(piece), {})
+		if not record.is_empty():
+			_rebuild_merge(entry["body"])   # without it
+
+
+func _run_merging(delta: float) -> void:
+	_merge_clock += delta
+	var want := merging and not Stress.view
+	if want != (not _merged_for_stress):
+		_merged_for_stress = not want
+		for body in _merged.keys():
+			_clear_merge(body)
+		_merged.clear()
+	if not want:
+		return
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if not is_instance_valid(body):
+			continue
+		var count: int = (_body_pieces.get(body, []) as Array).size()
+		var known: Array = _merged.get(body, [])
+		# Small bodies are rebuilt as soon as they change; big ones at most
+		# every MERGE_EVERY, as that takes longer.
+		if known.is_empty() or (int(known[1]) != count and (count < 400 or _merge_clock - float(known[2]) >= MERGE_EVERY)):
+			_rebuild_merge(body)
+	for body in _merged.keys():
+		if not is_instance_valid(body):
+			_merged.erase(body)
+
+
+## Puts a body's pieces back to drawing themselves and drops its merged mesh.
+func _clear_merge(body: Variant) -> void:
+	var known: Array = _merged.get(body, [])
+	if not known.is_empty() and is_instance_valid(known[0]):
+		(known[0] as Node).queue_free()
+	if not is_instance_valid(body):
+		return
+	for item in _body_pieces.get(body, []):
+		var entry: Dictionary = _pieces[item]
+		var shown := entry["mesh"] as MeshInstance3D
+		if shown != null and is_instance_valid(shown) and shown.has_meta("merged"):
+			shown.visible = true
+			shown.remove_meta("merged")
+
+
+## Builds one mesh per material from a body's mergeable pieces, in the
+## body's space, and hides their own meshes. Each vertex carries, in its
+## colour, which of the body's axes the part's longest side runs along, so
+## the wood grain still follows it (shaders/part.gdshader).
+func _rebuild_merge(body: RigidBody3D) -> void:
+	var known: Array = _merged.get(body, [])
+	if not known.is_empty() and is_instance_valid(known[0]):
+		(known[0] as Node).free()
+	var groups: Dictionary = {}   # material -> [vertices, normals, colours]
+	var hidden: Array = []
+	for item in _body_pieces.get(body, []):
+		var piece: int = item
+		var entry: Dictionary = _pieces[piece]
+		var shown := entry["mesh"] as MeshInstance3D
+		if shown == null or not is_instance_valid(shown) or _unmerged.has(piece) or shown.is_queued_for_deletion():
+			continue
+		var record: Dictionary = _records[_uid_of(piece)]
+		if not mergeable(record) or shown.mesh == null:
+			continue
+		var look: Material = shown.get_surface_override_material(0)
+		if not groups.has(look):
+			groups[look] = [PackedVector3Array(), PackedVector3Array(), PackedColorArray()]
+		var arrays := shown.mesh.surface_get_arrays(0)
+		var place: Transform3D = shown.transform
+		var turn: Basis = place.basis.inverse().transposed()
+		var size := Units.to_metres(record["size"])
+		var rot: Basis = record["rot"]
+		var longest := rot.x * size.x
+		if size.y > longest.length():
+			longest = rot.y * size.y
+		if size.z > longest.length():
+			longest = rot.z * size.z
+		var flag := Color(0, 0, 0, 0)
+		var across := longest.abs()
+		if across.x >= across.y and across.x >= across.z:
+			flag = Color(1, 0, 0, 0)
+		elif across.z >= across.y:
+			flag = Color(0, 0, 1, 0)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var indices: Variant = arrays[Mesh.ARRAY_INDEX]
+		var group: Array = groups[look]
+		var out_points: PackedVector3Array = group[0]
+		var out_normals: PackedVector3Array = group[1]
+		var out_colours: PackedColorArray = group[2]
+		if indices is PackedInt32Array and (indices as PackedInt32Array).size() > 0:
+			for index in (indices as PackedInt32Array):
+				out_points.append(place * points[index])
+				out_normals.append((turn * normals[index]).normalized())
+				out_colours.append(flag)
+		else:
+			for index in points.size():
+				out_points.append(place * points[index])
+				out_normals.append((turn * normals[index]).normalized())
+				out_colours.append(flag)
+		group[0] = out_points
+		group[1] = out_normals
+		group[2] = out_colours
+		hidden.append(shown)
+	var count: int = (_body_pieces.get(body, []) as Array).size()
+	if hidden.size() < 2:
+		_merged[body] = [null, count, _merge_clock]
+		for shown in hidden:
+			(shown as MeshInstance3D).visible = true
+		return
+	var merged := ArrayMesh.new()
+	for look in groups:
+		var group: Array = groups[look]
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = group[0]
+		arrays[Mesh.ARRAY_NORMAL] = group[1]
+		arrays[Mesh.ARRAY_COLOR] = group[2]
+		merged.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		merged.surface_set_material(merged.get_surface_count() - 1, look)
+	var drawn := MeshInstance3D.new()
+	drawn.name = "Merged"
+	drawn.mesh = merged
+	body.add_child(drawn)
+	for shown in hidden:
+		(shown as MeshInstance3D).visible = false
+		(shown as MeshInstance3D).set_meta("merged", true)
+	_merged[body] = [drawn, count, _merge_clock]
 
 
 ## Every part that still exists: its uid.
@@ -2829,9 +2998,10 @@ func _physics_process(delta: float) -> void:
 	Profiler.add("stress", started)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if spawned:
 		_draw_belts()
+		_run_merging(delta)
 
 
 ## Damage from hard knocks. Each body's change of speed is measured over the

@@ -16,9 +16,18 @@ uniform float rough_var = 0.0;     // darker parts of the pattern are rougher by
 varying vec3 at;
 varying vec3 facing;
 varying vec3 stretch;
+varying vec3 longest;   // for a merged body mesh: which body axis the part's longest side runs along
 
 void vertex() {
-	stretch = part_stretch(MODEL_MATRIX);
+	// A body's merged mesh (spawner.gd) is already in metres; its vertex
+	// colour, alpha 0, says which way the part's grain runs.
+	if (COLOR.a < 0.5) {
+		stretch = vec3(1.0);
+		longest = COLOR.rgb;
+	} else {
+		stretch = part_stretch(MODEL_MATRIX);
+		longest = vec3(-1.0);
+	}
 	at = VERTEX * stretch;
 	facing = normalize(NORMAL / stretch);
 }
@@ -26,7 +35,7 @@ void vertex() {
 void fragment() {
 	vec3 n = normalize(facing);
 	vec3 w = part_weights(n);
-	bvec3 turns = part_turns(stretch);
+	bvec3 turns = longest.x < -0.5 ? part_turns(stretch) : bvec3(longest.z > 0.5, longest.x > 0.5, longest.x > 0.5);
 	float shade = part_detail(at, w, turns) * gain;
 	ALBEDO = albedo.rgb * mix(1.0, shade, pattern);
 	METALLIC = metallic;
