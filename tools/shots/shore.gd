@@ -1,27 +1,32 @@
 extends RefCounted
-## A lakeshore with cottonwoods, summer and winter.
+## A lakeshore near the hangar: the water's edge, cottonwoods.
 
 const Origin = preload("res://scripts/origin.gd")
+const MapInfo = preload("res://scripts/map_info.gd")
 
 
 func step(main: Node, frame: int, tree: SceneTree) -> bool:
-	var weather: Node = main.get_node("Weather")
 	if frame == 5:
 		main.get_node("Menus").start_game()
 	if frame == 10:
 		var terrain: Node = main.get_node("Terrain")
-		var spot := Vector2(-700.0, -500.0)
-		# Walk out until the ground is just above the lake.
-		for step_index in 200:
-			var test := spot + Vector2(-20.0 * step_index, 0.0)
-			if terrain.height_at(test.x, test.y) < -12.0:
-				spot = test + Vector2(60.0, 0.0)
+		# Search out from the hangar for ground a few metres above the lake.
+		for ring in range(200, 3000, 50):
+			var found := false
+			for step_index in 32:
+				var angle := TAU * step_index / 32.0
+				var spot := Vector2(cos(angle), sin(angle)) * ring
+				var ground: float = terrain.height_at(spot.x, spot.y)
+				if ground > MapInfo.LAKE_Y + 3.0 and ground < MapInfo.LAKE_Y + 6.0:
+					var toward := Vector2(cos(angle), sin(angle))
+					var yaw := atan2(-toward.x, -toward.y)
+					main._controller.respawn(Origin.to_world(Vector3(spot.x, ground + 1.0, spot.y) - Vector3(toward.x, 0, toward.y) * 15.0), yaw)
+					print("SHOT: shore at ", spot)
+					found = true
+					break
+			if found:
 				break
-		main._controller.respawn(Origin.to_world(Vector3(spot.x, terrain.height_at(spot.x, spot.y) + 2.0, spot.y)), 1.57)
-		main.get_node("Player").set("zoom", 25.0)
-	if frame == 70:
+		main.get_node("Player").set("zoom", 12.0)
+	if frame == 80:
 		tree.snap("shore_summer")
-		weather.year_fraction = 0.95
-	if frame == 130:
-		tree.snap("shore_winter")
-	return frame > 132
+	return frame > 82
