@@ -81,10 +81,18 @@ var _pivot: Node3D
 var _camera: Camera3D
 var _model: Node3D
 var _collider: CollisionShape3D
+var _hips: Node3D             # the whole body hangs from here
 var _leg_left: Node3D         # each limb hangs from a pivot at its hip or shoulder
 var _leg_right: Node3D
+var _knee_left: Node3D        # and bends again at the knee or elbow
+var _knee_right: Node3D
 var _arm_left: Node3D
 var _arm_right: Node3D
+var _elbow_left: Node3D
+var _elbow_right: Node3D
+var _run_blend := 0.0         # 0 walking, 1 running
+var _swim_blend := 0.0
+var _swim_phase := 0.0
 var _walk_phase := 0.0        # where the character is in its stride, in radians
 var _walk_blend := 0.0        # 0 standing still, 1 walking
 var _air_blend := 0.0         # 0 on the ground, 1 in the air
@@ -578,37 +586,76 @@ func _try_step_up(delta: float) -> bool:
 
 
 ## Swings the legs and arms in time with the distance covered, so the feet
-## keep pace at any speed, and holds a spread pose in the air.
+## keep pace at any speed: knees and elbows bend, and the body leans into a
+## run. Sitting folds the knees; in the water the body lies flat and swims a
+## crawl, or treads water upright; in the air it holds a spread pose.
+## Returns how far the body dips this frame.
 func _animate(delta: float) -> float:
+	var blend_rate := 1.0 - exp(-10.0 * delta)
 	if seated:
-		# Thighs forward and level, hands resting forward.
-		_leg_left.rotation.x = 1.45
-		_leg_right.rotation.x = 1.45
-		_arm_left.rotation.x = 0.5
-		_arm_right.rotation.x = 0.5
+		# Thighs forward and level, shins down, hands resting forward.
+		_pose(1.45, 1.45, -1.45, -1.45, 0.45, 0.45, 0.7, 0.7, 0.0, 0.95)
 		_walk_blend = 0.0
 		_air_blend = 0.0
+		_swim_blend = 0.0
 		return 0.0
 	var ground_speed := Vector2(velocity.x, velocity.z).length()
+	if swimming:
+		_swim_blend = lerpf(_swim_blend, 1.0, blend_rate)
+		var stroking := clampf(ground_speed / SWIM_SPEED, 0.0, 1.0)
+		_swim_phase = fmod(_swim_phase + delta * (1.2 + 2.2 * stroking), TAU)
+		var kick := sin(_swim_phase * 3.0) * 0.3
+		var lie := lerpf(-0.25, -1.35, stroking)
+		# A crawl when moving: each arm goes round in turn. Treading water:
+		# the arms scull and the legs pedal.
+		var left_arm := lerpf(0.6 + sin(_swim_phase) * 0.5, _swim_phase + PI, stroking)
+		var right_arm := lerpf(0.6 - sin(_swim_phase) * 0.5, _swim_phase, stroking)
+		_pose(0.2 + kick, 0.2 - kick, -0.4 - kick * (1.0 - stroking), -0.4 + kick * (1.0 - stroking),
+				left_arm, right_arm, 0.3, 0.3, lie, lerpf(0.95, 1.35, stroking))
+		return 0.0
+	_swim_blend = 0.0
 	var grounded := is_on_floor()
 	var walking := grounded and ground_speed > 0.2
-	_walk_blend = lerpf(_walk_blend, 1.0 if walking else 0.0, 1.0 - exp(-10.0 * delta))
+	_walk_blend = lerpf(_walk_blend, 1.0 if walking else 0.0, blend_rate)
 	_air_blend = lerpf(_air_blend, 0.0 if grounded else 1.0, 1.0 - exp(-8.0 * delta))
+	_run_blend = lerpf(_run_blend, smoothstep(3.0, 6.0, ground_speed) if walking else 0.0, blend_rate)
 
 	# One full stride covers more ground the faster the character moves.
 	var stride_length := 1.6 + 0.25 * ground_speed
 	_walk_phase = fmod(_walk_phase + ground_speed * delta / stride_length * TAU, TAU)
 	var reach := minf(0.35 + 0.05 * ground_speed, 0.9)
 	var swing := sin(_walk_phase) * reach * _walk_blend
+	# A knee bends as its leg comes forward, more in a run.
+	var bend := (0.35 + 0.95 * _run_blend) * _walk_blend
+	var knee_left := -0.05 - maxf(cos(_walk_phase), 0.0) * bend
+	var knee_right := -0.05 - maxf(-cos(_walk_phase), 0.0) * bend
+	var elbow := 0.2 + 1.1 * _run_blend
 
 	# A positive turn about X swings a hanging limb forward.
-	_leg_left.rotation.x = lerpf(swing, 0.45, _air_blend)
-	_leg_right.rotation.x = lerpf(-swing, -0.3, _air_blend)
-	_arm_left.rotation.x = lerpf(-swing * 0.8, -0.5, _air_blend)
-	_arm_right.rotation.x = lerpf(swing * 0.8, 0.5, _air_blend)
+	_pose(lerpf(swing, 0.45, _air_blend), lerpf(-swing, -0.3, _air_blend),
+			lerpf(knee_left, -0.6, _air_blend), lerpf(knee_right, -0.2, _air_blend),
+			lerpf(-swing * 0.8, -0.5, _air_blend), lerpf(swing * 0.8, 0.5, _air_blend),
+			lerpf(elbow, 0.3, _air_blend), lerpf(elbow, 0.3, _air_blend),
+			-0.22 * _run_blend, 0.95)
 
 	# The body dips slightly twice per stride.
-	return -absf(sin(_walk_phase)) * 0.04 * _walk_blend
+	return -absf(sin(_walk_phase)) * (0.04 + 0.03 * _run_blend) * _walk_blend
+
+
+## Sets every joint: thighs, knees, upper arms, elbows (radians about X),
+## then how far the body leans forward and how high the hips are.
+func _pose(thigh_l: float, thigh_r: float, knee_l: float, knee_r: float, arm_l: float, arm_r: float,
+		elbow_l: float, elbow_r: float, lean: float, hip_height: float) -> void:
+	_leg_left.rotation.x = thigh_l
+	_leg_right.rotation.x = thigh_r
+	_knee_left.rotation.x = knee_l
+	_knee_right.rotation.x = knee_r
+	_arm_left.rotation.x = arm_l
+	_arm_right.rotation.x = arm_r
+	_elbow_left.rotation.x = elbow_l
+	_elbow_right.rotation.x = elbow_r
+	_hips.rotation.x = lean
+	_hips.position.y = hip_height
 
 
 func _process(delta: float) -> void:
@@ -643,42 +690,125 @@ func _process(delta: float) -> void:
 		Input.mouse_mode = wanted_mode
 
 
-## An original blocky figure, 1.8 m tall, feet at the origin, facing -Z.
+## An original low-poly figure, 1.8 m tall, feet at the origin, facing -Z:
+## jointed at the hips, knees, shoulders and elbows, with a simple face.
+## Everything hangs from the hips, so leaning or lying flat to swim turns
+## the whole body.
 func _build_model() -> Node3D:
 	var model := Node3D.new()
 	model.name = "Model"
 	var jacket := Color(0.95, 0.55, 0.22)
 	var trousers := Color(0.20, 0.22, 0.27)
-	var head := Color(0.86, 0.88, 0.92)
-	var visor := Color(0.10, 0.13, 0.18)
+	var skin := Color(0.87, 0.71, 0.58)
+	var hair := Color(0.30, 0.21, 0.14)
+	var dark := Color(0.08, 0.08, 0.1)
+	var boots := Color(0.16, 0.13, 0.11)
 
-	_leg_left = _limb(model, Vector3(-0.13, 0.75, 0.0), Vector3(0.22, 0.75, 0.22), trousers)
-	_leg_right = _limb(model, Vector3(0.13, 0.75, 0.0), Vector3(0.22, 0.75, 0.22), trousers)
-	model.add_child(_box(Vector3(0.52, 0.65, 0.28), Vector3(0.0, 1.075, 0.0), jacket))
-	_arm_left = _limb(model, Vector3(-0.36, 1.40, 0.0), Vector3(0.17, 0.62, 0.20), jacket)
-	_arm_right = _limb(model, Vector3(0.36, 1.40, 0.0), Vector3(0.17, 0.62, 0.20), jacket)
-	model.add_child(_box(Vector3(0.36, 0.36, 0.36), Vector3(0.0, 1.60, 0.0), head))
-	model.add_child(_box(Vector3(0.30, 0.10, 0.04), Vector3(0.0, 1.63, -0.19), visor))
+	_hips = Node3D.new()
+	_hips.name = "Hips"
+	_hips.position = Vector3(0.0, 0.95, 0.0)
+	model.add_child(_hips)
+	_hips.add_child(_box(Vector3(0.34, 0.16, 0.22), Vector3(0.0, 0.0, 0.0), trousers))
+	_hips.add_child(_box(Vector3(0.36, 0.05, 0.24), Vector3(0.0, 0.07, 0.0), dark))   # belt
+
+	# Torso: a tapered eight-sided chest, flattened front to back.
+	var chest := _part(_tapered(0.2, 0.16, 0.5), Vector3(0.0, 0.33, 0.0), jacket)
+	chest.scale = Vector3(1.0, 1.0, 0.62)
+	_hips.add_child(chest)
+	_hips.add_child(_box(Vector3(0.03, 0.4, 0.02), Vector3(0.0, 0.33, -0.125), jacket.darkened(0.3)))   # zip
+	_hips.add_child(_part(_capsule(0.05, 0.12), Vector3(0.0, 0.62, 0.0), skin))   # neck
+
+	# Head, with hair and a face on the front (-Z).
+	var head := Node3D.new()
+	head.name = "Head"
+	head.position = Vector3(0.0, 0.66, 0.0)
+	_hips.add_child(head)
+	var skull := _part(_ball(0.13), Vector3(0.0, 0.13, 0.0), skin)
+	skull.scale = Vector3(1.0, 1.12, 1.04)
+	head.add_child(skull)
+	var top := _part(_ball(0.138), Vector3(0.0, 0.165, 0.018), hair)
+	top.scale = Vector3(1.02, 0.95, 1.05)
+	head.add_child(top)
+	for side in [-1.0, 1.0]:
+		head.add_child(_part(_ball(0.018), Vector3(0.046 * side, 0.14, -0.125), dark))             # eyes
+		head.add_child(_box(Vector3(0.05, 0.012, 0.01), Vector3(0.048 * side, 0.172, -0.128), hair))  # brows
+		head.add_child(_part(_ball(0.03), Vector3(0.132 * side, 0.12, 0.0), skin))                # ears
+	head.add_child(_box(Vector3(0.028, 0.045, 0.03), Vector3(0.0, 0.11, -0.14), skin.darkened(0.08)))   # nose
+	head.add_child(_box(Vector3(0.06, 0.01, 0.01), Vector3(0.0, 0.065, -0.128), Color(0.45, 0.2, 0.18)))   # mouth
+
+	# Legs: thigh from the hip, shin from the knee, boot.
+	_leg_left = _joint(_hips, Vector3(-0.1, -0.04, 0.0))
+	_leg_right = _joint(_hips, Vector3(0.1, -0.04, 0.0))
+	for leg in [_leg_left, _leg_right]:
+		(leg as Node3D).add_child(_part(_capsule(0.08, 0.46), Vector3(0.0, -0.21, 0.0), trousers))
+	_knee_left = _joint(_leg_left, Vector3(0.0, -0.43, 0.0))
+	_knee_right = _joint(_leg_right, Vector3(0.0, -0.43, 0.0))
+	for knee in [_knee_left, _knee_right]:
+		(knee as Node3D).add_child(_part(_capsule(0.065, 0.46), Vector3(0.0, -0.21, 0.0), trousers))
+		(knee as Node3D).add_child(_box(Vector3(0.11, 0.08, 0.24), Vector3(0.0, -0.44, -0.04), boots))
+
+	# Arms: upper arm from the shoulder, forearm from the elbow, hand.
+	_arm_left = _joint(_hips, Vector3(-0.235, 0.53, 0.0))
+	_arm_right = _joint(_hips, Vector3(0.235, 0.53, 0.0))
+	for arm in [_arm_left, _arm_right]:
+		(arm as Node3D).add_child(_part(_ball(0.07), Vector3(0.0, 0.0, 0.0), jacket))   # shoulder
+		(arm as Node3D).add_child(_part(_capsule(0.058, 0.34), Vector3(0.0, -0.15, 0.0), jacket))
+	_elbow_left = _joint(_arm_left, Vector3(0.0, -0.3, 0.0))
+	_elbow_right = _joint(_arm_right, Vector3(0.0, -0.3, 0.0))
+	for elbow in [_elbow_left, _elbow_right]:
+		(elbow as Node3D).add_child(_part(_capsule(0.05, 0.3), Vector3(0.0, -0.13, 0.0), jacket))
+		(elbow as Node3D).add_child(_part(_ball(0.045), Vector3(0.0, -0.3, 0.0), skin))   # hand
 	return model
 
 
-## A limb that hangs from a joint and swings about it.
-func _limb(model: Node3D, joint: Vector3, size: Vector3, color: Color) -> Node3D:
+## A joint: a pivot the limb below it turns about.
+func _joint(parent: Node3D, at: Vector3) -> Node3D:
 	var pivot := Node3D.new()
-	pivot.position = joint
-	pivot.add_child(_box(size, Vector3(0.0, -size.y * 0.5, 0.0), color))
-	model.add_child(pivot)
+	pivot.position = at
+	parent.add_child(pivot)
 	return pivot
+
+
+func _capsule(radius: float, height: float) -> Mesh:
+	var mesh := CapsuleMesh.new()
+	mesh.radius = radius
+	mesh.height = height
+	mesh.radial_segments = 8
+	mesh.rings = 2
+	return mesh
+
+
+func _ball(radius: float) -> Mesh:
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 2.0
+	mesh.radial_segments = 10
+	mesh.rings = 6
+	return mesh
+
+
+func _tapered(top: float, bottom: float, height: float) -> Mesh:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = top
+	mesh.bottom_radius = bottom
+	mesh.height = height
+	mesh.radial_segments = 8
+	mesh.rings = 1
+	return mesh
+
+
+func _part(mesh: Mesh, at: Vector3, color: Color) -> MeshInstance3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.8
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.material_override = material
+	instance.position = at
+	return instance
 
 
 func _box(size: Vector3, at: Vector3, color: Color) -> MeshInstance3D:
 	var mesh := BoxMesh.new()
 	mesh.size = size
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = 0.8
-	mesh.material = material
-	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
-	instance.position = at
-	return instance
+	return _part(mesh, at, color)
