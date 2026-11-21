@@ -184,6 +184,7 @@ var _seats: Dictionary = {}    # seat uid -> [piece, its transform inside the bo
 var _thrusters: Array = []     # [piece, transform inside the body, thrust in newtons, links, flame]
 var _panels: Array = []        # aero panels: [piece, centre inside the body, normal inside it, area, dragless]
 var _inputs: Dictionary = {}   # input block uid -> its keys and what it is putting out
+var _mice: Dictionary = {}     # mouse click block uid -> {"button", "mode", "was_down", "latched", "pressed", "x", "y"}
 var _outputs: Dictionary = {}  # part uid -> {output id: number}
 var _turners: Array = []       # every joint that turns about an axis; see _add_turner
 var _sliders: Array = []       # pistons, solenoids and springs; see _add_slider
@@ -366,6 +367,13 @@ func spawn(grid: Node3D) -> Dictionary:
 		var input_record: Dictionary = _records[input_uid]
 		if input_record["type"] == "input_block":
 			_inputs[input_uid] = _new_input_state(input_record.get("props", {}))
+		elif input_record["type"] == "mouse_click":
+			var mouse_props: Dictionary = input_record.get("props", {})
+			_mice[input_uid] = {
+				"button": {"Right": MOUSE_BUTTON_RIGHT, "Middle": MOUSE_BUTTON_MIDDLE}.get(str(mouse_props.get("button", "Left")), MOUSE_BUTTON_LEFT),
+				"mode": str(mouse_props.get("mode", "Hold")), "was_down": false, "latched": false,
+				"pressed": 0.0, "x": 0.0, "y": 0.0,
+			}
 
 	# Join the pieces of each machine.
 	var free_joints := 0
@@ -584,6 +592,7 @@ func despawn() -> void:
 	_thrusters.clear()
 	_panels.clear()
 	_inputs.clear()
+	_mice.clear()
 	_outputs.clear()
 	_turners.clear()
 	_sliders.clear()
@@ -2397,6 +2406,28 @@ static func _keycode(key_name: String) -> int:
 ## seated; on foot the same keys walk.
 func _update_inputs() -> void:
 	var seated: bool = occupied_seat != 0
+	if not _mice.is_empty():
+		var viewport := get_viewport()
+		var screen := viewport.get_visible_rect().size
+		var mouse := viewport.get_mouse_position()
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			mouse = screen * 0.5
+		var over_window := viewport.gui_get_hovered_control() != null
+		for uid in _mice:
+			var mouse_state: Dictionary = _mice[uid]
+			var down: bool = seated and not over_window and Input.is_mouse_button_pressed(mouse_state["button"] as MouseButton)
+			var mode: String = mouse_state["mode"]
+			var pressed := down
+			if mode == "Toggle":
+				if down and not mouse_state["was_down"]:
+					mouse_state["latched"] = not mouse_state["latched"]
+				pressed = mouse_state["latched"]
+			elif mode == "Pulse":
+				pressed = down and not mouse_state["was_down"]
+			mouse_state["was_down"] = down
+			mouse_state["pressed"] = 1.0 if pressed else 0.0
+			mouse_state["x"] = clampf(mouse.x / maxf(screen.x, 1.0) * 2.0 - 1.0, -1.0, 1.0)
+			mouse_state["y"] = clampf(1.0 - mouse.y / maxf(screen.y, 1.0) * 2.0, -1.0, 1.0)
 	for uid in _inputs:
 		var state: Dictionary = _inputs[uid]
 		var key: int = state["key"]
@@ -2437,6 +2468,9 @@ func _input_value(links: Dictionary, input_id: String, unlinked: float) -> float
 	if type == "input_block":
 		var state: Dictionary = _inputs.get(source_uid, {})
 		return float(state.get(output_id, 0.0))
+	if type == "mouse_click":
+		var mouse_state: Dictionary = _mice.get(source_uid, {})
+		return float(mouse_state.get(output_id, 0.0))
 	if type == "seat":
 		return 1.0 if occupied_seat == source_uid else 0.0
 	if _outputs.has(source_uid):

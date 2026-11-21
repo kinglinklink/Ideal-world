@@ -225,6 +225,13 @@ static func _build_table() -> void:
 		_number("range", "Range", "m", 500.0, 1.0, 10000.0, 1.0),
 		_flag("unlimited_ammo", "Unlimited ammo", true),
 	]
+	_table["hitscan_gun"] = [
+		_number("fire_rate", "Fire rate", "rounds/s", 10.0, 0.0, 1000.0, 0.1),
+		_number("range", "Range", "m", 500.0, 1.0, 10000.0, 1.0),
+		_flag("unlimited_ammo", "Unlimited ammo", true),
+		_number("cone", "Aiming cone (full angle)", "°", 60.0, 1.0, 360.0, 1.0),
+		_choice("trigger", "Fires on", ["Left mouse button", "Right mouse button", "Fire input only"]),
+	]
 	var material_names: Array = []
 	for material_id in MaterialLibrary.ids():
 		material_names.append(MaterialLibrary.display_name(material_id))
