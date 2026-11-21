@@ -173,6 +173,13 @@ void fragment() {
 	color = mix(color, grass_dry, smoothstep(0.5, 0.85, broad) * 0.55);
 	// Fresh green in spring, gold in autumn, dull and dry in winter.
 	color = mix(color, grass_light * 1.08, spring_green * 0.35);
+	// Wildflowers dotted through the open grass in spring.
+	float bloom = spring_green * (1.0 - smoothstep(0.05, 0.4, wooded));
+	float dots = texture(noise_map, xz / 0.9 + vec2(0.13, 0.77)).r;
+	float pick = texture(noise_map, xz / 23.0 + vec2(0.5, 0.2)).r;
+	vec3 flower = pick < 0.42 ? vec3(0.98, 0.85, 0.15) : (pick < 0.55 ? vec3(0.45, 0.55, 0.95)
+			: (pick < 0.68 ? vec3(0.72, 0.42, 0.88) : vec3(0.97, 0.97, 0.94)));
+	color = mix(color, flower, smoothstep(0.7, 0.78, dots) * bloom * 0.8);
 	color = mix(color, vec3(0.66, 0.54, 0.26) * (0.85 + 0.3 * fine), autumn * 0.7);
 	color = mix(color, vec3(0.52, 0.49, 0.36) * (0.85 + 0.3 * fine), smoothstep(0.55, 0.85, cold) * 0.6);
 

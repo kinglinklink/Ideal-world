@@ -82,6 +82,9 @@ const Birds = preload("res://scripts/birds.gd")
 const BirdGuide = preload("res://scripts/bird_guide.gd")
 const PhotoCamera = preload("res://scripts/photo_camera.gd")
 const Fuel = preload("res://scripts/fuel.gd")
+const Boats = preload("res://scripts/boats.gd")
+const Ice = preload("res://scripts/ice.gd")
+const Flowers = preload("res://scripts/flowers.gd")
 const DamageFx = preload("res://scripts/damage_fx.gd")
 const FailureLog = preload("res://scripts/failure_log.gd")
 const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
@@ -301,6 +304,29 @@ func _ready() -> void:
 	hud.birds_pressed.connect(guide.toggle)
 	hud.photos_pressed.connect(camera_tool.toggle_photos)
 
+	# The docks, boats on the lake in summer, and boat races at the docks.
+	var boats: Node = Boats.new()
+	boats.name = "Boats"
+	add_child(boats)
+	boats.terrain = terrain
+	boats.weather = _weather
+	boats.player = player
+	boats.setup()
+	races.add_boat_hosts(boats.docks)
+	combat.structures.append(boats)
+	var ice: Node3D = Ice.new()
+	ice.name = "Ice"
+	add_child(ice)
+	ice.terrain = terrain
+	ice.weather = _weather
+	ice.player = player
+	var flowers: Node3D = Flowers.new()
+	flowers.name = "Flowers"
+	add_child(flowers)
+	flowers.terrain = terrain
+	flowers.weather = _weather
+	flowers.player = player
+
 	# Fuel stations, smoke and fire on damaged builds, and the failure log (L).
 	var fuel: Node = Fuel.new()
 	fuel.name = "Fuel"
@@ -311,6 +337,8 @@ func _ready() -> void:
 	fuel.player = player
 	fuel.game_hud = game_hud
 	fuel.setup()
+	for dock in boats.docks:
+		fuel.add_dock_station(str(dock["name"]), Vector2((dock["shore"] as Vector3).x, (dock["shore"] as Vector3).z))
 	var effects: Node3D = DamageFx.new()
 	effects.name = "DamageFx"
 	add_child(effects)

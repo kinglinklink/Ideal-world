@@ -32,6 +32,7 @@ const Sound = preload("res://scripts/sound.gd")
 const Profile = preload("res://scripts/profile.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
 const Ghosts = preload("res://scripts/ghosts.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 ## [id, name, host airport, top speed m/s, loop radius m, ring radius m, height over the ground m, prize $, rings]
 const AIR_RACES := [
@@ -40,6 +41,14 @@ const AIR_RACES := [
 	["circuit", "Lake Circuit", "Bigfork airport", 300.0, 7000.0, 80.0, 300.0, 8000, 11],
 	["gauntlet", "Mountain Gauntlet", "Somers Mountain airport", 400.0, 9000.0, 100.0, 380.0, 18000, 12],
 	["demon", "Speed Demon", "Lakeside Ridge airport", 500.0, 11000.0, 130.0, 450.0, 40000, 12],
+]
+## [id, name, dock, top speed m/s, loop radius m, prize $]
+const BOAT_RACES := [
+	["boat_melita", "Melita Bay Dash", "Melita dock", 14.0, 650.0, 1200],
+	["boat_skeeko", "Skeeko Bay Sprint", "Skeeko Bay landing", 18.0, 850.0, 2000],
+	["boat_cromwell", "Cromwell Channel Run", "Cromwell dock", 22.0, 1000.0, 3500],
+	["boat_shelter", "Shelter Island Circuit", "Shelter Island dock", 28.0, 1300.0, 6000],
+	["boat_polson", "Polson Bay Grand Prix", "Polson dock", 35.0, 1600.0, 10000],
 ]
 ## [id, name, town, top speed m/s, length m, prize $]
 const CAR_RACES := [
@@ -66,6 +75,7 @@ const BOOST_TIME := 6.0
 const BOAST_COOLDOWN := 14.0
 const PLANE_G := 7.0                    # how hard the computer pilots will turn
 const CAR_G := 1.0
+const BOAT_G := 0.6
 const CRATES := [["Light crate (200 kg)", 200.0, 1.6, 90.0], ["Medium crate (800 kg)", 800.0, 2.2, 180.0],
 		["Heavy crate (2,000 kg)", 2000.0, 3.0, 320.0]]   # name, kg, size m, $ per km
 const DROP_ZONE := 25.0
@@ -158,7 +168,8 @@ func _ground_point(spot: Vector2) -> Vector3:
 
 # --- The people ------------------------------------------------------------------------
 
-func _add_host(title: String, at: Vector3, airport: String, air: Array, car: Array, road: Array = []) -> void:
+func _add_host(title: String, at: Vector3, airport: String, air: Array, car: Array, road: Array = [], boat: Array = [],
+		dock: Dictionary = {}) -> void:
 	var node := Node3D.new()
 	node.name = "Host"
 	node.position = at
@@ -169,6 +180,8 @@ func _add_host(title: String, at: Vector3, airport: String, air: Array, car: Arr
 		sign_text = "AIR RACES  ·  CARGO"
 	if not car.is_empty():
 		sign_text = "CAR RACES"
+	if not boat.is_empty():
+		sign_text = "BOAT RACES"
 	var sign_label := Label3D.new()
 	sign_label.text = sign_text
 	sign_label.font_size = 64
@@ -179,9 +192,29 @@ func _add_host(title: String, at: Vector3, airport: String, air: Array, car: Arr
 	sign_label.position = Vector3(0.0, 3.0, 0.0)
 	sign_label.visibility_range_end = 600.0
 	node.add_child(sign_label)
-	_hosts.append({"name": title, "at": at, "airport": airport, "air": air, "car": car, "road": road, "node": node})
-	if not air.is_empty() or not car.is_empty():
-		terrain.landmarks.map_points.append([Vector2(at.x, at.z), "Air races" if not air.is_empty() else "Car races"])
+	_hosts.append({"name": title, "at": at, "airport": airport, "air": air, "car": car, "road": road, "node": node,
+			"boat": boat, "dock": dock})
+	if not air.is_empty() or not car.is_empty() or not boat.is_empty():
+		terrain.landmarks.map_points.append([Vector2(at.x, at.z),
+				"Air races" if not air.is_empty() else ("Boat races" if not boat.is_empty() else "Car races")])
+
+
+## Boat race organisers at the docks (boats.gd gives them: {"name", "shore":
+## map Vector3 at the foot of the dock, "water": map Vector3 off its end,
+## "heading" radians}).
+func add_boat_hosts(docks: Array) -> void:
+	for item in docks:
+		var dock: Dictionary = item
+		var races: Array = []
+		for race in BOAT_RACES:
+			if str(race[2]) == str(dock["name"]):
+				races.append(race)
+		if races.is_empty():
+			continue
+		var shore: Vector3 = dock["shore"]
+		var at := shore + Vector3(4.0, 0.0, 4.0)
+		at.y = terrain.height_at(at.x, at.z)
+		_add_host("%s boat races" % str(dock["name"]).trim_suffix(" dock").trim_suffix(" landing"), at, "", [], [], [], races, dock)
 
 
 ## A person: blocky, like the character, in a high-visibility vest.
@@ -251,8 +284,8 @@ func race_list() -> Array:
 	for item in _hosts:
 		var host: Dictionary = item
 		var at: Vector3 = host["at"]
-		for kind in ["air", "car"]:
-			for race_item in host[kind]:
+		for kind in ["air", "car", "boat"]:
+			for race_item in host.get(kind, []):
 				var race: Array = race_item
 				list.append({"id": str(race[0]), "name": str(race[1]), "kind": kind, "where": Vector2(at.x, at.z),
 						"host": str(host["name"]), "prize": int(race[7] if kind == "air" else race[5]),
@@ -305,7 +338,7 @@ func _open_window(host: Dictionary) -> void:
 	_window = made[0]
 	_window_column = made[1]
 	var column: VBoxContainer = _window_column
-	var races: Array = (host["air"] as Array) + (host["car"] as Array)
+	var races: Array = (host["air"] as Array) + (host["car"] as Array) + (host.get("boat", []) as Array)
 	if not races.is_empty():
 		var pick_row := HBoxContainer.new()
 		column.add_child(pick_row)
@@ -351,7 +384,8 @@ func _open_window(host: Dictionary) -> void:
 			var go := Button.new()
 			go.text = "Race"
 			go.focus_mode = Control.FOCUS_NONE
-			go.pressed.connect(func() -> void: _start_race(race, host, is_air, with_ghost.button_pressed))
+			go.pressed.connect(func() -> void: _start_race(race, host, is_air, with_ghost.button_pressed,
+					(host.get("boat", []) as Array).has(race)))
 			row.add_child(go)
 	var airport: String = host["airport"]
 	if airport != "":
@@ -400,11 +434,17 @@ static func _clock_text(seconds: float) -> String:
 
 # --- Races --------------------------------------------------------------------------------
 
-func _start_race(race: Array, host: Dictionary, is_air: bool, with_ghost := false) -> void:
+func _start_race(race: Array, host: Dictionary, is_air: bool, with_ghost := false, is_boat := false) -> void:
 	if not _race.is_empty() or _vehicle_pick == null or _vehicle_pick.item_count == 0:
 		return
 	var save_name := _vehicle_pick.get_item_text(_vehicle_pick.selected)
-	var course: Dictionary = _air_course(race, host) if is_air else _car_course(race, host)
+	var course: Dictionary = {}
+	if is_air:
+		course = _air_course(race, host)
+	elif is_boat:
+		course = _boat_course(race, host)
+	else:
+		course = _car_course(race, host)
 	if course.is_empty():
 		game_hud.announce("", "No course could be laid out here.", 3.0)
 		return
@@ -424,7 +464,7 @@ func _start_race(race: Array, host: Dictionary, is_air: bool, with_ghost := fals
 	var path: PackedVector3Array = course["path"]
 	var along := Roads.distances(path)
 	var top := float(race[3]) * 1.08 + BOOST.y
-	var limits := _speed_limits(path, along, PLANE_G if is_air else CAR_G, top)
+	var limits := _speed_limits(path, along, PLANE_G if is_air else (BOAT_G if is_boat else CAR_G), top)
 	var ring_at := PackedFloat32Array()
 	for item in course["rings"]:
 		ring_at.append(along[_nearest_index(path, item)])
@@ -436,11 +476,11 @@ func _start_race(race: Array, host: Dictionary, is_air: bool, with_ghost := fals
 		var rival: Array = rivals[index]
 		racers.append(_new_racer(str(rival[0]), rival[1], float(race[3]) * float(shares[index]), is_air,
 				float(course.get("grid", 0.0)) + (float(index) * 8.0 if not is_air else float(index) * 30.0 + 30.0),
-				(2.2 if index % 2 == 0 else -2.2) if not is_air else 0.0))
+				((6.0 if is_boat else 2.2) * (1.0 if index % 2 == 0 else -1.0)) if not is_air else 0.0, is_boat))
 	_race = {"race": race, "air": is_air, "path": path, "along": along, "limits": limits, "rings": course["rings"],
 			"ring_at": ring_at, "radius": float(course["radius"]), "racers": racers, "vehicle": vehicle,
 			"clock": -3.5, "next": 0, "finished": false, "player_time": 0.0, "count": 4, "nodes": [],
-			"build": save_name, "recorder": Ghosts.new(), "ghost": {}}
+			"build": save_name, "recorder": Ghosts.new(), "ghost": {}, "boat": is_boat}
 	if with_ghost:
 		_race["ghost"] = Ghosts.load_ghost(str(race[0]), self)
 	_make_rings()
@@ -537,6 +577,103 @@ func _car_course(race: Array, host: Dictionary) -> Dictionary:
 			"radius": 16.0, "grid": 30.0}
 
 
+## A boat course: a loop of buoy gates on open water round the dock, the
+## same every time for a race, and back to the dock to finish.
+func _boat_course(race: Array, host: Dictionary) -> Dictionary:
+	var dock: Dictionary = host.get("dock", {})
+	if dock.is_empty():
+		return {}
+	var random := RandomNumberGenerator.new()
+	random.seed = hash(str(race[0]))
+	var water: Vector3 = dock["water"]
+	var heading: float = dock["heading"]
+	var out := Vector2(sin(heading), -cos(heading))
+	var radius: float = race[4]
+	var gates: Array = []
+	var middle := Vector2.ZERO
+	for attempt in 14:
+		# The loop goes on the side of the dock with the most open water.
+		var best_wet := -1
+		for trial in 16:
+			var angle := TAU * float(trial) / 16.0
+			var candidate := Vector2(water.x, water.z) + Vector2(cos(angle), sin(angle)) * radius
+			var wet := 0
+			for step in 24:
+				var around := candidate + Vector2(cos(TAU * step / 24.0), sin(TAU * step / 24.0)) * radius
+				if terrain.is_lake(around.x, around.y):
+					wet += 1
+			for step in 6:
+				var between := Vector2(water.x, water.z).lerp(candidate, float(step) / 6.0)
+				if terrain.is_lake(between.x, between.y):
+					wet += 2
+			if wet > best_wet:
+				best_wet = wet
+				middle = candidate
+		out = (middle - Vector2(water.x, water.z)).normalized()
+		gates.clear()
+		var clear := true
+		var count := 8
+		for index in count:
+			var angle := atan2(-out.y, -out.x) + TAU * float(index + 1) / float(count + 1)
+			var spot := middle + Vector2(cos(angle), sin(angle)) * radius * random.randf_range(0.8, 1.05)
+			var tries := 0
+			while not terrain.is_lake(spot.x, spot.y) and tries < 12:
+				spot = spot.lerp(middle, 0.2)
+				tries += 1
+			if not terrain.is_lake(spot.x, spot.y):
+				clear = false
+			gates.append(Vector3(spot.x, MapInfo.LAKE_Y + 1.5, spot.y))
+		for index in gates.size() - 1:
+			var a: Vector3 = gates[index]
+			var b: Vector3 = gates[index + 1]
+			for step in 10:
+				var probe := a.lerp(b, float(step) / 10.0)
+				if not terrain.is_lake(probe.x, probe.z):
+					clear = false
+		if clear:
+			var from_dock := Vector3(water.x, 0.0, water.z) + Vector3(out.x, 0.0, out.y) * 12.0
+			var check := _spline([from_dock, from_dock + Vector3(out.x, 0.0, out.y) * 60.0] + gates
+					+ [Vector3(water.x, 0.0, water.z) + Vector3(out.x, 0.0, out.y) * 30.0], 10.0)
+			var dry := 0
+			for point in check:
+				if not terrain.is_lake(point.x, point.z):
+					dry += 1
+			if dry == 0:
+				break
+		radius *= 0.85
+	var finish := Vector3(water.x, MapInfo.LAKE_Y + 1.5, water.z) + Vector3(out.x, 0.0, out.y) * 30.0
+	gates.append(finish)
+	var start := Vector3(water.x, MapInfo.LAKE_Y + 0.5, water.z) + Vector3(out.x, 0.0, out.y) * 12.0
+	var control: Array = [start, start + Vector3(out.x, 0.0, out.y) * 60.0]
+	control.append_array(gates)
+	var path := _spline(control, 10.0)
+	for index in path.size():
+		path[index].y = MapInfo.LAKE_Y
+	return {"start": start, "heading": atan2(-out.x, -out.y), "rings": gates, "path": path, "radius": 14.0, "grid": 20.0}
+
+
+func _boat_mesh(color: Color) -> Mesh:
+	var key := "boat" + color.to_html()
+	if _car_mesh_cache.has(key):
+		return _car_mesh_cache[key]
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_box(surface, Vector3(0.0, 0.35, 0.3), Vector3(2.2, 0.8, 5.0), color)
+	_box(surface, Vector3(0.0, 0.3, -2.7), Vector3(1.3, 0.6, 1.4), color)
+	_box(surface, Vector3(0.0, 0.85, -0.6), Vector3(1.6, 0.5, 1.2), Color(0.15, 0.2, 0.28))
+	_box(surface, Vector3(0.0, 0.85, 2.4), Vector3(0.5, 0.9, 0.5), Color(0.1, 0.1, 0.1))
+	_box(surface, Vector3(0.0, 0.78, 0.6), Vector3(2.0, 0.12, 2.0), Color(0.95, 0.95, 0.92))
+	surface.generate_normals()
+	var mesh := surface.commit()
+	var look := StandardMaterial3D.new()
+	look.vertex_color_use_as_albedo = true
+	look.roughness = 0.4
+	look.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh.surface_set_material(0, look)
+	_car_mesh_cache[key] = mesh
+	return mesh
+
+
 ## A smooth line through control points (Catmull-Rom), a point every `step` metres.
 static func _spline(control: Array, step: float) -> PackedVector3Array:
 	var points := PackedVector3Array()
@@ -590,12 +727,13 @@ static func _nearest_index(path: PackedVector3Array, point: Vector3) -> int:
 	return found
 
 
-func _new_racer(rival_name: String, color: Color, top: float, is_air: bool, start_at: float, lane: float) -> Dictionary:
+func _new_racer(rival_name: String, color: Color, top: float, is_air: bool, start_at: float, lane: float,
+		is_boat := false) -> Dictionary:
 	var node := Node3D.new()
 	node.name = "Racer"
 	add_child(node)
 	var shown := MeshInstance3D.new()
-	shown.mesh = _racer_mesh(color, is_air)
+	shown.mesh = _boat_mesh(color) if is_boat else _racer_mesh(color, is_air)
 	node.add_child(shown)
 	var tag := Label3D.new()
 	tag.text = rival_name
@@ -620,7 +758,7 @@ func _new_racer(rival_name: String, color: Color, top: float, is_air: bool, star
 	bubble.position = Vector3(0.0, 9.0 if is_air else 6.0, 0.0)
 	bubble.visible = false
 	node.add_child(bubble)
-	var sound := Sound.make_loop("jet_loop" if is_air else "car_loop", "Machines")
+	var sound := Sound.make_loop("jet_loop" if is_air else ("boat_loop" if is_boat else "car_loop"), "Machines")
 	if sound != null:
 		sound.unit_size = 30.0 if is_air else 10.0
 		sound.max_distance = 4000.0 if is_air else 400.0
@@ -733,10 +871,35 @@ func _make_rings() -> void:
 		beam.position = centre + Vector3(0.0, 600.0 + radius, 0.0)
 		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		terrain.add_child(beam)
-		nodes.append([ring, beam, number])
+		var entry: Array = [ring, beam, number]
+		if bool(_race.get("boat", false)):
+			# Orange buoys either side of each gate.
+			for buoy_side in [-1.0, 1.0]:
+				var buoy := MeshInstance3D.new()
+				var ball := SphereMesh.new()
+				ball.radius = 1.2
+				ball.height = 2.4
+				buoy.mesh = ball
+				buoy.material_override = _buoy_look()
+				buoy.position = Vector3(centre.x, MapInfo.LAKE_Y + 0.4, centre.z) + side * radius * float(buoy_side)
+				terrain.add_child(buoy)
+				entry.append(buoy)
+		nodes.append(entry)
 	_race["nodes"] = nodes
 	_race["normals"] = normals
 	_show_rings()
+
+
+var _buoy_material: StandardMaterial3D = null
+
+
+func _buoy_look() -> StandardMaterial3D:
+	if _buoy_material == null:
+		_buoy_material = StandardMaterial3D.new()
+		_buoy_material.albedo_color = Color(1.0, 0.45, 0.05)
+		_buoy_material.emission_enabled = true
+		_buoy_material.emission = Color(0.6, 0.2, 0.0)
+	return _buoy_material
 
 
 func _show_rings() -> void:
@@ -908,6 +1071,9 @@ func _place_racer(racer: Dictionary, path: PackedVector3Array, along: PackedFloa
 		var lateral := bend.dot(right) * float(racer["speed"]) * float(racer["speed"]) / 60.0
 		racer["bank"] = lerpf(float(racer["bank"]), clampf(atan2(lateral, 9.81), -1.3, 1.3), 0.1)
 		basis = basis * Basis(Vector3.FORWARD, -float(racer["bank"]))
+	elif bool(_race.get("boat", false)):
+		point.y = Weather.water_height(Origin.to_world(point)) - 0.3
+		basis = basis * Basis(Vector3.RIGHT, 0.08)   # bow up, planing
 	else:
 		point.y += 0.05
 	var node: Node3D = racer["node"]
