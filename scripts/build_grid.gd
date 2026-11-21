@@ -197,8 +197,24 @@ static func volume_of(record: Dictionary) -> float:
 	return size_m.x * size_m.y * size_m.z * PartLibrary.volume_fraction(record["type"])
 
 
-## Mass of a part in kilograms.
+## Control parts (inputs, gates, PIDs, PWM, the mouse click block) only
+## think: once spawned they weigh nothing, have no shape and are not drawn,
+## so wiring never changes how a build flies. Sensors stay solid, since
+## they measure where they are. Their "Visible after spawn" setting keeps
+## one as an ordinary part, for checking a build.
+const CONTROL_PARTS := ["input_block", "boolean_gate", "number_gate", "pid_controller", "pwm_generator", "mouse_click"]
+
+
+static func is_hidden_control(record: Dictionary) -> bool:
+	return CONTROL_PARTS.has(str(record.get("type", ""))) \
+			and not bool((record.get("props", {}) as Dictionary).get("visible_after_spawn", false))
+
+
+## Mass of a part in kilograms (none for a control part, which weighs
+## nothing once spawned).
 static func mass_of(record: Dictionary) -> float:
+	if is_hidden_control(record):
+		return 0.0
 	return volume_of(record) * MaterialLibrary.density(record["material"])
 
 

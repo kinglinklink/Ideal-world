@@ -302,6 +302,10 @@ func _ready() -> void:
 	add_child(stress)
 
 
+static func is_hidden_control(record: Dictionary) -> bool:
+	return BuildGrid.is_hidden_control(record)
+
+
 func spawn(grid: Node3D) -> Dictionary:
 	despawn()
 	_grid_frame = grid.global_transform
@@ -318,6 +322,9 @@ func spawn(grid: Node3D) -> Dictionary:
 	for uid in _records:
 		var part_uid: int = uid
 		var record: Dictionary = _records[part_uid]
+		if is_hidden_control(record):
+			_health[part_uid] = INF
+			continue
 		var material: String = record["material"]
 		var immovable: bool = MaterialLibrary.is_immovable(material)
 		if immovable:
@@ -478,6 +485,8 @@ func _count_overlaps_once() -> void:
 	var boxes: Dictionary = {}
 	for key in _records:
 		var uid: int = key
+		if is_hidden_control(_records[uid]):
+			continue
 		var box: AABB = BuildGrid.bounds_of(_records[uid])
 		boxes[uid] = box
 		var low := Vector3i(box.position.floor())
