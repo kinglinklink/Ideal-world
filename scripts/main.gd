@@ -78,6 +78,9 @@ const CRASH_REPLAY_HURT := 35.0 # lose this much in a moment while riding and th
 const START_HEADING := PI
 const Profile = preload("res://scripts/profile.gd")
 const Missions = preload("res://scripts/missions.gd")
+const Birds = preload("res://scripts/birds.gd")
+const BirdGuide = preload("res://scripts/bird_guide.gd")
+const PhotoCamera = preload("res://scripts/photo_camera.gd")
 const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
 
 
@@ -271,6 +274,30 @@ func _ready() -> void:
 	controller.talk_handler = Callable(races, "talk")
 	_races = races
 
+	# Birds and their nests, the bird guide (B) and the camera (C).
+	var birds: Node3D = Birds.new()
+	birds.name = "Birds"
+	add_child(birds)
+	birds.terrain = terrain
+	birds.weather = _weather
+	birds.player = player
+	birds.game_hud = game_hud
+	birds.islands = hud.minimap().islands()
+	birds.towns = hud.minimap().towns()
+	birds.setup()
+	var guide := BirdGuide.new()
+	guide.player = player
+	game_hud.root.add_child(guide)
+	var camera_tool: CanvasLayer = PhotoCamera.new()
+	camera_tool.name = "PhotoCamera"
+	add_child(camera_tool)
+	camera_tool.screens = [hud, game_hud]
+	camera_tool.birds = birds
+	camera_tool.game_hud = game_hud
+	camera_tool.player = player
+	hud.birds_pressed.connect(guide.toggle)
+	hud.photos_pressed.connect(camera_tool.toggle_photos)
+
 	# The mission board, and the markers on the full map.
 	var missions: Node = Missions.new()
 	missions.name = "Missions"
@@ -280,7 +307,9 @@ func _ready() -> void:
 	missions.minimap = hud.minimap()
 	missions.game_hud = game_hud
 	missions.player = player
+	missions.birds = birds
 	missions.setup()
+	camera_tool.missions = missions
 	hud.world_map().missions = missions
 	_missions = missions
 

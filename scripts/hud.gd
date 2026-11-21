@@ -35,6 +35,8 @@ const TAB_LABELS := {
 signal garage_button_pressed
 signal weather_pressed
 signal respawn_pressed
+signal birds_pressed
+signal photos_pressed
 
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
@@ -330,7 +332,7 @@ func _build_interface() -> void:
 	var help := _outlined(_label(
 			"WASD walk or swim   Shift run   Space jump (swim up)   E sit, or talk   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the hangar   M map\n"
-			+ "Spawned: 0 replay the last 30 s   9 stress view   F2 give up a race or cargo run\n"
+			+ "Spawned: 0 replay the last 30 s   9 stress view   F2 give up a race   C camera   B birds   J missions\n"
 			+ "1 Place  2 Delete  3 Config  4 Transform  5 Paint  6 Scale  7 Sub-assemblies  G grab (press again to put away)\n"
 			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -376,6 +378,14 @@ func _build_interface() -> void:
 		for node in get_tree().get_nodes_in_group("missions"):
 			node.toggle())
 	top_buttons.add_child(missions_button)
+	var birds_button := _button("Birds (B)", 100.0)
+	birds_button.tooltip_text = "The bird guide: every bird you have spotted and photographed"
+	birds_button.pressed.connect(func() -> void: birds_pressed.emit())
+	top_buttons.add_child(birds_button)
+	var photos_button := _button("Photos", 84.0)
+	photos_button.tooltip_text = "Your photos (C takes one)"
+	photos_button.pressed.connect(func() -> void: photos_pressed.emit())
+	top_buttons.add_child(photos_button)
 	var guide := _button("Guide (F1)", 110.0)
 	guide.tooltip_text = "What every part does, its settings, inputs and outputs"
 	guide.pressed.connect(func() -> void:

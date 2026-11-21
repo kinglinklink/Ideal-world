@@ -26,6 +26,7 @@ const Units = preload("res://scripts/units.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const Sound = preload("res://scripts/sound.gd")
+const Birds = preload("res://scripts/birds.gd")
 
 const BULLET_DAMAGE := 4.0          # HP per machine gun round
 const BULLET_MASS := 0.01           # kg, the bullet itself
@@ -665,6 +666,7 @@ func _set_off_blasts() -> void:
 		var radius: float = blast[1]
 		var peak: float = BLAST_HP_PER_METRE * radius
 		_add_flash(centre, radius * 2.0)
+		Birds.startle_all(get_tree(), centre, maxf(radius * 30.0, 60.0))
 		Sound.play_at("explosion", centre, clampf(linear_to_db(maxf(radius / 2.0, 0.2)), -8.0, 10.0),
 				clampf(radius * 25.0, 40.0, 1500.0), clampf(1.15 - radius * 0.02, 0.6, 1.2))
 		for key in spawner.live_parts():

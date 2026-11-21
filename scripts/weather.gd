@@ -95,6 +95,7 @@ func _exit_tree() -> void:
 
 
 func _ready() -> void:
+	add_to_group("weather")
 	_random.randomize()
 	wind_angle = _random.randf() * TAU
 	_rain = _make_rain()

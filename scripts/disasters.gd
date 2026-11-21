@@ -21,6 +21,7 @@ const Sound = preload("res://scripts/sound.gd")
 const Player = preload("res://scripts/player.gd")
 const Tornado = preload("res://scripts/tornado.gd")
 const Terrain = preload("res://scripts/terrain.gd")
+const Birds = preload("res://scripts/birds.gd")
 
 const FIRST_RANDOM := 600.0          # seconds into a game before the first random disaster
 const RANDOM_GAP := Vector2(1200.0, 2400.0)
@@ -492,6 +493,7 @@ func _run_bombs(delta: float) -> void:
 
 func _burst(world: Vector3, size: float) -> void:
 	var radius := 6.0 + size * 3.0
+	Birds.startle_all(get_tree(), world, 300.0)
 	Sound.play_at("explosion", world, clampf(size * 3.0, 0.0, 9.0), 250.0, _random.randf_range(0.7, 1.0))
 	for node in get_tree().get_nodes_in_group("combat"):
 		node.damage_near(world, radius, 1200.0 * size)
