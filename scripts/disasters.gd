@@ -30,6 +30,15 @@ const FLOWS := 6                     # rivers of lava from one eruption
 const FLOW_STEP := 12.0              # metres between points along a lava river
 const FLOW_LENGTH := 4000.0
 const MAX_BOMBS := 48
+const CRATER_HEAT := 25.0           # HP a second inside the crater
+const LAVA_BURN := 250.0            # HP a second touching the crater's lava
+const CRATER_HEADROOM := 300.0      # metres above the rim the heat reaches
+## How fast a part's own health goes in the crater, per second, by material:
+## low-melting stuff goes fastest, refractory metals slowest.
+const HEAT_SHARE := {"foam": 0.3, "balsa": 0.2, "cork": 0.2, "wood": 0.12, "oak": 0.12, "plastic": 0.2,
+		"rubber": 0.2, "nylon": 0.2, "acrylic": 0.2, "ice": 1.0, "lead": 0.15, "magnesium": 0.12,
+		"steel": 0.025, "titanium": 0.02, "tungsten": 0.01, "cast_iron": 0.03, "diamond": 0.02, "granite": 0.02,
+		"concrete": 0.03, "brick": 0.03}
 
 ## Disasters strike on their own now and then. The settings switch it.
 static var random_events := true
@@ -62,6 +71,8 @@ var _embers: GPUParticles3D = null
 var _glow: OmniLight3D = null
 var _bomb_mesh: Mesh = null
 var _lava_look: StandardMaterial3D = null
+var _crater_tick := 0.0
+var _heat_warned := -100.0
 
 
 func _ready() -> void:
@@ -211,6 +222,10 @@ func _process(delta: float) -> void:
 		_run_eruption(delta)
 	_run_bombs(delta)
 	_run_flows(delta)
+	_crater_tick -= delta
+	if _crater_tick <= 0.0:
+		_run_crater(0.1 - _crater_tick)
+		_crater_tick = 0.1
 
 
 func _run_tornadoes() -> void:
@@ -487,6 +502,72 @@ func _burst(world: Vector3, size: float) -> void:
 		var distance := player.global_position.distance_to(world)
 		if distance < radius * 1.5:
 			player.hurt(90.0 * (1.0 - distance / (radius * 1.5)), "a lava bomb")
+
+
+## The crater is always deadly: inside the bowl, up to CRATER_HEADROOM over
+## its rim (much further while it erupts), the heat burns the character and
+## every part of a build, and its lava kills or melts at a touch. Near the
+## rim the screen glows and a warning comes first.
+func _run_crater(delta: float) -> void:
+	if terrain == null:
+		return
+	var centre: Vector2 = Terrain.VOLCANO
+	var erupting := _eruption >= 0.0
+	var reach: float = Terrain.CRATER_RADIUS * (2.2 if erupting else 1.0)
+	var rim: float = terrain.height_at(centre.x + Terrain.CRATER_RADIUS, centre.y)
+	var ceiling: float = rim + (1500.0 if erupting else CRATER_HEADROOM)
+	var hot := 0.0
+	if player != null and not bool(player.dead):
+		var here := Origin.to_map(player.global_position)
+		var off := Vector2(here.x, here.z).distance_to(centre)
+		hot = clampf(1.0 - (off - reach) / (reach * 0.5), 0.0, 1.0) if here.y < ceiling + 100.0 else 0.0
+		if off < reach * 0.95 and here.y < ceiling:
+			var above: float = here.y - terrain.height_at(here.x, here.z)
+			if above < 2.5 and off < Terrain.CRATER_RADIUS * 0.8:
+				player.hurt(LAVA_BURN * delta, "the volcano's lava")
+			else:
+				player.hurt(CRATER_HEAT * delta, "the volcano's heat")
+			hot = 1.0
+		if hot > 0.2 and _clock - _heat_warned > 8.0:
+			_heat_warned = _clock
+			if game_hud != null:
+				game_hud.announce("EXTREME HEAT", "Get out of the crater!", 3.0, Color(1.0, 0.45, 0.15))
+	if game_hud != null:
+		game_hud.heat = hot
+	# Every build in or over the crater.
+	for node in get_tree().get_nodes_in_group("combat"):
+		var spawner: Node = node.spawner
+		if spawner == null or not bool(spawner.spawned):
+			continue
+		var where: Variant = spawner.where()
+		if where == null:
+			continue
+		var spot := Origin.to_map(where as Vector3)
+		if Vector2(spot.x, spot.z).distance_to(centre) > reach + 200.0:
+			continue
+		var burns: Dictionary = {}
+		var records: Dictionary = spawner.all_records()
+		for key in spawner.live_parts():
+			var uid := int(key)
+			var place: Array = spawner.part_place(uid)
+			if place.is_empty():
+				continue
+			var at := Origin.to_map(place[0] as Vector3)
+			var off := Vector2(at.x, at.z).distance_to(centre)
+			if off > reach * 0.95 or at.y > ceiling:
+				continue
+			var health: float = spawner.health_of(uid)
+			var above: float = at.y - terrain.height_at(at.x, at.z)
+			if above < 3.0 and off < Terrain.CRATER_RADIUS * 0.8:
+				burns[uid] = health + 1.0e6      # lava: gone
+			else:
+				var material := str((records.get(uid, {}) as Dictionary).get("material", "steel"))
+				var full: float = spawner.full_health_of(uid)
+				if is_inf(full):
+					continue
+				burns[uid] = maxf(full, 50.0) * float(HEAT_SHARE.get(material, 0.05)) * delta
+		if not burns.is_empty():
+			spawner.damage_parts(burns)
 
 
 ## Rivers of lava down the steepest ground from the crater's rim.

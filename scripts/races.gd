@@ -76,6 +76,7 @@ var controller: Node = null     # build_controller.gd
 var fleet: Node = null          # fleet.gd
 var game_hud: Node = null       # game_hud.gd
 var roads: RefCounted = null    # roads.gd
+var minimap: Control = null     # minimap.gd: the next ring is its waypoint
 
 var _hosts: Array = []          # {"name", "at": map position, "airport": name or "", "air": [race], "car": [race], "node"}
 var _airports: Dictionary = {}  # name -> {"centre": map Vector3, "start": map Vector3, "heading": radians, "length": m, "apron": map Vector3}
@@ -641,6 +642,7 @@ func _make_rings() -> void:
 	var path: PackedVector3Array = _race["path"]
 	var radius: float = _race["radius"]
 	var nodes: Array = []
+	var normals: Array = []
 	for index in rings.size():
 		var centre: Vector3 = rings[index]
 		var near := _nearest_index(path, centre)
@@ -659,6 +661,17 @@ func _make_rings() -> void:
 		var third := side.cross(up).normalized()
 		ring.transform = Transform3D(Basis(side, up, third), centre)
 		terrain.add_child(ring)
+		normals.append(up)
+		var number := Label3D.new()
+		number.text = "FINISH" if index == rings.size() - 1 else str(index + 1)
+		number.font_size = 256
+		number.pixel_size = radius * 0.004
+		number.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		number.no_depth_test = true
+		number.modulate = Color(1.0, 0.95, 0.4)
+		number.outline_size = 24
+		number.position = centre + Vector3(0.0, radius * 1.25, 0.0)
+		terrain.add_child(number)
 		var beam := MeshInstance3D.new()
 		var pillar := CylinderMesh.new()
 		pillar.top_radius = 2.5
@@ -671,8 +684,9 @@ func _make_rings() -> void:
 		beam.position = centre + Vector3(0.0, 600.0 + radius, 0.0)
 		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		terrain.add_child(beam)
-		nodes.append([ring, beam])
+		nodes.append([ring, beam, number])
 	_race["nodes"] = nodes
+	_race["normals"] = normals
 	_show_rings()
 
 
@@ -683,10 +697,18 @@ func _show_rings() -> void:
 		var pair: Array = nodes[index]
 		var ring: MeshInstance3D = pair[0]
 		var beam: MeshInstance3D = pair[1]
+		var number: Label3D = pair[2]
 		ring.visible = index >= next
 		beam.visible = index == next
+		number.visible = index == next or index == next + 1
+		number.modulate = Color(1.0, 0.95, 0.4) if index == next else Color(1.0, 1.0, 1.0, 0.5)
 		var last := index == nodes.size() - 1
 		ring.material_override = _ring_looks[2] if last else (_ring_looks[0] if index == next else _ring_looks[1])
+	var rings: Array = _race["rings"]
+	if minimap != null and next < rings.size():
+		var centre: Vector3 = rings[next]
+		minimap.waypoint = Vector2(centre.x, centre.z)
+		minimap.has_waypoint = true
 
 
 func _run_race(delta: float) -> void:
@@ -719,24 +741,59 @@ func _run_race(delta: float) -> void:
 		_place_racer(racer, path, along, is_air)
 		if float(racer["finish"]) <= 0.0 and float(racer["at"]) >= total - 5.0:
 			racer["finish"] = clock
-	# The player through the rings.
-	var rings: Array = _race["rings"]
-	var next: int = _race["next"]
-	if clock > 0.0 and next < rings.size() and not bool(_race["finished"]):
-		var centre: Vector3 = rings[next]
-		if here.distance_to(centre) < float(_race["radius"]):
-			next += 1
-			_race["next"] = next
-			Sound.play_ui("checkpoint")
-			_show_rings()
-			if next >= rings.size():
-				_finish_race(clock)
-				return
+	# The player through the rings: counted in _physics_process.
+	if int(_race["next"]) >= (_race["rings"] as Array).size():
+		_finish_race(clock)
+		return
 	# Out of time: four times as long as the fastest rival would take.
 	if clock > total / float((_race["racers"][0] as Dictionary)["top"]) * 4.0 + 60.0 and not bool(_race["finished"]):
 		_end_race("Out of time.", false)
 		return
 	_update_race_label()
+
+
+## Counts the rings at the physics rate. A ring counts when the line the
+## player moved along this tick crosses the ring's plane inside its hoop, or
+## when the player is inside the hoop's sphere, so even a fast plane taking
+## 3 m a tick can't skip one. Going through the wrong ring says which one is
+## next instead of doing nothing.
+func _physics_process(_delta: float) -> void:
+	if _race.is_empty() or player == null or float(_race["clock"]) <= 0.0 or bool(_race["finished"]):
+		if not _race.is_empty():
+			_race["last"] = Origin.to_map(player.global_position) + Vector3(0.0, 1.0, 0.0)
+		return
+	var here := Origin.to_map(player.global_position) + Vector3(0.0, 1.0, 0.0)
+	var last: Vector3 = _race.get("last", here)
+	_race["last"] = here
+	var rings: Array = _race["rings"]
+	var normals: Array = _race.get("normals", [])
+	var next: int = _race["next"]
+	if next >= rings.size() or normals.size() != rings.size():
+		return
+	var radius: float = _race["radius"]
+	if ring_crossed(last, here, rings[next], normals[next], radius):
+		_race["next"] = next + 1
+		Sound.play_ui("checkpoint")
+		_show_rings()
+		return
+	# Through a later ring out of order?
+	for index in range(next + 1, rings.size()):
+		if ring_crossed(last, here, rings[index], normals[index], radius):
+			game_hud.announce("", "That was ring %d. Ring %d is the yellow one with the beam." % [index + 1, next + 1], 3.0)
+			break
+
+
+## True if the step from `from` to `to` passes through the hoop at `centre`
+## facing `normal` (the hoop's axis), of outer radius `radius`.
+static func ring_crossed(from: Vector3, to: Vector3, centre: Vector3, normal: Vector3, radius: float) -> bool:
+	if to.distance_to(centre) < radius:
+		return true
+	var a := (from - centre).dot(normal)
+	var b := (to - centre).dot(normal)
+	if (a > 0.0) == (b > 0.0) or is_equal_approx(a, b):
+		return false
+	var crossing := from + (to - from) * (a / (a - b))
+	return crossing.distance_to(centre) < radius * 1.1
 
 
 func _run_racer(racer: Dictionary, delta: float, _path: PackedVector3Array, along: PackedFloat32Array,

@@ -166,6 +166,11 @@ func _on_jump_time(fraction: float) -> void:
 	daylight.set_time(fraction)
 
 
+## The mini map (minimap.gd), for things that set its waypoint.
+func minimap() -> Control:
+	return _minimap
+
+
 func set_fleet(the_fleet: Node) -> void:
 	fleet = the_fleet
 	_minimap.fleet = the_fleet

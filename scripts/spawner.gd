@@ -1161,6 +1161,17 @@ func health_of(uid: int) -> float:
 	return float(_health.get(uid, 0.0))
 
 
+## A part's health when it was spawned (INF for a part that can't be hurt).
+func full_health_of(uid: int) -> float:
+	var record: Dictionary = _records.get(uid, {})
+	if record.is_empty():
+		return 0.0
+	var material := str(record.get("material", "steel"))
+	if MaterialLibrary.is_immovable(material):
+		return INF
+	return BuildGrid.mass_of(record) * float(MaterialLibrary.info(material)["strength"])
+
+
 ## Where a part is now, in the world, and the body it is in: [point, body].
 ## Empty if the part is gone.
 func part_place(uid: int) -> Array:

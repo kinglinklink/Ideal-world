@@ -74,6 +74,7 @@ var _races: Node               # races.gd: races, cargo runs and the people who 
 var _recent_hurt := 0.0         # health lost in the last second or so, for the crash replay
 const CRASH_REPLAY_HURT := 35.0 # lose this much in a moment while riding and the replay plays
 const START_HEADING := PI
+const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
 
 
 func _ready() -> void:
@@ -260,6 +261,7 @@ func _ready() -> void:
 	races.controller = controller
 	races.fleet = _fleet
 	races.game_hud = game_hud
+	races.minimap = hud.minimap()
 	races.setup(terrain, traffic.roads)
 	controller.talk_handler = Callable(races, "talk")
 	_races = races
@@ -334,6 +336,11 @@ func _physics_process(_delta: float) -> void:
 	if absf(at.x) > Origin.SHIFT_DISTANCE or absf(at.z) > Origin.SHIFT_DISTANCE:
 		var shift := Vector3(snappedf(at.x, Origin.SHIFT_STEP), 0.0, snappedf(at.z, Origin.SHIFT_STEP))
 		_shift_world(shift)
+	# Far below anything there is (the deepest cavern floor is about 160 m
+	# under the pad): fallen out of the world, so back to the hangar.
+	if Origin.to_map(at).y < FALLEN_OUT_Y and not bool(_player.seated):
+		_game_hud.announce("", "You fell out of the world. Back to the hangar.", 3.0)
+		_respawn()
 
 
 ## Moves everything in the world by -`shift`, so the player is back near the
