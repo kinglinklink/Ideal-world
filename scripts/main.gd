@@ -81,6 +81,9 @@ const Missions = preload("res://scripts/missions.gd")
 const Birds = preload("res://scripts/birds.gd")
 const BirdGuide = preload("res://scripts/bird_guide.gd")
 const PhotoCamera = preload("res://scripts/photo_camera.gd")
+const Fuel = preload("res://scripts/fuel.gd")
+const DamageFx = preload("res://scripts/damage_fx.gd")
+const FailureLog = preload("res://scripts/failure_log.gd")
 const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
 
 
@@ -297,6 +300,25 @@ func _ready() -> void:
 	camera_tool.player = player
 	hud.birds_pressed.connect(guide.toggle)
 	hud.photos_pressed.connect(camera_tool.toggle_photos)
+
+	# Fuel stations, smoke and fire on damaged builds, and the failure log (L).
+	var fuel: Node = Fuel.new()
+	fuel.name = "Fuel"
+	add_child(fuel)
+	fuel.terrain = terrain
+	fuel.races = races
+	fuel.roads = traffic.roads
+	fuel.player = player
+	fuel.game_hud = game_hud
+	fuel.setup()
+	var effects: Node3D = DamageFx.new()
+	effects.name = "DamageFx"
+	add_child(effects)
+	var failures: CanvasLayer = FailureLog.new()
+	failures.name = "FailureLog"
+	add_child(failures)
+	camera_tool.screens.append(failures)
+	_replay.screens.append(failures)
 
 	# The mission board, and the markers on the full map.
 	var missions: Node = Missions.new()

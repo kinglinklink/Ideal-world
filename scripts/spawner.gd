@@ -25,6 +25,7 @@ extends Node3D
 const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
+const FailureLog = preload("res://scripts/failure_log.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const Aero = preload("res://scripts/aero.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
@@ -402,6 +403,9 @@ func spawn(grid: Node3D) -> Dictionary:
 	_find_gears()
 	_find_meshes()
 	gear_conflicts = _check_gear_trains()
+	if gear_conflicts > 0:
+		FailureLog.note("Gear train locked: %d pair%s of meshed gears turn at ratios that disagree, so they jam" % [
+				gear_conflicts, "s" if gear_conflicts != 1 else ""])
 	_find_air()
 	generation += 1
 	spawned = true
@@ -2655,7 +2659,23 @@ func _run_crash_damage(delta: float) -> void:
 			var uid: int = entry["uid"]
 			damage[uid] = float(damage.get(uid, 0.0)) + float(entry["mass"]) * (g - CRASH_SAFE_G) * CRASH_DAMAGE
 	if not damage.is_empty():
-		damage_parts(damage)
+		var worst_g := 0.0
+		for item in _bodies:
+			var body: RigidBody3D = item
+			var history: Array = _speed_history.get(body, [])
+			if history.size() > CRASH_WINDOW:
+				worst_g = maxf(worst_g, ((history[history.size() - 1] as Vector3) - (history[0] as Vector3)).length() / (CRASH_WINDOW * delta) / 9.81)
+		var names: Dictionary = {}
+		for uid in damage:
+			if _records.has(uid):
+				names[uid] = PartLibrary.part_name(str(_records[uid]["type"])).to_lower()
+		var smashed: Array = damage_parts(damage)
+		if not smashed.is_empty():
+			var listed: Array = []
+			for uid in smashed.slice(0, 4):
+				listed.append(str(names.get(uid, "part")))
+			FailureLog.note("Crash at %.0f g (over %.0f ms): %d part%s destroyed (%s%s)" % [worst_g, CRASH_WINDOW * delta * 1000.0,
+					smashed.size(), "s" if smashed.size() != 1 else "", ", ".join(listed), ", ..." if smashed.size() > 4 else ""])
 
 
 ## Draws the belts between pulleys that share one: two straight runs from

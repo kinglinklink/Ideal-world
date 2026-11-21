@@ -408,6 +408,38 @@ func total_fuel() -> float:
 	return held
 
 
+## One fuel tank's state ({"fuel", "capacity", ...}), or empty.
+func tank_of(uid: int) -> Dictionary:
+	return _tanks.get(uid, {}) if _alive(uid) else {}
+
+
+## Burns `litres` out of one tank (a fire). Returns what it took.
+func drain_tank(uid: int, litres: float) -> float:
+	if not _tanks.has(uid):
+		return 0.0
+	var tank: Dictionary = _tanks[uid]
+	var taken := minf(float(tank["fuel"]), maxf(litres, 0.0))
+	tank["fuel"] = float(tank["fuel"]) - taken
+	return taken
+
+
+## Litres every live tank of the build could hold.
+func total_capacity() -> float:
+	var room := 0.0
+	for key in _tanks:
+		if _alive(key):
+			room += float(_tanks[key]["capacity"])
+	return room
+
+
+## Joules in a litre of the build's fuel (its first tank's), for pricing it.
+func energy_per_litre() -> float:
+	for key in _tanks:
+		if _alive(key):
+			return float(_tanks[key]["energy"])
+	return 34.0e6
+
+
 ## Takes up to `litres` from every tank alike. Returns what it took.
 func take_fuel(litres: float) -> float:
 	var live: Array = []

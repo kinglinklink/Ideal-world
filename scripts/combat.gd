@@ -366,6 +366,7 @@ func _fire_at(uid: int, record: Dictionary, aim: Vector3) -> void:
 			target.apply_impulse(direction * BULLET_MASS * BULLET_SPEED, to - target.global_position)
 		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
 		if part != 0:
+			_spark(to, spawner.record_of(part))
 			spawner.damage_part(part, BULLET_DAMAGE)
 		elif hit["collider"] != null:
 			_hit_other(hit["collider"], int(hit["shape"]), BULLET_DAMAGE)
@@ -373,6 +374,23 @@ func _fire_at(uid: int, record: Dictionary, aim: Vector3) -> void:
 		body.apply_impulse(-direction * BULLET_MASS * BULLET_SPEED, from - body.global_position)
 	_add_tracer(from, to)
 	Sound.gun("gunshot", from, -2.0, 30.0)
+
+
+const METALS := ["steel", "aluminum", "titanium", "cast_iron", "brass", "copper", "tungsten", "magnesium",
+		"lead", "silver", "gold"]
+
+
+## Sparks and a ping where a round hits metal.
+func _spark(at: Vector3, record: Dictionary) -> void:
+	if not METALS.has(str(record.get("material", ""))):
+		return
+	_add_flash(at, 0.25)
+	Sound.play_at("spark", at, -6.0, 40.0, randf_range(0.9, 1.2))
+
+
+## Sets off a blast at a world point next tick (a fuel tank going up).
+func add_blast(world: Vector3, radius: float) -> void:
+	_pending_blasts.append([world, radius])
 
 
 ## Damage to something that is not a part of this build: another build's
@@ -457,6 +475,7 @@ func _fire_bullet(uid: int, record: Dictionary) -> void:
 			target.apply_impulse(direction * BULLET_MASS * BULLET_SPEED, to - target.global_position)
 		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
 		if part != 0:
+			_spark(to, spawner.record_of(part))
 			spawner.damage_part(part, BULLET_DAMAGE)
 		else:
 			_damage_structure(hit["collider"], int(hit["shape"]), BULLET_DAMAGE)

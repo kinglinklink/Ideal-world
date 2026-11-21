@@ -291,5 +291,50 @@ def main():
         coins += (tone(t, 2093 + 300 * n) + 0.5 * tone(t, 3136 + 300 * n)) * envelope(lt, 0.001, 0.12) * (t >= at)
     write("cash", coins, peak=0.6)
 
+    # --- Build 27: fire, damage, the camera, boats and birds ---
+    # Added at the end, so the random numbers above (and so every older
+    # sound) come out exactly as before.
+    # Fire: a roaring bed with random crackles, looped.
+    t = times(3.0)
+    bed = shaped_noise(3.0, band(80, 900, 0.7))
+    pops = np.zeros(len(t))
+    for _ in range(70):
+        at = rng.integers(0, len(t) - 400)
+        width = int(rng.integers(40, 300))
+        pops[at:at + width] += rng.standard_normal(width) * np.exp(-np.arange(width) / (width / 4.0)) * rng.uniform(0.3, 1.0)
+    write("fire_loop", bed * 0.6 + lowpass(pops, 5000) * 0.9, loop=True, peak=0.7)
+    # Fire catching: a whoosh.
+    t = times(1.2)
+    whoosh = shaped_noise(1.2, band(120, 2500, 0.8)) * envelope(t, 0.15, 0.6)
+    write("fire_whoosh", whoosh, peak=0.8)
+    # A damaged engine coughing.
+    t = times(1.1)
+    sputter = np.zeros(len(t))
+    for n, at in enumerate([0.0, 0.13, 0.22, 0.45, 0.52, 0.78]):
+        lt = np.maximum(t - at, 0)
+        sputter += (rng.standard_normal(len(t)) * 0.6 + tone(t, 55 + 10 * n)) * envelope(lt, 0.004, 0.05) * (t >= at)
+    write("sputter", lowpass(sputter, 1800), peak=0.8)
+    # A bullet sparking off metal.
+    t = times(0.25)
+    ping = (tone(t, 3100) + 0.6 * tone(t, 4700) + 0.4 * tone(t, 6900)) * envelope(t, 0.0005, 0.04)
+    write("spark", ping + 0.5 * rng.standard_normal(len(t)) * envelope(t, 0.0005, 0.01), peak=0.5)
+    # The camera's shutter: two quick clicks.
+    t = times(0.18)
+    shutter = np.zeros(len(t))
+    for at in [0.0, 0.07]:
+        lt = np.maximum(t - at, 0)
+        shutter += rng.standard_normal(len(t)) * envelope(lt, 0.0003, 0.008) * (t >= at)
+    write("shutter", lowpass(shutter, 7000), peak=0.6)
+    # An outboard motor, looped.
+    t = times(2.0)
+    put = np.maximum(tone(t, 32), 0) ** 3
+    boat = put * shaped_noise(2.0, band(90, 1400)) + 0.3 * tone(t, 96) + 0.15 * tone(t, 192)
+    write("boat_loop", boat, loop=True, peak=0.6)
+    # A small bird's chirp.
+    t = times(0.35)
+    sweep = np.sin(2 * np.pi * np.cumsum(3800 + 1600 * np.sin(t * 60)) / RATE)
+    chirp = sweep * envelope(t, 0.005, 0.05) * (t < 0.12) + sweep * envelope(np.maximum(t - 0.18, 0), 0.005, 0.05) * (t >= 0.18)
+    write("chirp", chirp, peak=0.4)
+
 if __name__ == "__main__":
     main()

@@ -226,7 +226,7 @@ func take_photo() -> String:
 		number += 1
 	image.save_png(path)
 	_flash_left = 0.25
-	Sound.play_ui("click")
+	Sound.play_ui("shutter")
 	_after_photo(path)
 	return path
 
