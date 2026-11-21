@@ -6,6 +6,11 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 30
+
+- **The real trees of Flathead Lake**, fifteen kinds placed by where they grow: black cottonwood, quaking aspen, paper birch, Douglas hawthorn and serviceberry on the shore; ponderosa pine, Douglas-fir and Rocky Mountain juniper on low, dry, south-facing slopes; Douglas-fir, western redcedar, western larch and Rocky Mountain maple where it's low and shaded; lodgepole pine and larch higher up; Engelmann spruce and subalpine fir, then mountain hemlock near the tree line. Larches and the broadleaf trees turn their own autumn colours and stand bare in winter
+- **Light and air**: ambient light from the sky (blue from above, darker from below), soft contact shadows (with the Shadows setting), a little glow round bright lights, haze that glows toward the sun, and morning mist over the lake, thickest at sunrise in spring and autumn and after rain
+
 ### New in Build 29
 
 - **Merged drawing**: each spawned body's plain parts are drawn as one mesh per material (a 38-part build went from 38 draw calls to 1); parts that need their own look (scorch marks, the stress view) come back on their own

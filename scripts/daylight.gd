@@ -12,6 +12,10 @@ extends Node3D
 
 const SKY_SHADER = preload("res://shaders/sky.gdshader")
 const Weather = preload("res://scripts/weather.gd")
+const Origin = preload("res://scripts/origin.gd")
+const MapInfo = preload("res://scripts/map_info.gd")
+const MIST_DEPTH := 60.0         # m above the lake that morning mist fills
+const MIST_DENSITY := 0.004      # how thick it is at its thickest
 
 const CYCLE := 1200.0            # seconds in a whole day and night
 const START := 0.08              # where in the day a new game starts: 08:00
@@ -65,13 +69,33 @@ func _ready() -> void:
 	environment = Environment.new()
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	# Ambient light from the sky itself, mixed with a colour: shaded sides
+	# facing the sky are blue-lit, those facing the ground darker and warmer,
+	# rather than all one flat grey.
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	environment.ambient_light_sky_contribution = 0.65
+	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	# Haze, so the far mountains fade into the sky.
+	environment.tonemap_exposure = 1.0
+	environment.tonemap_white = 6.0
+	# Haze, so the far mountains fade into the sky, glowing toward the sun;
+	# and mist that lies low over the lake on cool mornings (_apply_mist).
 	environment.fog_enabled = true
 	environment.fog_density = 0.00005
 	environment.fog_sky_affect = 0.0
 	environment.fog_aerial_perspective = 0.4
+	environment.fog_sun_scatter = 0.25
+	environment.fog_height_density = 0.0
+	# Soft contact shadows where things meet (with the Shadows setting), and
+	# a little glow round the sun, lamps and lava.
+	environment.ssao_enabled = true
+	environment.ssao_radius = 1.5
+	environment.ssao_intensity = 1.6
+	environment.ssao_light_affect = 0.15
+	environment.glow_enabled = true
+	environment.glow_intensity = 0.35
+	environment.glow_bloom = 0.03
+	environment.glow_hdr_threshold = 1.2
 
 	var world_environment := WorldEnvironment.new()
 	world_environment.name = "WorldEnvironment"
@@ -94,6 +118,7 @@ func _ready() -> void:
 
 func set_shadows(on: bool) -> void:
 	_sun.shadow_enabled = on
+	environment.ssao_enabled = on
 
 
 func set_mode(new_mode: String) -> void:
@@ -192,6 +217,33 @@ func _apply(colours_too: bool) -> void:
 	_apply_weather(day)
 
 
+## How thick the morning mist is, 0 to 1: it forms over the lake before
+## dawn, is thickest at sunrise and burns off by mid-morning; it is thickest
+## in spring and autumn, after rain, and thin in high summer.
+func mist_amount(rain: float = 0.0) -> float:
+	var weather: Node = Weather.instance
+	var cool := 0.5
+	if weather != null:
+		cool = clampf(0.3 + float(weather.autumn) * 0.6 + float(weather.spring) * 0.4 + float(weather.cold) * 0.25, 0.1, 1.0)
+	# day_fraction: 0 sunrise, 0.25 noon, 0.75 midnight.
+	var morning := 0.0
+	if day_fraction > 0.85:
+		morning = smoothstep(0.85, 1.0, day_fraction)
+	elif day_fraction < 0.14:
+		morning = 1.0 - smoothstep(0.03, 0.14, day_fraction)
+	return clampf(morning * cool + rain * 0.3, 0.0, 1.0)
+
+
+## Low mist over the lake: fog that thickens below MIST_DEPTH above the
+## water, lit the colour of the morning light.
+func _apply_mist(day: float, rain: float) -> void:
+	var amount := mist_amount(rain) * (1.0 - underground)
+	environment.fog_height = Origin.to_world(Vector3(0.0, MapInfo.LAKE_Y + MIST_DEPTH, 0.0)).y
+	environment.fog_height_density = MIST_DENSITY * amount
+	if amount > 0.0:
+		environment.fog_light_color = environment.fog_light_color.lerp(Color(0.86, 0.86, 0.88).lerp(DUSK_FOG, 0.3) * maxf(day, 0.25), amount * 0.6)
+
+
 ## Where the moon is in its month: 0 new, 0.5 full. A full moon on the first
 ## night of a new game.
 func moon_phase() -> float:
@@ -231,6 +283,7 @@ func _apply_weather(day: float) -> void:
 	_sky_material.set_shader_parameter("ash", ash_direction * ash_amount)
 	environment.ambient_light_energy = (1.0 - dark * 0.45) * (1.0 - ash_amount * 0.5) * (1.0 - underground * 0.85)
 	environment.fog_density = 0.00005 + haze * 0.0028 + rain * 0.0004 + ash_amount * 0.002
+	_apply_mist(day, rain)
 	var grey := Color(0.5, 0.53, 0.57).lerp(NIGHT_FOG, 1.0 - day)
 	environment.fog_light_color = environment.fog_light_color.lerp(grey, clampf(dark + haze * 0.6, 0.0, 1.0))
 	if ash_amount > 0.0:
