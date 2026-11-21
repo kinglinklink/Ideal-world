@@ -489,6 +489,8 @@ func _shift_world(shift: Vector3) -> void:
 			node.position -= shift
 	_combat.shift_origin(shift)
 	_rigging.shift_origin(shift)
+	if _disasters != null:
+		_disasters.shift_origin(shift)
 	if _races != null:
 		_races.shift_origin(shift)
 	_terrain.origin_shifted()

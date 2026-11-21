@@ -47,7 +47,9 @@ const DEFAULTS := {
 	"player_damage": true,
 	"random_disasters": true,
 	"traffic": true,
+	"event_distance": 15,
 }
+const EVENT_DISTANCES := [5, 15, 30, 50]
 const MSAA := ["off", "2x", "4x"]
 
 
@@ -66,6 +68,8 @@ static func load_settings() -> Dictionary:
 	if not MSAA.has(str(values["msaa"])):
 		values["msaa"] = "2x"
 	values["render_scale"] = clampi(int(values["render_scale"]), 50, 100)
+	if not EVENT_DISTANCES.has(int(values["event_distance"])):
+		values["event_distance"] = 15
 	for key in ["volume_master", "volume_effects", "volume_machines", "volume_ambience", "volume_interface"]:
 		values[key] = clampi(int(values[key]), 0, 100)
 	return values
@@ -102,3 +106,4 @@ static func apply(values: Dictionary, forest: Node) -> void:
 	Player.damage_enabled = bool(values["player_damage"])
 	Disasters.random_events = bool(values["random_disasters"])
 	Traffic.enabled = bool(values["traffic"])
+	Disasters.event_distance = float(int(values["event_distance"])) * 1000.0

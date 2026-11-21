@@ -31,6 +31,7 @@ const Towns = preload("res://scripts/towns.gd")
 const Towers = preload("res://scripts/towers.gd")
 const Weather = preload("res://scripts/weather.gd")
 const Caves = preload("res://scripts/caves.gd")
+const Volcano = preload("res://scripts/volcano.gd")
 const TERRAIN_SHADER = preload("res://shaders/terrain.gdshader")
 const WATER_SHADER = preload("res://shaders/water.gdshader")
 
@@ -83,6 +84,7 @@ var _near_water: MeshInstance3D
 var _near_water_material: ShaderMaterial
 var _look_timer := 0.0
 var volcano_heat := 0.15           # 0 to 1: how hot the crater glows (disasters.gd raises it)
+var volcano: Node3D = null         # volcano.gd: the great cone on the summit
 var holes: Array = []              # cave mouths: [Vector2 start, Vector2 end, radius], map positions
 var _tiles: Dictionary = {}        # Vector2i square -> [StaticBody3D, time it was last needed]
 var _pending: Array = []           # squares needed but not built yet, nearest first
@@ -134,7 +136,11 @@ func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
 	landmarks.map_points.append_array(towers.map_points)
 	landmarks.map_points.append_array(caves.map_points)
 	landmarks.map_points.append([VOLCANO, "Volcano"])
-	forest.clearings.append([VOLCANO, CRATER_RADIUS + 40.0])
+	forest.clearings.append([VOLCANO, 3200.0])
+	volcano = Volcano.new()
+	volcano.name = "Volcano"
+	add_child(volcano)
+	volcano.setup(self, noise)
 
 	# Solid ground round the start, before anything can fall.
 	_build_all_needed()
@@ -331,7 +337,7 @@ func _build_levels() -> void:
 		material.set_shader_parameter("base_elevation", MapInfo.BASE_ELEVATION)
 		material.set_shader_parameter("vertex_step", spacing)
 		material.set_shader_parameter("inner_box", Vector4.ZERO)
-		material.set_shader_parameter("volcano", Vector4(VOLCANO.x, VOLCANO.y, CRATER_RADIUS, volcano_heat))
+		material.set_shader_parameter("volcano", Vector4(VOLCANO.x, VOLCANO.y, Volcano.CRATER_RADIUS, volcano_heat))
 		plane.material = material
 		var ring := MeshInstance3D.new()
 		ring.name = "Ground%d" % level
@@ -382,7 +388,7 @@ func _build_water() -> void:
 	grid.size = Vector2(NEAR_WATER, NEAR_WATER)
 	grid.subdivide_width = NEAR_WATER_QUADS - 1
 	grid.subdivide_depth = NEAR_WATER_QUADS - 1
-	grid.custom_aabb = AABB(Vector3(-NEAR_WATER, -60.0, -NEAR_WATER), Vector3(NEAR_WATER * 2.0, 120.0, NEAR_WATER * 2.0))
+	grid.custom_aabb = AABB(Vector3(-NEAR_WATER, -60.0, -NEAR_WATER), Vector3(NEAR_WATER * 2.0, 2200.0, NEAR_WATER * 2.0))
 	var near_material := ShaderMaterial.new()
 	near_material.shader = WATER_SHADER
 	_water_uniforms(near_material)
@@ -535,7 +541,7 @@ func _run_ground_look() -> void:
 	var weather: Node = Weather.instance
 	for entry in _levels:
 		var material: ShaderMaterial = (entry as Array)[1]
-		material.set_shader_parameter("volcano", Vector4(VOLCANO.x, VOLCANO.y, CRATER_RADIUS, volcano_heat))
+		material.set_shader_parameter("volcano", Vector4(VOLCANO.x, VOLCANO.y, Volcano.CRATER_RADIUS, volcano_heat))
 		if weather != null:
 			material.set_shader_parameter("snow_line", weather.snow_line)
 			material.set_shader_parameter("autumn", weather.autumn)

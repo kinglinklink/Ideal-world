@@ -37,12 +37,12 @@ func _process(_delta: float) -> bool:
 							Basis.IDENTITY, Vector3i(c, c, c), "steel" if x < 2 else "plastic", Color.RED))
 			SaveManager.save_build(grid, "crater-test")
 		10:
-			var floor_y: float = terrain.height_at(centre.x + 60.0, centre.y)
+			var floor_y: float = terrain.volcano.floor_y
 			var made: Array = main.get_node("Fleet").spawn_save_at("crater-test", Origin.to_world(Vector3(centre.x + 60.0, floor_y + 1.0, centre.y)), 0.0)
 			vehicle = made[1]
 			parts_at_start = vehicle.live_parts().size() if vehicle != null else 0
-			var ledge_y: float = terrain.height_at(centre.x - 120.0, centre.y + 80.0)
-			main._controller.respawn(Origin.to_world(Vector3(centre.x - 120.0, ledge_y + 1.0, centre.y + 80.0)), 0.0)
+			# On the crater's inner wall, dropped from just over the rim.
+			main._controller.respawn(Origin.to_world(Vector3(centre.x - 450.0, terrain.volcano.rim_y + 10.0, centre.y)), 0.0)
 			print("CRATER: build parts ", parts_at_start, " player hp ", player.hp)
 	if frame > 10 and frame % 30 == 0 and frame < 1000:
 		var parts: int = vehicle.live_parts().size() if is_instance_valid(vehicle) else 0

@@ -42,7 +42,7 @@ const PRESETS := {
 const EASE_TIME := 45.0           # seconds for the weather to most of the way change
 ## The four swells: length (m), turn from the wind (radians), share of the height, phase.
 const WAVES := [[41.0, 0.0, 0.45, 0.0], [27.0, 0.45, 0.25, 1.7], [63.0, -0.35, 0.2, 4.1], [19.0, 0.8, 0.1, 2.6]]
-const TSUNAMI_WIDTH := 150.0      # metres, the width of the wave's hump
+const TSUNAMI_WIDTH := 600.0      # metres, the width of the wave's hump: a wall of water, not a swell
 
 static var instance: Node = null
 
@@ -190,8 +190,9 @@ func _tsunami_flow(xz: Vector2) -> Vector3:
 	if r < 1.0:
 		return Vector3.ZERO
 	var rise := maxf(_tsunami_height(xz), 0.0)
-	# Water in a wave of height h on depth d moves at about c h / d; d taken as 40 m.
-	var flow: float = float(tsunami["speed"]) * rise / 40.0
+	# Water in a wave of height h on depth d moves at about c h / d; d taken as
+	# 40 m. Capped at the wave's own speed, as a wall this tall would break.
+	var flow: float = minf(float(tsunami["speed"]) * rise / 40.0, float(tsunami["speed"]))
 	return Vector3(away.x / r, 0.0, away.y / r) * flow
 
 
@@ -215,7 +216,7 @@ func set_season(new_mode: String) -> void:
 
 ## Starts a tsunami from a map point, `amp` metres high.
 func start_tsunami(centre: Vector2, amp: float) -> void:
-	tsunami = {"centre": centre, "radius": 0.0, "amp": amp, "max": 26000.0, "speed": 55.0, "full": amp}
+	tsunami = {"centre": centre, "radius": 0.0, "amp": amp, "max": 26000.0, "speed": 70.0, "full": amp}
 
 
 func _process(delta: float) -> void:
@@ -260,7 +261,9 @@ func _process(delta: float) -> void:
 		wave_phase[index] = fposmod(omega * _time, TAU)
 	if not tsunami.is_empty():
 		tsunami["radius"] = float(tsunami["radius"]) + float(tsunami["speed"]) * delta
-		tsunami["amp"] = float(tsunami["full"]) * clampf(1.0 - float(tsunami["radius"]) / float(tsunami["max"]), 0.0, 1.0)
+		# Full height until it has run most of its way, then it dies down.
+		var reach: float = tsunami["max"]
+		tsunami["amp"] = float(tsunami["full"]) * (1.0 - smoothstep(0.8 * reach, reach, float(tsunami["radius"])))
 		if float(tsunami["radius"]) >= float(tsunami["max"]):
 			tsunami = {}
 

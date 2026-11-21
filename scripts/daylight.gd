@@ -19,6 +19,7 @@ const MAX_SUN_HEIGHT := 60.0     # degrees above the southern horizon at noon
 const FIXED_DAY := 0.2           # the time held by "Always day": 10:48
 const FIXED_NIGHT := 0.75        # the time held by "Always night": midnight
 const SKY_EVERY := 0.5           # seconds between updates of the sky's colours
+const MOON_MONTH := 8.0          # game days from one full moon to the next
 
 const DAY_TOP := Color(0.22, 0.47, 0.88)
 const DAY_HORIZON := Color(0.68, 0.82, 0.95)
@@ -164,7 +165,7 @@ func _apply(colours_too: bool) -> void:
 	_moon.visible = night > 0.01
 	if _moon.visible:
 		_moon.basis = Basis.looking_at(-toward_moon, Vector3.UP if absf(toward_moon.y) < 0.99 else Vector3.FORWARD)
-		_moon.light_energy = 0.14 * night * _shade()
+		_moon.light_energy = 0.14 * night * _shade() * (0.25 + 0.75 * moon_lit())
 
 	var lights := night > 0.3
 	if lights != _lights_on:
@@ -183,11 +184,25 @@ func _apply(colours_too: bool) -> void:
 	_sky_material.set_shader_parameter("ground_color", Vector3(ground.r, ground.g, ground.b))
 	_sky_material.set_shader_parameter("sun_direction", toward_sun)
 	_sky_material.set_shader_parameter("moon_direction", toward_moon)
+	_sky_material.set_shader_parameter("moon_phase", moon_phase())
 	_sky_material.set_shader_parameter("night", night)
 	environment.ambient_light_color = NIGHT_AMBIENT.lerp(DAY_AMBIENT, day)
 	environment.ambient_light_energy = 1.0
 	environment.fog_light_color = NIGHT_FOG.lerp(DAY_FOG, day).lerp(DUSK_FOG, dusk * 0.5)
 	_apply_weather(day)
+
+
+## Where the moon is in its month: 0 new, 0.5 full. A full moon on the first
+## night of a new game.
+func moon_phase() -> float:
+	var weather: Node = Weather.instance
+	var days := float(weather.day) if weather != null else 0.0
+	return fposmod(0.5 + (days + day_fraction) / MOON_MONTH, 1.0)
+
+
+## How much of the moon's face is lit, 0 to 1.
+func moon_lit() -> float:
+	return 0.5 - 0.5 * cos(moon_phase() * TAU)
 
 
 ## How much the weather (cloud, ash) and being underground cut the light.
