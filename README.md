@@ -6,6 +6,13 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 28
+
+- **Collision follows each part's real shape**: triangle panels are solid only where the triangle is; rings, pipes, arches and curves keep their holes when spawned; parts weld only where their shapes really meet
+- **Glass, acrylic and diamond cast no shadow**
+- **Faster birds**: far flocks update less often and birds past 1.5 km aren't drawn (about 1.6 ms down to 0.7 ms a frame)
+- **Traffic looks like traffic**: cars with a bonnet, cabin, glass, wheels and bumpers; light planes with a round fuselage, tapered wings, tail, propeller and wheels
+
 ### New in Build 27
 
 - **Three save slots** after Play, each keeping its money, races won, missions, bird guide and clock; switch slots from the pause menu

@@ -74,9 +74,9 @@ const PARTS := {
 	"thruster": ["Thruster", "Fluid and Engine", Vector3(1, 1, 1), 0.4, Vector3(0, 0, 0), "box"],
 	"solid_rocket": ["Solid rocket", "Fluid and Engine", Vector3(1, 1, 2), 0.5, Vector3(0, 0, 0), "box"],
 	"aero_panel": ["Square aero panel", "Aero", Vector3(1, 0.125, 1), 1.0, Vector3(0, 0, 0), "box"],
-	"aero_panel_triangle": ["Triangle aero panel", "Aero", Vector3(1, 0.125, 1), 0.5, Vector3(-0.1667, 0, 0.1667), "box"],
+	"aero_panel_triangle": ["Triangle aero panel", "Aero", Vector3(1, 0.125, 1), 0.5, Vector3(-0.1667, 0, 0.1667), "convex"],
 	"aero_panel_dragless": ["Dragless square panel", "Aero", Vector3(1, 0.125, 1), 1.0, Vector3(0, 0, 0), "box"],
-	"aero_panel_triangle_dragless": ["Dragless triangle panel", "Aero", Vector3(1, 0.125, 1), 0.5, Vector3(-0.1667, 0, 0.1667), "box"],
+	"aero_panel_triangle_dragless": ["Dragless triangle panel", "Aero", Vector3(1, 0.125, 1), 0.5, Vector3(-0.1667, 0, 0.1667), "convex"],
 	"propeller": ["Propeller", "Aero", Vector3(1, 0.25, 1), 0.3, Vector3(0, 0, 0), "box"],
 	"lift_gas_tank": ["Lift-gas tank", "Aero", Vector3(1, 1, 1), 0.1, Vector3(0, 0, 0), "box"],
 	"input_block": ["Input", "Logic", Vector3(1, 0.5, 1), 0.5, Vector3(0, 0, 0), "box"],
@@ -137,6 +137,10 @@ const CURVE_STEPS := 10
 
 static var _mesh_cache: Dictionary = {}
 static var _hull_cache: Dictionary = {}
+static var _recipe: Array = []          # how the mesh being built is made: ["extrude", outline] or ["lathe", outline, segments]
+static var _recipes: Dictionary = {}    # part id -> its recipe, for splitting hollow shapes into solid pieces
+static var _pieces_cache: Dictionary = {}
+static var _planes_cache: Dictionary = {}
 static var _overlay_cache: Dictionary = {}
 
 
@@ -209,7 +213,9 @@ static func get_mesh(part_id: String, options: Dictionary = {}) -> Mesh:
 		key = part_id + str(options)
 	if not _mesh_cache.has(key):
 		if options.is_empty():
+			_recipe = []
 			_mesh_cache[key] = _build_mesh(part_id)
+			_recipes[part_id] = _recipe
 		else:
 			_mesh_cache[key] = MechModels.build(part_id, options)
 	return _mesh_cache[key]
@@ -432,6 +438,7 @@ static func _from_triangles(points: Array) -> ArrayMesh:
 
 ## Pushes a flat outline in the XY plane through the box along Z.
 static func _extrude(outline: PackedVector2Array) -> ArrayMesh:
+	_recipe = ["extrude", outline]
 	var surface := _new_surface()
 	var turn := _orientation(outline)
 	var count := outline.size()
@@ -458,6 +465,7 @@ static func _extrude(outline: PackedVector2Array) -> ArrayMesh:
 
 ## Spins a closed outline of (radius, height) points around the Y axis.
 static func _lathe(outline: PackedVector2Array, segments: int) -> ArrayMesh:
+	_recipe = ["lathe", outline, segments]
 	var surface := _new_surface()
 	var turn := _orientation(outline)
 	var count := outline.size()
@@ -522,6 +530,113 @@ static func make_shape(part_id: String, size_m: Vector3, moving: bool = false) -
 	var convex := ConvexPolygonShape3D.new()
 	convex.points = hull
 	return convex
+
+
+## The collision shapes for a part, as a list: one shape for most parts.
+## A hollow part (concave curve, arch, ring, pipe, torus) on a moving body
+## can't use one hollow shape, so it is split into solid convex pieces that
+## follow its real outline: the hole in a ring stays a hole.
+static func make_shapes(part_id: String, size_m: Vector3, moving: bool = false) -> Array:
+	var kind: String = _row(part_id)[5]
+	if kind != "concave" or not moving:
+		return [make_shape(part_id, size_m, moving)]
+	var shapes: Array = []
+	for item in convex_pieces(part_id):
+		var points: PackedVector3Array = (item as PackedVector3Array).duplicate()
+		for index in points.size():
+			points[index] = points[index] * size_m
+		var convex := ConvexPolygonShape3D.new()
+		convex.points = points
+		shapes.append(convex)
+	return shapes
+
+
+## A hollow part's solid convex pieces at unit size: an extruded outline is
+## cut into convex outlines, each extruded; a lathed one into 16 wedges
+## round its axis.
+static func convex_pieces(part_id: String) -> Array:
+	if _pieces_cache.has(part_id):
+		return _pieces_cache[part_id]
+	get_mesh(part_id)
+	var recipe: Array = _recipes.get(part_id, [])
+	var pieces: Array = []
+	if not recipe.is_empty() and str(recipe[0]) == "extrude":
+		for polygon in Geometry2D.decompose_polygon_in_convex(recipe[1]):
+			var points := PackedVector3Array()
+			for corner in (polygon as PackedVector2Array):
+				points.append(Vector3(corner.x, corner.y, -0.5))
+				points.append(Vector3(corner.x, corner.y, 0.5))
+			pieces.append(points)
+	elif not recipe.is_empty() and str(recipe[0]) == "lathe":
+		var outline: PackedVector2Array = recipe[1]
+		var wedges := mini(int(recipe[2]), 16)
+		for wedge in wedges:
+			var points := PackedVector3Array()
+			for side in 2:
+				var angle := float(wedge + side) / float(wedges) * TAU
+				for corner in outline:
+					points.append(Vector3(corner.x * cos(angle), corner.y, corner.x * sin(angle)))
+			pieces.append(points)
+	if pieces.is_empty():
+		pieces = [_unit_hull(part_id)]
+	_pieces_cache[part_id] = pieces
+	return pieces
+
+
+## Whether a point (in the part's unit space, -0.5 to 0.5 on each axis) is
+## inside the part's real shape, give or take `slack`. Box parts fill their
+## box; others are tested against their faces (hollow ones against their
+## convex pieces).
+static func contains_unit_point(part_id: String, point: Vector3, slack: float = 0.02) -> bool:
+	var kind: String = _row(part_id)[5]
+	if kind == "box":
+		return absf(point.x) <= 0.5 + slack and absf(point.y) <= 0.5 + slack and absf(point.z) <= 0.5 + slack
+	if not _planes_cache.has(part_id):
+		var sets: Array = []
+		for item in (convex_pieces(part_id) if kind == "concave" else [_unit_hull(part_id)]):
+			var hull := _hull_planes(item as PackedVector3Array)
+			sets.append(hull)
+		_planes_cache[part_id] = sets
+	for planes in _planes_cache[part_id]:
+		var inside := true
+		for plane in planes:
+			if (plane as Plane).distance_to(point) > slack:
+				inside = false
+				break
+		if inside:
+			return true
+	return false
+
+
+## The outward faces of the convex hull of some points.
+static func _hull_planes(points: PackedVector3Array) -> Array:
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = points
+	var mesh := shape.get_debug_mesh()
+	var planes: Array = []
+	var centre := Vector3.ZERO
+	for point in points:
+		centre += point
+	centre /= maxf(points.size(), 1)
+	var faces := mesh.get_faces()
+	for index in range(0, faces.size(), 3):
+		var a := faces[index]
+		var b := faces[index + 1]
+		var c := faces[index + 2]
+		var normal := (b - a).cross(c - a)
+		if normal.length() < 1e-9:
+			continue
+		var plane := Plane(normal.normalized(), a)
+		if plane.distance_to(centre) > 0.0:
+			plane = -plane
+		var known := false
+		for other in planes:
+			if (other as Plane).normal.dot(plane.normal) > 0.9999 and absf((other as Plane).d - plane.d) < 1e-5:
+				known = true
+				break
+		if not known:
+			planes.append(plane)
+	return planes
 
 
 # --- Overlays ----------------------------------------------------------------

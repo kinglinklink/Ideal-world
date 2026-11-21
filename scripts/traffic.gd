@@ -19,6 +19,7 @@ const Units = preload("res://scripts/units.gd")
 const Roads = preload("res://scripts/roads.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Profiler = preload("res://scripts/profiler.gd")
+const MeshKit = preload("res://scripts/mesh_kit.gd")
 
 const MAX_CARS := 18
 const CAR_NEAR := 400.0         # metres from you at the closest a new car appears
@@ -309,35 +310,83 @@ func _run_plane(plane: Dictionary, delta: float, shifted: bool) -> void:
 
 # --- Models --------------------------------------------------------------------------------
 
+## A saloon car, 4.4 m long, front toward -Z: a body with a sloping bonnet
+## and boot, a cabin with dark glass all round, four wheels with hubs, and
+## lights.
 func _make_car_mesh(paint: Color) -> Mesh:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_box(surface, Vector3(0.0, 0.7, 0.0), Vector3(1.85, 0.7, 4.4), paint)
-	_box(surface, Vector3(0.0, 1.3, 0.25), Vector3(1.6, 0.6, 2.2), paint.darkened(0.15))
-	_box(surface, Vector3(0.0, 1.32, -0.88), Vector3(1.5, 0.5, 0.05), Color(0.1, 0.13, 0.16))
-	_box(surface, Vector3(0.0, 1.32, 1.37), Vector3(1.5, 0.5, 0.05), Color(0.1, 0.13, 0.16))
-	for corner in [Vector3(-0.85, 0.35, -1.4), Vector3(0.85, 0.35, -1.4), Vector3(-0.85, 0.35, 1.4), Vector3(0.85, 0.35, 1.4)]:
-		_box(surface, corner, Vector3(0.3, 0.7, 0.7), Color(0.08, 0.08, 0.08))
-	_box(surface, Vector3(-0.6, 0.75, -2.21), Vector3(0.35, 0.15, 0.03), Color(1.0, 0.95, 0.8))
-	_box(surface, Vector3(0.6, 0.75, -2.21), Vector3(0.35, 0.15, 0.03), Color(1.0, 0.95, 0.8))
-	_box(surface, Vector3(-0.6, 0.8, 2.21), Vector3(0.35, 0.12, 0.03), Color(0.9, 0.1, 0.05))
-	_box(surface, Vector3(0.6, 0.8, 2.21), Vector3(0.35, 0.12, 0.03), Color(0.9, 0.1, 0.05))
+	var surface := MeshKit.new_surface()
+	var glass := Color(0.08, 0.11, 0.14)
+	surface.set_color(paint)
+	_side_shape(surface, [Vector2(-2.2, 0.3), Vector2(2.2, 0.3), Vector2(2.2, 1.0), Vector2(1.95, 1.1),
+			Vector2(-1.95, 1.08), Vector2(-2.2, 0.85)], 1.84)
+	surface.set_color(paint.darkened(0.1))
+	_side_shape(surface, [Vector2(-0.95, 1.07), Vector2(1.55, 1.07), Vector2(0.95, 1.62), Vector2(-0.4, 1.62)], 1.56)
+	surface.set_color(glass)
+	_side_shape(surface, [Vector2(-0.86, 1.12), Vector2(1.45, 1.12), Vector2(0.9, 1.56), Vector2(-0.37, 1.56)], 1.6)
+	for corner in [Vector3(-0.86, 0.36, -1.38), Vector3(0.86, 0.36, -1.38), Vector3(-0.86, 0.36, 1.38), Vector3(0.86, 0.36, 1.38)]:
+		surface.set_color(Color(0.06, 0.06, 0.06))
+		MeshKit.add_cylinder(surface, corner, 0, 0.36, 0.26, 14)
+		surface.set_color(Color(0.6, 0.6, 0.62))
+		MeshKit.add_cylinder(surface, corner + Vector3(signf(corner.x) * 0.02, 0.0, 0.0), 0, 0.2, 0.26, 10)
+	for side in [-1.0, 1.0]:
+		surface.set_color(Color(1.0, 0.95, 0.8))
+		MeshKit.add_box(surface, Vector3(0.6 * side, 0.8, -2.21), Vector3(0.38, 0.14, 0.03))
+		surface.set_color(Color(0.9, 0.1, 0.05))
+		MeshKit.add_box(surface, Vector3(0.62 * side, 0.85, 2.21), Vector3(0.35, 0.12, 0.03))
+	surface.set_color(Color(0.15, 0.15, 0.16))
+	MeshKit.add_box(surface, Vector3(0.0, 0.45, -2.22), Vector3(1.7, 0.18, 0.06))   # bumpers
+	MeshKit.add_box(surface, Vector3(0.0, 0.45, 2.22), Vector3(1.7, 0.18, 0.06))
 	return _finish(surface)
 
 
+## A light high-wing plane, nose toward -Z: a round fuselage tapering to the
+## tail, tapered wings, tailplane and fin, a windscreen, a propeller and
+## a stripe.
 func _make_plane_mesh() -> Mesh:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var surface := MeshKit.new_surface()
 	var white := Color(0.93, 0.93, 0.92)
 	var stripe := Color(0.8, 0.15, 0.1)
-	_box(surface, Vector3(0.0, 0.0, 0.0), Vector3(1.4, 1.5, 8.5), white)
-	_box(surface, Vector3(0.0, 0.2, -1.5), Vector3(1.42, 0.25, 4.0), stripe)
-	_box(surface, Vector3(0.0, 0.55, -1.0), Vector3(12.0, 0.18, 1.7), white)
-	_box(surface, Vector3(0.0, 0.3, 3.8), Vector3(4.0, 0.12, 1.0), white)
-	_box(surface, Vector3(0.0, 1.1, 3.9), Vector3(0.12, 1.4, 1.0), stripe)
-	_box(surface, Vector3(0.0, 0.35, -2.5), Vector3(1.2, 0.5, 1.2), Color(0.15, 0.2, 0.25))
-	_box(surface, Vector3(0.0, 0.0, -4.3), Vector3(2.2, 0.15, 0.08), Color(0.2, 0.2, 0.2))
+	surface.set_color(white)
+	MeshKit.add_frustum(surface, Vector3(0.0, 0.0, -3.95), 2, 0.2, 0.7, 0.9, 14)
+	MeshKit.add_cylinder(surface, Vector3(0.0, 0.0, -1.0), 2, 0.72, 5.0, 14)
+	MeshKit.add_frustum(surface, Vector3(0.0, 0.1, 3.2), 2, 0.72, 0.2, 3.4, 14)
+	surface.set_color(stripe)
+	MeshKit.add_cylinder(surface, Vector3(0.0, 0.0, -0.4), 2, 0.735, 0.5, 14)
+	surface.set_color(Color(0.15, 0.2, 0.25))
+	MeshKit.add_extruded_polygon(surface, [Vector3(-0.62, 0.35, -2.6), Vector3(0.62, 0.35, -2.6),
+			Vector3(0.55, 0.75, -2.0), Vector3(-0.55, 0.75, -2.0)], Vector3(0.0, 0.0, 0.05))
+	surface.set_color(white)
+	for side in [-1.0, 1.0]:
+		# A wing, root chord 2 m, tip 1.1 m, 6 m long, on top of the cabin.
+		MeshKit.add_extruded_polygon(surface, [Vector3(0.0, 0.8, -1.9), Vector3(0.0, 0.8, 0.1),
+				Vector3(6.0 * side, 0.9, -0.1), Vector3(6.0 * side, 0.9, -1.2)], Vector3(0.0, 0.16, 0.0))
+		MeshKit.add_extruded_polygon(surface, [Vector3(0.0, 0.25, 3.3), Vector3(0.0, 0.25, 4.3),
+				Vector3(2.0 * side, 0.25, 4.3), Vector3(2.0 * side, 0.25, 3.7)], Vector3(0.0, 0.1, 0.0))
+		surface.set_color(stripe)
+		MeshKit.add_box(surface, Vector3(5.6 * side, 0.98, -0.65), Vector3(0.8, 0.18, 1.12))   # wing tips
+		surface.set_color(white)
+	surface.set_color(stripe)
+	MeshKit.add_extruded_polygon(surface, [Vector3(-0.06, 0.4, 3.0), Vector3(-0.06, 0.4, 4.35),
+			Vector3(-0.06, 2.0, 4.45), Vector3(-0.06, 1.9, 3.85)], Vector3(0.12, 0.0, 0.0))
+	surface.set_color(Color(0.2, 0.2, 0.2))
+	MeshKit.add_frustum(surface, Vector3(0.0, 0.0, -4.5), 2, 0.05, 0.2, 0.3, 10)   # spinner
+	MeshKit.add_box(surface, Vector3(0.0, 0.0, -4.42), Vector3(2.2, 0.15, 0.06))
+	surface.set_color(Color(0.1, 0.1, 0.1))
+	for at in [Vector3(-1.1, -1.05, -1.2), Vector3(1.1, -1.05, -1.2), Vector3(0.0, -1.0, -3.3)]:
+		MeshKit.add_cylinder(surface, at, 0, 0.25, 0.15, 10)
+	surface.set_color(Color(0.5, 0.5, 0.52))
+	MeshKit.add_box(surface, Vector3(-0.6, -0.65, -1.2), Vector3(0.06, 0.8, 0.12))   # gear legs
+	MeshKit.add_box(surface, Vector3(0.6, -0.65, -1.2), Vector3(0.06, 0.8, 0.12))
+	MeshKit.add_box(surface, Vector3(0.0, -0.6, -3.3), Vector3(0.06, 0.7, 0.1))
 	return _finish(surface)
+
+
+## A side outline (z along, y up) made solid `width` across, centred on x = 0.
+static func _side_shape(surface: SurfaceTool, outline: Array, width: float) -> void:
+	var points: Array = []
+	for corner in outline:
+		points.append(Vector3(-width * 0.5, (corner as Vector2).y, (corner as Vector2).x))
+	MeshKit.add_extruded_polygon(surface, points, Vector3(width, 0.0, 0.0))
 
 
 static func _box(surface: SurfaceTool, centre: Vector3, size: Vector3, color: Color) -> void:

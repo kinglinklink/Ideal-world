@@ -41,6 +41,9 @@ const REROLL := 180.0            # s before a cleared square can roll again
 const MAX_GROUPS := 40
 const MAX_BIRDS := 170
 const NEST_NEAR := 1400.0
+const NEAR_EVERY_FRAME := 300.0  # m: groups nearer than this move every frame
+const WINGS_SEEN := 450.0        # m: past this the wings are not worth flapping
+const FAR_DRAWN := 1500.0        # m: past this birds are not drawn
 const HOVER_PIXELS := 16.0
 const LEAVE_PIXELS := 90.0       # mouse movement that ends a close-up
 
@@ -62,6 +65,7 @@ var _materials: Dictionary = {}
 var _nests: Array = []           # {"kind", "species": [ids], "at": map Vector3, "node", "season"}
 var _nest_areas: Dictionary = {} # Vector2i area -> [species ids nesting there]
 var _season := ""
+var _frame := 0
 # The close-up on a bird.
 var _hover_bird: Dictionary = {}
 var _hover_time := 0.0
@@ -185,8 +189,21 @@ func _tick(delta: float) -> void:
 	if _scare_check <= 0.0:
 		_scare_check = 0.5
 		_scare_by_vehicles()
-	for group in _groups:
-		_run_group(group, delta)
+	# Near birds move every frame; further off, every few frames with the
+	# time saved up, and past FAR_DRAWN they are too small to see and not drawn.
+	_frame += 1
+	var eye := _here()
+	for index in _groups.size():
+		var group: Dictionary = _groups[index]
+		var home: Vector3 = group["home"]
+		var distance := Vector2(home.x - eye.x, home.z - eye.z).length()
+		var every := 1 if distance < NEAR_EVERY_FRAME else (3 if distance < 900.0 else 6)
+		group["owed"] = float(group.get("owed", 0.0)) + delta
+		if (_frame + index) % every != 0:
+			continue
+		group["distance"] = distance
+		_run_group(group, float(group["owed"]))
+		group["owed"] = 0.0
 	_run_hover(delta)
 
 
@@ -458,7 +475,7 @@ func _run_group(group: Dictionary, delta: float) -> void:
 					_move_swoop(bird, group, delta)
 				"hover":
 					_move_hover(bird, group, delta)
-		_place(bird, species, delta)
+		_place(bird, species, delta, float(group.get("distance", 0.0)))
 
 
 func _fly_to(bird: Dictionary, target: Vector3, speed: float, delta: float) -> bool:
@@ -665,7 +682,7 @@ func _move_flee(bird: Dictionary, delta: float) -> void:
 
 ## Sets a bird's node from its state, turned to face where it goes, wings
 ## flapping, gliding or folded.
-func _place(bird: Dictionary, species: Dictionary, _delta: float) -> void:
+func _place(bird: Dictionary, species: Dictionary, _delta: float, distance: float = 0.0) -> void:
 	var node: Node3D = bird["node"]
 	if not is_instance_valid(node):
 		return
@@ -679,8 +696,12 @@ func _place(bird: Dictionary, species: Dictionary, _delta: float) -> void:
 	var pitch := 0.0
 	if velocity.length() > 0.5 and mode != "swim":
 		pitch = clampf(atan2(velocity.y, maxf(flat.length(), 0.1)), -0.9, 0.9) * 0.6
-	node.visible = float(bird["hidden"]) <= 0.0
+	node.visible = float(bird["hidden"]) <= 0.0 and distance < FAR_DRAWN
+	if not node.visible:
+		return
 	node.global_transform = Transform3D(Basis.from_euler(Vector3(pitch, yaw, 0.0)), Origin.to_world(at))
+	if distance > WINGS_SEEN:
+		return
 	var wings: Array = bird["wings"]
 	var phase: float = bird["phase"]
 	var beat := 0.0
