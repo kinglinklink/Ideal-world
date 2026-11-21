@@ -7,11 +7,14 @@ const SaveManager = preload("res://scripts/save_manager.gd")
 const Units = preload("res://scripts/units.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Roads = preload("res://scripts/roads.gd")
+const Ghosts = preload("res://scripts/ghosts.gd")
+const Profile = preload("res://scripts/profile.gd")
 
 var main: Node = null
 var frame := 0
 var carried := 0.0
 var is_air := true
+var ghost_round := false
 
 
 func _initialize() -> void:
@@ -30,7 +33,7 @@ func _start(air: bool) -> void:
 	for index in races._vehicle_pick.item_count:
 		if races._vehicle_pick.get_item_text(index) == "ring-test":
 			races._vehicle_pick.select(index)
-	races._start_race(host["air" if air else "car"][0], host, air)
+	races._start_race(host["air" if air else "car"][0], host, air, ghost_round)
 	carried = 0.0
 	is_air = air
 	print("RING: ", "air" if air else "car", " race on ", not races._race.is_empty(), " rings ", races._race.get("rings", []).size())
@@ -70,8 +73,20 @@ func _process(delta: float) -> bool:
 		if frame % 60 == 0:
 			print("RING: at ", int(carried), " m of ", int(along[along.size() - 1]), " next ", races._race["next"],
 				" player ", Origin.to_map(main.get_node("Player").global_position).snapped(Vector3.ONE), " body ", point.snapped(Vector3.ONE))
-	if frame > 12 and races._race.is_empty() and is_air and frame < 100000:
-		print("RING: air race ended at frame ", frame)
+	if frame > 12 and not races._race.is_empty() and ghost_round and frame % 120 == 0:
+		var ghost: Dictionary = races._race["ghost"]
+		if not ghost.is_empty() and float(races._race["clock"]) > 0.0:
+			var vehicle: Node = races._race["vehicle"]
+			print("RING: ghost body at ", Origin.to_map((ghost["nodes"][0] as Node3D).global_position).snapped(Vector3.ONE),
+					" vehicle at ", Origin.to_map(vehicle.where()).snapped(Vector3.ONE))
+	if frame > 12 and races._race.is_empty() and is_air and not ghost_round:
+		print("RING: air race ended at frame ", frame, " won ", Profile.has_won("rookie"), " ghost ", Ghosts.about("rookie"))
+		ghost_round = true
+		_start(true)
+		print("RING: racing with ghost: ", not (races._race["ghost"] as Dictionary).is_empty())
+	elif frame > 12 and races._race.is_empty() and is_air and ghost_round:
+		print("RING: ghost race ended at frame ", frame)
+		ghost_round = false
 		_start(false)
 	elif frame > 12 and races._race.is_empty() and not is_air:
 		print("RING: car race ended at frame ", frame)

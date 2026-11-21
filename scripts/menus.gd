@@ -10,8 +10,10 @@ extends CanvasLayer
 const Sound = preload("res://scripts/sound.gd")
 const PartsGuide = preload("res://scripts/parts_guide.gd")
 const SettingsPanel = preload("res://scripts/settings_panel.gd")
+const Profile = preload("res://scripts/profile.gd")
 
 signal respawn_requested
+signal slot_chosen(slot: int)   # a save slot was picked to play (main.gd restores its clock)
 
 var player: Node = null       # player.gd
 var hud: Node = null          # hud.gd, for the full map
@@ -23,6 +25,10 @@ var _dim: ColorRect
 var _title: Control
 var _pause: Control
 var _back_to: Control = null  # the menu to show again when a window closes
+var _slots: Control             # the three save slots, after Play
+var _slot_cards: VBoxContainer
+var _delete_armed := 0
+var playing := false            # a slot has been picked this session
 
 
 func _ready() -> void:
@@ -40,6 +46,8 @@ func _ready() -> void:
 	add_child(_title)
 	_pause = _build_pause()
 	add_child(_pause)
+	_slots = _build_slots()
+	add_child(_slots)
 
 	settings_panel = SettingsPanel.new()
 	add_child(_centred(settings_panel))
@@ -98,10 +106,11 @@ func _build_title() -> Control:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 30)
 	column.add_child(gap)
-	_menu_button(column, "Play", start_game)
+	_menu_button(column, "Play", show_slots)
 	_menu_button(column, "Parts guide", func() -> void: _open(guide, _title))
 	_menu_button(column, "Settings", func() -> void: _open(settings_panel, _title))
-	_menu_button(column, "Quit", func() -> void: get_tree().quit())
+	_menu_button(column, "Quit", func() -> void:
+		get_tree().quit())
 	var footer := Label.new()
 	footer.name = "Footer"
 	footer.add_theme_font_size_override("font_size", 12)
@@ -136,9 +145,134 @@ func _build_pause() -> Control:
 	_menu_button(column, "Back to the build pad", func() -> void:
 		resume()
 		respawn_requested.emit())
+	_menu_button(column, "Switch save slot", func() -> void:
+		Profile.save()
+		_pause.visible = false
+		show_slots())
 	_menu_button(column, "Title screen", show_title)
-	_menu_button(column, "Quit game", func() -> void: get_tree().quit())
+	_menu_button(column, "Quit game", func() -> void:
+		Profile.save()
+		get_tree().quit())
 	return screen
+
+
+# --- Save slots -------------------------------------------------------------------
+
+func _build_slots() -> Control:
+	var screen := CenterContainer.new()
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.visible = false
+	var panel := PanelContainer.new()
+	screen.add_child(panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 18)
+	panel.add_child(margin)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	margin.add_child(column)
+	var heading := Label.new()
+	heading.text = "Choose a save slot"
+	heading.add_theme_font_size_override("font_size", 28)
+	column.add_child(heading)
+	var about := Label.new()
+	about.text = "Each slot keeps its own money, races won, missions, ghosts and bird guide.\nYour builds, sub-assemblies and photos are shared by all three."
+	about.add_theme_font_size_override("font_size", 14)
+	about.modulate = Color(1, 1, 1, 0.8)
+	column.add_child(about)
+	_slot_cards = VBoxContainer.new()
+	_slot_cards.add_theme_constant_override("separation", 10)
+	column.add_child(_slot_cards)
+	var back := Button.new()
+	back.text = "Back"
+	back.focus_mode = Control.FOCUS_NONE
+	back.pressed.connect(func() -> void:
+		_slots.visible = false
+		if playing:
+			_pause.visible = true
+		else:
+			_title.visible = true)
+	column.add_child(back)
+	return screen
+
+
+func show_slots() -> void:
+	_title.visible = false
+	_slots.visible = true
+	_delete_armed = 0
+	_fill_slots()
+
+
+func _fill_slots() -> void:
+	for child in _slot_cards.get_children():
+		child.queue_free()
+	for which in range(1, Profile.SLOTS + 1):
+		var summary := Profile.slot_summary(which)
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(560, 0)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		card.add_child(row)
+		var words := VBoxContainer.new()
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(words)
+		var title := Label.new()
+		title.text = "Slot %d%s" % [which, "   (playing)" if playing and which == Profile.slot else ""]
+		title.add_theme_font_size_override("font_size", 20)
+		words.add_child(title)
+		var facts := Label.new()
+		if bool(summary["exists"]):
+			facts.text = "%s   ·   %d races won   ·   %d birds photographed\nLast played %s" % [
+				Profile.money(int(summary["cash"])), int(summary["won"]), int(summary["photographed"]),
+				str(summary["last_played"]).replace("T", " ").substr(0, 16)]
+		else:
+			facts.text = "Empty"
+		facts.add_theme_font_size_override("font_size", 14)
+		facts.modulate = Color(1, 1, 1, 0.8)
+		words.add_child(facts)
+		if bool(summary["exists"]):
+			_slot_button(row, "Continue", func() -> void: _play_slot(which, false))
+		_slot_button(row, "Start over?" if _delete_armed == -which else "New game", func() -> void: _play_slot(which, true))
+		if bool(summary["exists"]):
+			_slot_button(row, "Delete" if _delete_armed != which else "Sure?", func() -> void:
+				if _delete_armed == which:
+					Profile.delete_slot(which)
+					_delete_armed = 0
+				else:
+					_delete_armed = which
+				_fill_slots())
+		_slot_cards.add_child(card)
+
+
+func _slot_button(parent: Control, text: String, action: Callable) -> void:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(104, 40)
+	button.pressed.connect(func() -> void:
+		Sound.play_ui("click")
+		action.call())
+	parent.add_child(button)
+
+
+func _play_slot(which: int, fresh: bool) -> void:
+	if playing:
+		Profile.save()
+	if fresh and Profile.slot_exists(which) and _delete_armed != -which:
+		# Starting a used slot over asks once more.
+		_delete_armed = -which
+		_fill_slots()
+		return
+	if fresh:
+		Profile.new_game(which)
+	else:
+		Profile.use_slot(which)
+	_delete_armed = 0
+	_slots.visible = false
+	playing = true
+	slot_chosen.emit(which)
+	start_game()
 
 
 # --- Showing and hiding ----------------------------------------------------------
@@ -152,6 +286,7 @@ func show_title() -> void:
 
 func start_game() -> void:
 	_title.visible = false
+	_slots.visible = false
 	_set_paused(false)
 
 
@@ -166,7 +301,7 @@ func resume() -> void:
 
 
 func is_open() -> bool:
-	return _title.visible or _pause.visible or settings_panel.visible or guide.visible
+	return _title.visible or _pause.visible or _slots.visible or settings_panel.visible or guide.visible
 
 
 func _set_paused(paused: bool) -> void:

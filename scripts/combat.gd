@@ -333,10 +333,10 @@ func _hitscan_wants(uid: int, record: Dictionary, aim: Dictionary, signal_on: bo
 	out["hit_distance"] = to_aim.length()
 	var reach: float = maxf(float(props.get("range", 500.0)), 1.0)
 	var cone := deg_to_rad(clampf(float(props.get("cone", 60.0)), 1.0, 360.0)) * 0.5
-	var ready := to_aim.length() <= reach and (muzzle[1] as Vector3).angle_to(to_aim) <= cone
-	out["firing"] = 1.0 if firing and ready else 0.0
+	var can_hit := to_aim.length() <= reach and (muzzle[1] as Vector3).angle_to(to_aim) <= cone
+	out["firing"] = 1.0 if firing and can_hit else 0.0
 	spawner.set_outputs(uid, out)
-	return firing and ready
+	return firing and can_hit
 
 
 func _has_seat() -> bool:

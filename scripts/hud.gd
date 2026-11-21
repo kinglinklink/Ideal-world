@@ -170,6 +170,11 @@ func minimap() -> Control:
 	return _minimap
 
 
+## The full map (world_map.gd).
+func world_map() -> Control:
+	return _world_map
+
+
 func set_fleet(the_fleet: Node) -> void:
 	fleet = the_fleet
 	_minimap.fleet = the_fleet
@@ -365,6 +370,12 @@ func _build_interface() -> void:
 	weather_button.tooltip_text = "The weather, the season, the wind, and disasters to set off"
 	weather_button.pressed.connect(func() -> void: weather_pressed.emit())
 	top_buttons.add_child(weather_button)
+	var missions_button := _button("Missions (J)", 120.0)
+	missions_button.tooltip_text = "Races to win, cargo runs, photo jobs and birds still to photograph"
+	missions_button.pressed.connect(func() -> void:
+		for node in get_tree().get_nodes_in_group("missions"):
+			node.toggle())
+	top_buttons.add_child(missions_button)
 	var guide := _button("Guide (F1)", 110.0)
 	guide.tooltip_text = "What every part does, its settings, inputs and outputs"
 	guide.pressed.connect(func() -> void:

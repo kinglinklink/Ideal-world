@@ -31,6 +31,7 @@ const Roads = preload("res://scripts/roads.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Profile = preload("res://scripts/profile.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
+const Ghosts = preload("res://scripts/ghosts.gd")
 
 ## [id, name, host airport, top speed m/s, loop radius m, ring radius m, height over the ground m, prize $, rings]
 const AIR_RACES := [
@@ -242,6 +243,34 @@ func _find_near() -> void:
 			game_hud.prompt.text = ""
 
 
+## Every race, for the mission board and the map: {"id", "name", "kind"
+## ("air" or "car"), "where" (Vector2 map), "host", "prize", "speed",
+## "best", "won"}.
+func race_list() -> Array:
+	var list: Array = []
+	for item in _hosts:
+		var host: Dictionary = item
+		var at: Vector3 = host["at"]
+		for kind in ["air", "car"]:
+			for race_item in host[kind]:
+				var race: Array = race_item
+				list.append({"id": str(race[0]), "name": str(race[1]), "kind": kind, "where": Vector2(at.x, at.z),
+						"host": str(host["name"]), "prize": int(race[7] if kind == "air" else race[5]),
+						"speed": float(race[3]), "best": Profile.best_time(str(race[0])), "won": Profile.has_won(str(race[0]))})
+	return list
+
+
+## The cargo agents: [Vector2 map, airport name].
+func cargo_agents() -> Array:
+	var list: Array = []
+	for item in _hosts:
+		var host: Dictionary = item
+		if str(host["airport"]) != "":
+			var at: Vector3 = host["at"]
+			list.append([Vector2(at.x, at.z), str(host["airport"])])
+	return list
+
+
 ## Called when E is pressed (build_controller.gd). True if someone is there to talk to.
 func talk() -> bool:
 	if _near.is_empty():
@@ -305,10 +334,24 @@ func _open_window(host: Dictionary) -> void:
 			about.text = "%s   rivals at %d m/s   1st %s%s" % [race[1], int(race[3]), Profile.money(prize),
 					("   best %s" % _clock_text(best)) if best > 0.0 else ""]
 			row.add_child(about)
+			var with_ghost := CheckBox.new()
+			var ghost: Dictionary = Ghosts.about(str(race[0]))
+			if Profile.has_won(str(race[0])) and not ghost.is_empty():
+				with_ghost.text = "Ghost"
+				with_ghost.tooltip_text = "Race your best run (%s in \"%s\"), drawn see-through" % [_clock_text(float(ghost["time"])), ghost["build"]]
+				with_ghost.button_pressed = true
+				with_ghost.focus_mode = Control.FOCUS_NONE
+				row.add_child(with_ghost)
+			else:
+				with_ghost.visible = false
+				with_ghost.button_pressed = false
+				row.add_child(with_ghost)
+			if Profile.has_won(str(race[0])):
+				about.text += "   WON"
 			var go := Button.new()
 			go.text = "Race"
 			go.focus_mode = Control.FOCUS_NONE
-			go.pressed.connect(func() -> void: _start_race(race, host, is_air))
+			go.pressed.connect(func() -> void: _start_race(race, host, is_air, with_ghost.button_pressed))
 			row.add_child(go)
 	var airport: String = host["airport"]
 	if airport != "":
@@ -357,7 +400,7 @@ static func _clock_text(seconds: float) -> String:
 
 # --- Races --------------------------------------------------------------------------------
 
-func _start_race(race: Array, host: Dictionary, is_air: bool) -> void:
+func _start_race(race: Array, host: Dictionary, is_air: bool, with_ghost := false) -> void:
 	if not _race.is_empty() or _vehicle_pick == null or _vehicle_pick.item_count == 0:
 		return
 	var save_name := _vehicle_pick.get_item_text(_vehicle_pick.selected)
@@ -396,7 +439,10 @@ func _start_race(race: Array, host: Dictionary, is_air: bool) -> void:
 				(2.2 if index % 2 == 0 else -2.2) if not is_air else 0.0))
 	_race = {"race": race, "air": is_air, "path": path, "along": along, "limits": limits, "rings": course["rings"],
 			"ring_at": ring_at, "radius": float(course["radius"]), "racers": racers, "vehicle": vehicle,
-			"clock": -3.5, "next": 0, "finished": false, "player_time": 0.0, "count": 4, "nodes": []}
+			"clock": -3.5, "next": 0, "finished": false, "player_time": 0.0, "count": 4, "nodes": [],
+			"build": save_name, "recorder": Ghosts.new(), "ghost": {}}
+	if with_ghost:
+		_race["ghost"] = Ghosts.load_ghost(str(race[0]), self)
 	_make_rings()
 	_race["label"] = game_hud.make_side_label()
 	game_hud.announce(str(race[1]), "Through the rings in order. F2 gives up.", 3.0)
@@ -406,6 +452,9 @@ func _start_race(race: Array, host: Dictionary, is_air: bool) -> void:
 ## can, at the race's height over whatever is below, from a takeoff down the
 ## runway to a last ring over the airport.
 func _air_course(race: Array, host: Dictionary) -> Dictionary:
+	# The same rings every time for a race, so best times and ghosts compare.
+	var course_random := RandomNumberGenerator.new()
+	course_random.seed = hash(str(race[0]))
 	var airport: Dictionary = _airports.get(host["airport"], {})
 	if airport.is_empty():
 		return {}
@@ -438,14 +487,14 @@ func _air_course(race: Array, host: Dictionary) -> Dictionary:
 	var rings: Array = []
 	for index in range(1, ring_count + 1):
 		var angle := to_home + TAU * float(index) / (ring_count + 1)
-		var reach := radius * _random.randf_range(0.82, 1.15)
+		var reach := radius * course_random.randf_range(0.82, 1.15)
 		var spot := best_side + Vector2(cos(angle), sin(angle)) * reach
 		spot = spot.clamp(low, high)
 		var under := MapInfo.LAKE_Y
 		for look in 9:
 			var probe := spot + Vector2(cos(TAU * look / 9.0), sin(TAU * look / 9.0)) * 250.0 * float(look > 0)
 			under = maxf(under, terrain.height_at(probe.x, probe.y))
-		rings.append(Vector3(spot.x, under + float(race[6]) * _random.randf_range(0.85, 1.15), spot.y))
+		rings.append(Vector3(spot.x, under + float(race[6]) * course_random.randf_range(0.85, 1.15), spot.y))
 	var finish := Vector3(home.x, start.y + 120.0, home.y)
 	rings.append(finish)
 	# The line the computer pilots fly: down the runway, up, and through the rings.
@@ -728,6 +777,11 @@ func _run_race(delta: float) -> void:
 			if is_instance_valid(vehicle):
 				vehicle.race_hold = false
 				vehicle.set_parked(false)
+				(_race["recorder"] as RefCounted).call("begin", vehicle, str(_race["build"]))
+	if clock > 0.0:
+		(_race["recorder"] as RefCounted).call("sample", clock, delta)
+	if not (_race["ghost"] as Dictionary).is_empty():
+		Ghosts.show(_race["ghost"], clock)
 	var path: PackedVector3Array = _race["path"]
 	var along: PackedFloat32Array = _race["along"]
 	var total: float = along[along.size() - 1]
@@ -922,12 +976,21 @@ func _finish_race(clock: float) -> void:
 	elif place == 3:
 		won = int(prize * 0.25)
 	var record := Profile.record_time(str(race[0]), clock)
+	if place == 1:
+		Profile.mark_won(str(race[0]))
+	if record:
+		(_race["recorder"] as RefCounted).call("save", str(race[0]), clock)
+	var ghost: Dictionary = _race["ghost"]
+	var ghost_text := ""
+	if not ghost.is_empty():
+		var gap := clock - float(ghost["time"])
+		ghost_text = "   %s your ghost by %.1f s" % ["beat" if gap < 0.0 else "behind", absf(gap)]
 	var words: String = ["1st!", "2nd", "3rd", "4th"][place - 1]
 	if won > 0:
 		Profile.add_cash(won)
 		Sound.play_ui("cash")
-	_end_race("%s   %s%s%s" % [words, _clock_text(clock), "   new best time!" if record else "",
-			("   won " + Profile.money(won)) if won > 0 else ""], place == 1)
+	_end_race("%s   %s%s%s%s" % [words, _clock_text(clock), "   new best time!" if record else "",
+			("   won " + Profile.money(won)) if won > 0 else "", ghost_text], place == 1)
 
 
 func _end_race(message: String, won: bool) -> void:
@@ -946,6 +1009,9 @@ func _end_race(message: String, won: bool) -> void:
 		var racer: Dictionary = item
 		if is_instance_valid(racer["node"]):
 			(racer["node"] as Node).queue_free()
+	for node in (_race.get("ghost", {}) as Dictionary).get("nodes", []):
+		if is_instance_valid(node):
+			(node as Node).queue_free()
 	var label: Label = _race.get("label")
 	if label != null and is_instance_valid(label):
 		label.queue_free()
@@ -1062,6 +1128,7 @@ func _run_job(delta: float) -> void:
 			if quick:
 				pay = int(pay * 1.5)
 			Profile.add_cash(pay)
+			Profile.add_cargo_run()
 			Sound.play_ui("cash")
 			_end_job("Delivered to %s%s: %s" % [_job["to"], " fast" if quick else "", Profile.money(pay)], pay)
 	else:

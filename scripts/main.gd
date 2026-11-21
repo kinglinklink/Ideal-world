@@ -67,6 +67,8 @@ var _game_hud: CanvasLayer      # game_hud.gd: health, cash, announcements
 var _respawn_after_replay := false
 var _rigging: Node              # rigging.gd: magnets, winches and couplers of the pad's build
 var _weather: Node              # weather.gd
+var _clock_save := 60.0
+var _missions: Node = null      # missions.gd
 var _disasters: Node            # disasters.gd
 var _weather_panel: RefCounted  # weather_panel.gd
 var _panel_timer := 0.0
@@ -74,6 +76,8 @@ var _races: Node               # races.gd: races, cargo runs and the people who 
 var _recent_hurt := 0.0         # health lost in the last second or so, for the crash replay
 const CRASH_REPLAY_HURT := 35.0 # lose this much in a moment while riding and the replay plays
 const START_HEADING := PI
+const Profile = preload("res://scripts/profile.gd")
+const Missions = preload("res://scripts/missions.gd")
 const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
 
 
@@ -200,6 +204,7 @@ func _ready() -> void:
 	menus.hud = hud
 	menus.version = "Ideal World  %s" % Hud.VERSION
 	menus.connect("respawn_requested", _respawn)
+	menus.connect("slot_chosen", _on_slot_chosen)
 	hud.menus = menus
 	hud.setup_settings(terrain.forest, _daylight, menus.settings_panel)
 	menus.show_title()
@@ -266,6 +271,19 @@ func _ready() -> void:
 	controller.talk_handler = Callable(races, "talk")
 	_races = races
 
+	# The mission board, and the markers on the full map.
+	var missions: Node = Missions.new()
+	missions.name = "Missions"
+	add_child(missions)
+	missions.races = races
+	missions.terrain = terrain
+	missions.minimap = hud.minimap()
+	missions.game_hud = game_hud
+	missions.player = player
+	missions.setup()
+	hud.world_map().missions = missions
+	_missions = missions
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
@@ -279,6 +297,31 @@ func _unhandled_input(event: InputEvent) -> void:
 			and get_viewport().gui_get_focus_owner() == null and bool(_controller.spawned):
 		Stress.view = not Stress.view
 		_game_hud.announce("", "Stress view on: blue easy, red at breaking point" if Stress.view else "Stress view off", 2.5)
+
+
+## A save slot was picked: the year and the day carry on from where that
+## slot left them, and the character starts at the hangar.
+func _on_slot_chosen(_slot: int) -> void:
+	var saved: Dictionary = Profile.clock()
+	if not saved.is_empty() and _weather != null and _daylight != null:
+		_weather.year_fraction = float(saved.get("year", _weather.year_fraction))
+		_weather.day = int(saved.get("day", 0))
+		_daylight.set_time(float(saved.get("time", 0.1)))
+	_respawn()
+	get_tree().call_group("slot_listeners", "slot_changed")
+
+
+## Notes the year and the time of day in the slot, and saves it.
+func _keep_clock() -> void:
+	if _weather == null or _daylight == null:
+		return
+	Profile.set_clock(_weather.year_fraction, _weather.day, _daylight.day_fraction)
+	Profile.save()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_keep_clock()
 
 
 ## Sends the character back to the hangar, in front of its door. The world
@@ -321,6 +364,10 @@ func _on_replay_finished(_reason: String) -> void:
 
 func _process(delta: float) -> void:
 	_recent_hurt = maxf(_recent_hurt - delta * 30.0, 0.0)
+	_clock_save -= delta
+	if _clock_save <= 0.0:
+		_clock_save = 60.0
+		_keep_clock()
 	_panel_timer -= delta
 	if _panel_timer <= 0.0 and _weather_panel != null:
 		_panel_timer = 0.5
