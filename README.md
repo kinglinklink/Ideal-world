@@ -6,11 +6,29 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 27
+
+- **Three save slots** after Play, each keeping its money, races won, missions, bird guide and clock; switch slots from the pause menu
+- **Missions board** (J): races not yet won, cargo runs and photo jobs, with markers on the full map (M) you can click for details and a waypoint
+- **Birds of Flathead Lake**: 23 real species, as common or rare in the game as they are in life, with nests where each kind really nests (eggs in spring, chicks in summer). The **camera** (C) takes photos into a photos folder; photographing a bird ticks it off in the **bird guide** (B), which keeps in-game facts and real-world facts apart
+- **Fuel stations** at the airports, by the town roads and at the docks: park in the green circle, get out and press F at the pump to fill up or spend a set amount
+- **Damage effects**: smoke and scorch on hurt parts, burning fuel tanks that can explode, coughing engines, sparks on metal
+- **Ghost racing**: race a see-through copy of your best run, in the build you used, on races you have won
+- **Seasons you can see**: the lake freezes in winter (thick enough to drive on near the shore), wildflowers in spring, sailing, speed and fishing boats in summer, and **boat races** from Skeeko Bay, Melita, Cromwell and Shelter Islands and Polson
+- **Bigger disasters**: an eruption column 15 km tall seen from anywhere, molten rocks lobbed kilometres, tornadoes 3 km tall, a tsunami wall 2,500 m high, a hurricane eye wall over the lake; an event distance setting for how far away they happen. A crater that burns anything that goes in
+- **Build tools**: Scale (6) with handles to pull, Sub-assemblies (7) with a menu of little turning models to drag into a build, G to grab the selection; input, logic and PID parts go weightless and invisible once spawned
+- **Inspector** (8, while spawned): logic links lit by their signals, shafts and gears ringed by load with rpm and torque, jammed gear trains in red, fluid pressure and flow, and a live card for the part under the pointer
+- **Performance overlay** (F3): milliseconds per frame by subsystem, the heaviest picked out with what in your build is behind it
+- **Test stand** beside the pad: a dyno (torque and power against rpm) and a wind tunnel up to 750 m/s (lift, drag, side force and pitching moment through an angle-of-attack sweep), with CSV files in a logs folder
+- **Failure log** (L): every break, crash and jam explained, for example "Steel shaft (part 12) broke: 412 MPa at its joint, past steel's 400 MPa limit, turning at 4,200 rpm"
+- **Looks**: a jointed character that runs, swims and sits; drawn textures for every material (wood grain, weaves, brushed metal, brick...); see-through glass, acrylic and diamond tinted by their colour; a moon with seas, craters and phases
+- **Fixes**: ring gates in races count reliably; caves are sealed so you can't fall through; spinning parts were capped at 450 rpm by the physics engine, now about 4,800 rpm
+
 Working now:
 
 - **The map: Flathead Lake, Montana, at true size**, built from real elevation data. You start on Wild Horse Island, with the build pad and hangar on the flat bench above Skeeko Bay. See [The map](#the-map).
 - A 64 m × 64 m build pad with a 0.25 m grid (256 × 256 cells, 128 cells high)
-- A blocky character with a walk animation who steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
+- A jointed low-poly character who walks, runs, swims and sits, and steps up ledges two blocks high, with a camera that scrolls from first person out to a wide third-person view
 - A steel hangar behind the start point (56 × 40 m, 15 m to the eaves), with exposed I-beam frames, roof trusses and cross-bracing inside and a 44 m roller door facing the build pad. The **Open hangar** button at the top of the screen rolls the door up and back down.
 - Sitting: walk up to a seat and press E to sit in it, Space to stand up
 - **Respawn** (button at the top, or P) puts you back in front of the hangar from anywhere, at full health
@@ -21,7 +39,7 @@ Working now:
 - **Six caves** with tunnels wide enough to drive down into huge caverns and deeper crystal caverns below them
 - **The Polson bridge rebuilt big**: a cable-stayed bridge over the Flathead River with two 72 m towers and a deck that humps 16 m over the water
 - **The stress view** (key 9): every part coloured by its load, blue to red at breaking point; overloaded parts break off
-- **Modules**: save a selection (a wing, an engine pod) and put it into any build
+- **Sub-assemblies** (7): save a selection (a wing, an engine pod) and drag it into any build
 - **New parts**: graph screen (plots up to four signals, on the part and on your screen), electromagnet, winch and hook, and coupler (with fuel transfer for mid-air refuelling)
 - Top speed for bodies raised to 750 m/s (it was the physics engine's 500 m/s)
 - **A title screen** when the game starts (Play, Parts guide, Settings, Quit), and a **pause menu**: Esc (once the cursor is free; in first person the first Esc frees it) pauses the game with Resume, Parts guide, Settings, Back to the build pad, Title screen and Quit.
@@ -137,6 +155,18 @@ Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any num
 | M | Open or close the full map. Scroll to zoom, drag to move it, click to set a waypoint, right-click to clear it. |
 | P | Back to the build pad |
 | 1 to 5 | Place, Delete, Config, Transform, Paint. Press the same key again to put the tool away. |
+| 6 | Scale: pull the handles to resize the selection (Shift for whole blocks, Alt for both sides) |
+| 7 | Sub-assemblies menu |
+| G | Grab the selection and move it with the mouse; Esc puts it back |
+| 8 | Inspector (while spawned) |
+| 9 | Stress view (while spawned) |
+| 0 | Replay the last 30 seconds |
+| F3 | Performance overlay |
+| L | Failure log |
+| J | Missions board |
+| B | Bird guide |
+| C | Camera (wheel zooms, F changes the filter, click takes the photo) |
+| F | Refuel, standing at a pump |
 | Ctrl+Z / Ctrl+Y | Undo / redo (also the Undo and Redo buttons, bottom right) |
 | Left click | Use the current tool |
 | R / T / Y | Turn 90° about X / Y / Z: the part you are about to place, or the Transform selection. The red, green and blue buttons at the bottom left do the same. |
@@ -291,7 +321,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/map_info.gd` | Where the baked map data sits; written by `tools/bake_map.py` |
 | `scripts/replay.gd` | Records the last 30 seconds and plays them back |
 | `scripts/game_hud.gd`, `graph_view.gd` | Health, cash, announcements, windows, and graph screens drawn on screen |
-| `scripts/profile.gd` | Cash and best race times, kept between games |
+| `scripts/profile.gd` | The three save slots: cash, races won, best times, missions, birds, ghosts and the clock |
 | `scripts/stress.gd` | The stress view and structural failure |
 | `scripts/rigging.gd` | Electromagnets, winches and hooks, couplers and fuel transfer |
 | `scripts/weather.gd`, `weather_panel.gd` | Weather, wind, waves and seasons, and the Weather window |
@@ -299,8 +329,25 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/caves.gd` | The caves: tunnels, caverns, crystals and the headlamp |
 | `scripts/roads.gd` | The highway network for traffic and car races |
 | `scripts/traffic.gd` | Cars on the highways and planes between the airports |
-| `scripts/races.gd` | Air and car races, rivals, cargo runs and the people who offer them |
-| `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd` | Headless tests: `godot --headless --path . -s tools/smoke_test.gd` |
+| `scripts/races.gd` | Air, car and boat races, rivals, cargo runs and the people who offer them |
+| `scripts/ghosts.gd` | Recording your best run and racing it as a ghost |
+| `scripts/missions.gd` | The missions board, photo jobs and the map's markers |
+| `scripts/bird_data.gd`, `birds.gd`, `bird_guide.gd` | The 23 birds and their facts; flying, nesting and spotting them; the bird guide |
+| `scripts/photo_camera.gd` | The camera, its filters and the photos window |
+| `scripts/fuel.gd` | Fuel stations, pumps and prices |
+| `scripts/damage_fx.gd` | Smoke, scorch, fuel-tank fires and coughing engines |
+| `scripts/failure_log.gd` | Notes of every break, crash and jam, and the log window (L) |
+| `scripts/boats.gd`, `ice.gd`, `flowers.gd` | Docks and summer boats, winter ice, spring flowers |
+| `scripts/volcano.gd` | The volcano's cone, crater and lava lake |
+| `scripts/assembly_menu.gd` | The sub-assemblies menu (7) |
+| `scripts/inspector.gd` | The Inspector (8): links, shafts, gears and fluids drawn live |
+| `scripts/perf_overlay.gd`, `profiler.gd` | The performance overlay (F3) and the timers behind it |
+| `scripts/test_stand.gd` | The test stand: dyno and wind tunnel |
+| `scripts/material_textures.gd` | Each material's texture scale and bumps; written by `tools/make_textures.py` |
+| `tools/make_textures.py` | Draws every material texture in `textures/materials/` from scratch |
+| `shaders/part.gdshader`, `part_tint.gdshader`, `part_shine.gdshader` | Building parts: textures laid on in metres, and see-through glass |
+| `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd`, `stand_test.gd`, ... | Headless tests: `godot --headless --path . -s tools/smoke_test.gd`; `tools/load_all.gd` loads every script to catch errors |
+| `tools/shot.gd`, `model_shot.gd`, `material_shot.gd`, `moon_shot.gd` | Screenshots with a real renderer, for checking looks |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |
 | `tools/find_caves.py` | Searches the heights for cave sites |
 | `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |

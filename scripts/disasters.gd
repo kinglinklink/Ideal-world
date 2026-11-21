@@ -6,21 +6,30 @@ extends Node
 ##
 ## Tornado: see tornado.gd. It forms a few kilometres away, heading roughly
 ## toward you.
-## Hurricane: four minutes of 46 m/s winds, driving rain and 3.5 m waves.
-## Tsunami: an earthquake under the lake, then a wave 14 m high spreading
-## from it at 55 m/s, which lifts and carries boats and runs up the shore.
+## Hurricane: four minutes of 46 m/s winds, driving rain and big waves,
+## and a wall of cloud kilometres high wheeling round its eye over the lake.
+## Tsunami: an earthquake under the lake, then an impossible wave, its crest
+## some 2,500 m above sea level and hundreds of metres thick, spreading from
+## it at 70 m/s, which lifts and carries boats and floods the land.
 ## Earthquake: the ground shakes for a few seconds; loose things hop about.
-## Volcano: the tallest mountain (terrain.gd hollows its crater). It
-## rumbles, blows, throws glowing bombs kilometres that burst where they
-## land, sends rivers of lava down the steepest ground, and an ash cloud
-## darkens the sky downwind for a few minutes.
+## Volcano: the great cone (volcano.gd). It rumbles, blows, sends a column
+## of ash and gas 15 km up that spreads into a cloud seen from the whole
+## map, throws molten rocks 2 to 12 m across kilometres out (real rigid
+## bodies near you, whose hits do damage by their momentum), sends rivers
+## of lava down the steepest ground, and darkens the sky downwind.
+##
+## Event distance (the settings): how far from you disasters start, and how
+## far they are fully simulated; beyond it they are only drawn.
 
 const Origin = preload("res://scripts/origin.gd")
+const Units = preload("res://scripts/units.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Player = preload("res://scripts/player.gd")
 const Tornado = preload("res://scripts/tornado.gd")
 const Terrain = preload("res://scripts/terrain.gd")
+const Birds = preload("res://scripts/birds.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const FIRST_RANDOM := 600.0          # seconds into a game before the first random disaster
 const RANDOM_GAP := Vector2(1200.0, 2400.0)
@@ -30,9 +39,24 @@ const FLOWS := 6                     # rivers of lava from one eruption
 const FLOW_STEP := 12.0              # metres between points along a lava river
 const FLOW_LENGTH := 4000.0
 const MAX_BOMBS := 48
+const MAX_ROCKS := 18               # bombs that are real rigid bodies at once
+const BASALT := 2800.0              # kg/m³
+const TSUNAMI_HEIGHT := 1650.0      # m: its crest is some 2,500 m above sea level
+const COLUMN_HEIGHT := 15000.0      # m, the eruption column at its fullest
+const CRATER_HEAT := 25.0           # HP a second inside the crater
+const LAVA_BURN := 250.0            # HP a second touching the crater's lava
+const CRATER_HEADROOM := 300.0      # metres above the rim the heat reaches
+## How fast a part's own health goes in the crater, per second, by material:
+## low-melting stuff goes fastest, refractory metals slowest.
+const HEAT_SHARE := {"foam": 0.3, "balsa": 0.2, "cork": 0.2, "wood": 0.12, "oak": 0.12, "plastic": 0.2,
+		"rubber": 0.2, "nylon": 0.2, "acrylic": 0.2, "ice": 1.0, "lead": 0.15, "magnesium": 0.12,
+		"steel": 0.025, "titanium": 0.02, "tungsten": 0.01, "cast_iron": 0.03, "diamond": 0.02, "granite": 0.02,
+		"concrete": 0.03, "brick": 0.03}
 
 ## Disasters strike on their own now and then. The settings switch it.
 static var random_events := true
+## How far from the player disasters start and are fully simulated (m).
+static var event_distance := 15000.0
 
 var weather: Node = null             # weather.gd
 var terrain: Node = null             # terrain.gd
@@ -62,6 +86,13 @@ var _embers: GPUParticles3D = null
 var _glow: OmniLight3D = null
 var _bomb_mesh: Mesh = null
 var _lava_look: StandardMaterial3D = null
+var _rocks: Array = []               # {"body": RigidBody3D, "radius", "life", "landed"}
+var _column: Node3D = null
+var _column_puffs: MultiMeshInstance3D = null
+var _eye: Node3D = null
+var _eye_ring: MeshInstance3D = null
+var _crater_tick := 0.0
+var _heat_warned := -100.0
 
 
 func _ready() -> void:
@@ -77,6 +108,8 @@ func _structures() -> Array:
 
 func _crater_map() -> Vector3:
 	var at: Vector2 = Terrain.VOLCANO
+	if terrain != null and terrain.volcano != null:
+		return Vector3(at.x, terrain.volcano.floor_y, at.y)
 	return Vector3(at.x, terrain.height_at(at.x, at.y), at.y)
 
 
@@ -106,7 +139,7 @@ func start_tornado() -> void:
 		return
 	var here := Origin.to_map(player.global_position)
 	var angle := _random.randf() * TAU
-	var distance := _random.randf_range(2500.0, 4500.0)
+	var distance := _random.randf_range(maxf(2500.0, event_distance * 0.3), maxf(4500.0, event_distance * 0.65))
 	var at := Vector2(here.x, here.z) + Vector2(cos(angle), sin(angle)) * distance
 	var toward := (Vector2(here.x, here.z) - at).angle() + _random.randf_range(-0.35, 0.35)
 	var tornado: Node = Tornado.new()
@@ -123,6 +156,7 @@ func start_tornado() -> void:
 func start_hurricane() -> void:
 	_hurricane_left = HURRICANE_TIME
 	weather.kind = "hurricane"
+	_make_eye()
 	_warn("HURRICANE", "Winds over 45 m/s, driving rain and big waves for four minutes. Land and tie down.")
 
 
@@ -134,13 +168,13 @@ func start_tsunami() -> void:
 	var centre := Vector2(here.x, here.z)
 	for attempt in 60:
 		var angle := _random.randf() * TAU
-		var distance := _random.randf_range(5000.0, 11000.0)
+		var distance := _random.randf_range(minf(5000.0, event_distance * 0.4), maxf(6000.0, event_distance * 0.75))
 		var spot := Vector2(here.x, here.z) + Vector2(cos(angle), sin(angle)) * distance
 		if terrain.is_lake(spot.x, spot.y):
 			centre = spot
 			break
 	_quake(Vector3(centre.x, 0.0, centre.y), 0.8, 7.0)
-	weather.start_tsunami(centre, 14.0)
+	weather.start_tsunami(centre, TSUNAMI_HEIGHT)
 	_tsunami_heard = false
 	_warn("TSUNAMI WARNING", "An earthquake under the lake %s. A wave is coming: get to high ground." % _where(centre))
 
@@ -159,6 +193,14 @@ func start_eruption() -> void:
 	_quake(crater, 1.2, 10.0)
 	Sound.play_at("rumble", Origin.to_world(crater), 14.0, 3000.0)
 	_warn("VOLCANO", "The volcano is waking up, %s. Stay clear of its slopes." % _where(Vector2(crater.x, crater.z)))
+
+
+## The world moved under the player (main.gd): the rocks in flight move with it.
+func shift_origin(shift: Vector3) -> void:
+	for rock in _rocks:
+		var body: RigidBody3D = rock["body"]
+		if is_instance_valid(body):
+			body.global_position -= shift
 
 
 ## Ends every disaster at once and clears the sky.
@@ -188,6 +230,12 @@ func _quake(map_point: Vector3, strength: float, seconds: float) -> void:
 # --- Running them -----------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	var started := Profiler.start()
+	_tick(delta)
+	Profiler.add("weather and disasters", started)
+
+
+func _tick(delta: float) -> void:
 	_clock += delta
 	if random_events and _clock > _next_random:
 		_next_random = _clock + _random.randf_range(RANDOM_GAP.x, RANDOM_GAP.y)
@@ -210,7 +258,13 @@ func _process(delta: float) -> void:
 	if _eruption >= 0.0:
 		_run_eruption(delta)
 	_run_bombs(delta)
+	_run_rocks(delta)
 	_run_flows(delta)
+	_run_eye(delta)
+	_crater_tick -= delta
+	if _crater_tick <= 0.0:
+		_run_crater(0.1 - _crater_tick)
+		_crater_tick = 0.1
 
 
 func _run_tornadoes() -> void:
@@ -293,11 +347,12 @@ func _run_eruption(delta: float) -> void:
 		if _bomb_timer <= 0.0:
 			_bomb_timer = _random.randf_range(0.12, 0.45)
 			_throw_bomb(crater)
+	_grow_column(crater_world)
 	# The ash cloud, thick near the volcano, over the sky.
 	if daylight != null and player != null:
 		var here := Origin.to_map(player.global_position)
 		var distance := Vector2(here.x - crater.x, here.z - crater.z).length()
-		var thick := clampf(1.0 - distance / 22000.0, 0.0, 1.0) * clampf((_eruption - 8.0) / 20.0, 0.0, 1.0) \
+		var thick := clampf(1.0 - distance / 40000.0, 0.0, 1.0) * clampf((_eruption - 8.0) / 20.0, 0.0, 1.0) \
 				* (1.0 - smoothstep(ERUPTION_TIME, ERUPTION_TIME + 90.0, _eruption))
 		daylight.ash_amount = thick * 0.85
 		daylight.ash_direction = (crater_world + Vector3(0.0, 3000.0, 0.0) - player.global_position).normalized()
@@ -317,6 +372,8 @@ func _blow(crater_world: Vector3) -> void:
 	_embers = _make_embers()
 	add_child(_plume)
 	add_child(_embers)
+	_column = _make_column()
+	add_child(_column)
 	_glow = OmniLight3D.new()
 	_glow.light_color = Color(1.0, 0.45, 0.15)
 	_glow.omni_range = 3000.0
@@ -332,12 +389,14 @@ func _end_eruption(at_once: bool) -> void:
 		terrain.volcano_heat = 0.15
 	if daylight != null:
 		daylight.ash_amount = 0.0
-	for node in [_plume, _embers, _glow]:
+	for node in [_plume, _embers, _glow, _column]:
 		if is_instance_valid(node):
 			(node as Node).queue_free()
 	_plume = null
 	_embers = null
 	_glow = null
+	_column = null
+	_column_puffs = null
 	if at_once:
 		for item in _bombs:
 			var bomb: Dictionary = item
@@ -391,6 +450,79 @@ func _make_plume() -> GPUParticles3D:
 	return particles
 
 
+## The eruption column: billows of ash and gas climbing to COLUMN_HEIGHT and
+## spreading out at the top into an umbrella cloud tens of kilometres wide,
+## lit orange from below near the crater. Big enough to see from anywhere.
+func _make_column() -> Node3D:
+	var root := Node3D.new()
+	root.name = "EruptionColumn"
+	var puff := SphereMesh.new()
+	puff.radius = 0.5
+	puff.height = 1.0
+	puff.radial_segments = 12
+	puff.rings = 6
+	var look := StandardMaterial3D.new()
+	look.albedo_color = Color(0.26, 0.24, 0.23)
+	look.roughness = 1.0
+	look.emission_enabled = true
+	look.emission = Color(0.0, 0.0, 0.0)
+	look.vertex_color_use_as_albedo = true
+	puff.material = look
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = puff
+	multimesh.instance_count = 360
+	var shapes: Array = []
+	for index in multimesh.instance_count:
+		var t := float(index) / multimesh.instance_count
+		var height: float
+		var spread: float
+		var size: float
+		if t < 0.7:
+			height = COLUMN_HEIGHT * 0.8 * (t / 0.7)
+			spread = 250.0 + 1300.0 * (t / 0.7)
+			size = 500.0 + 1400.0 * (t / 0.7)
+		else:
+			var u := (t - 0.7) / 0.3
+			height = COLUMN_HEIGHT * (0.8 + 0.2 * sin(u * PI))
+			spread = 1500.0 + 13000.0 * sqrt(u)
+			size = 1800.0 + 2200.0 * u
+		var angle := float(index) * 2.39996
+		var at := Vector3(cos(angle) * spread * _random.randf_range(0.3, 1.0), height, sin(angle) * spread * _random.randf_range(0.3, 1.0))
+		var squash := Vector3(1.0, 0.6 if t >= 0.7 else 0.85, 1.0)
+		shapes.append([at, size, squash])
+		var shade := _random.randf_range(0.75, 1.15)
+		multimesh.set_instance_color(index, Color(shade, shade * 0.97, shade * 0.95))
+		multimesh.set_instance_transform(index, Transform3D(Basis.from_scale(Vector3.ZERO), at))
+	var shown := MultiMeshInstance3D.new()
+	shown.multimesh = multimesh
+	shown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shown.extra_cull_margin = COLUMN_HEIGHT * 2.0
+	root.add_child(shown)
+	root.set_meta("shapes", shapes)
+	_column_puffs = shown
+	return root
+
+
+## The column climbs over the first minute, and slowly turns.
+func _grow_column(crater_world: Vector3) -> void:
+	if _column == null or _column_puffs == null:
+		return
+	_column.global_position = crater_world + Vector3(0.0, 450.0, 0.0)
+	var climb := clampf((_eruption - 8.0) / 70.0, 0.0, 1.0) * (1.0 - smoothstep(ERUPTION_TIME + 60.0, ERUPTION_TIME + 175.0, _eruption))
+	var shapes: Array = _column.get_meta("shapes")
+	var multimesh := _column_puffs.multimesh
+	for index in shapes.size():
+		var shape: Array = shapes[index]
+		var at: Vector3 = shape[0]
+		var reached := clampf((climb * COLUMN_HEIGHT - at.y) / 1500.0 + 1.0, 0.0, 1.0)
+		var size: float = float(shape[1]) * reached
+		var lift := Vector3(at.x, at.y * minf(climb * 1.2, 1.0), at.z)
+		multimesh.set_instance_transform(index, Transform3D(Basis.from_scale(shape[2] * size), lift))
+	_column.rotation.y = _eruption * 0.004
+
+
 func _make_embers() -> GPUParticles3D:
 	var particles := GPUParticles3D.new()
 	particles.amount = 400
@@ -425,10 +557,29 @@ func _throw_bomb(crater: Vector3) -> void:
 	if _bombs.size() >= MAX_BOMBS:
 		return
 	var angle := _random.randf() * TAU
-	var tilt := deg_to_rad(_random.randf_range(8.0, 40.0))
-	var speed := _random.randf_range(60.0, 170.0)
+	var tilt := deg_to_rad(_random.randf_range(8.0, 45.0))
+	var speed := _random.randf_range(120.0, 320.0)
 	var velocity := Vector3(cos(angle) * sin(tilt), cos(tilt), sin(angle) * sin(tilt)) * speed
-	var size := _random.randf_range(1.0, 3.0)
+	var size := _random.randf_range(2.0, 12.0)
+	# Near the player (within the event distance) the rock is a real rigid
+	# body, so what it hits feels its momentum. Far off it only flies.
+	if player != null and _rocks.size() < MAX_ROCKS:
+		var here := Origin.to_map(player.global_position)
+		var away := Vector2(here.x - crater.x, here.z - crater.z)
+		if away.length() < event_distance:
+			# Lobbed out over the slopes, and about one in three toward you:
+			# at 45° a rock carries about v²/g, so aim the speed at your
+			# distance, give or take.
+			var heading := angle
+			var reach := _random.randf_range(800.0, 6000.0)
+			if _random.randf() < 0.35:
+				heading = atan2(away.y, away.x) + _random.randf_range(-0.2, 0.2)
+				reach = clampf(away.length() * _random.randf_range(0.7, 1.15), 600.0, 9000.0)
+			var lob := deg_to_rad(_random.randf_range(38.0, 58.0))
+			var throw := sqrt(9.8 * reach / sin(2.0 * lob))
+			var out := Vector3(cos(heading) * cos(lob), sin(lob), sin(heading) * cos(lob)) * throw
+			_throw_rock(crater + Vector3(0.0, 480.0, 0.0), out, size)
+			return
 	if _bomb_mesh == null:
 		var ball := SphereMesh.new()
 		ball.radius = 0.5
@@ -447,9 +598,93 @@ func _throw_bomb(crater: Vector3) -> void:
 	node.scale = Vector3.ONE * size
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
-	var start := crater + Vector3(0.0, 30.0, 0.0)
+	var start := crater + Vector3(0.0, 480.0, 0.0)
 	node.global_position = Origin.to_world(start)
 	_bombs.append({"at": start, "speed": velocity, "node": node, "size": size})
+
+
+## A molten rock as a rigid body: basalt, `size` m across, glowing.
+func _throw_rock(start: Vector3, velocity: Vector3, size: float) -> void:
+	var radius := size * 0.5
+	var body := RigidBody3D.new()
+	body.name = "LavaRock"
+	body.collision_layer = Units.LAYER_BODIES
+	body.collision_mask = Units.LAYER_WORLD | Units.LAYER_BODIES | Units.LAYER_PLAYER
+	body.mass = BASALT * 4.0 / 3.0 * PI * radius * radius * radius
+	body.continuous_cd = true
+	body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	body.linear_damp = 0.004         # a little air drag: big rocks are barely slowed
+	body.contact_monitor = true
+	body.max_contacts_reported = 4
+	var shape := CollisionShape3D.new()
+	var ball := SphereShape3D.new()
+	ball.radius = radius
+	shape.shape = ball
+	body.add_child(shape)
+	var shown := MeshInstance3D.new()
+	shown.mesh = _bomb_mesh
+	shown.scale = Vector3(1.0, 0.85, 1.1) * size
+	shown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.add_child(shown)
+	add_child(body)
+	body.global_position = Origin.to_world(start)
+	body.linear_velocity = velocity
+	body.angular_velocity = Vector3(_random.randf_range(-2, 2), _random.randf_range(-2, 2), _random.randf_range(-2, 2))
+	var rock := {"body": body, "radius": radius, "life": 0.0, "landed": false, "hit": {}}
+	body.body_entered.connect(_on_rock_hit.bind(rock))
+	_rocks.append(rock)
+
+
+## A rock hitting something: damage by its momentum. A part of a build in
+## its way takes 1 HP per 10 N s of the rock's momentum into it (more for a
+## bigger, faster rock), split over the parts it lands among; the character
+## is crushed; buildings break; the ground makes it burst after a while.
+func _on_rock_hit(other: Node, rock: Dictionary) -> void:
+	var body: RigidBody3D = rock["body"]
+	if not is_instance_valid(body):
+		return
+	var radius: float = rock["radius"]
+	var impulse: float = body.mass * body.linear_velocity.length()
+	if other == player:
+		player.hurt(500.0, "a molten rock")
+		return
+	if other.has_meta("structure"):
+		(other.get_meta("structure") as Node).blast(body.global_position, radius * 2.0, impulse / 2000.0)
+	for node in get_tree().get_nodes_in_group("combat"):
+		var spawner: Node = node.spawner
+		if spawner == null or not bool(spawner.spawned) or not spawner.all_bodies().has(other):
+			continue
+		var near: Dictionary = {}
+		for key in spawner.live_parts():
+			var place: Array = spawner.part_place(int(key))
+			if not place.is_empty() and (place[0] as Vector3).distance_to(body.global_position) < radius + 1.5:
+				near[int(key)] = 0.0
+		if near.is_empty():
+			continue
+		var each := clampf(impulse / 10.0, 50.0, 1.0e7) / float(near.size())
+		for uid in near:
+			near[uid] = each
+		spawner.damage_parts(near)
+		Sound.play_at("explosion", body.global_position, 4.0, 400.0, 0.7)
+	if other is StaticBody3D:
+		rock["landed"] = true
+
+
+func _run_rocks(delta: float) -> void:
+	for index in range(_rocks.size() - 1, -1, -1):
+		var rock: Dictionary = _rocks[index]
+		var body: RigidBody3D = rock["body"]
+		if not is_instance_valid(body):
+			_rocks.remove_at(index)
+			continue
+		rock["life"] = float(rock["life"]) + delta
+		if bool(rock["landed"]) and float(rock.get("ground_time", -1.0)) < 0.0:
+			rock["ground_time"] = float(rock["life"])
+		var settled: bool = float(rock.get("ground_time", -1.0)) >= 0.0 and float(rock["life"]) - float(rock["ground_time"]) > 4.0
+		if settled or float(rock["life"]) > 75.0 or Origin.to_map(body.global_position).y < -600.0:
+			_burst(body.global_position, float(rock["radius"]))
+			body.queue_free()
+			_rocks.remove_at(index)
 
 
 ## Lava bombs fly as cannon shells do, in map positions, and burst where
@@ -477,6 +712,7 @@ func _run_bombs(delta: float) -> void:
 
 func _burst(world: Vector3, size: float) -> void:
 	var radius := 6.0 + size * 3.0
+	Birds.startle_all(get_tree(), world, 300.0)
 	Sound.play_at("explosion", world, clampf(size * 3.0, 0.0, 9.0), 250.0, _random.randf_range(0.7, 1.0))
 	for node in get_tree().get_nodes_in_group("combat"):
 		node.damage_near(world, radius, 1200.0 * size)
@@ -487,6 +723,126 @@ func _burst(world: Vector3, size: float) -> void:
 		var distance := player.global_position.distance_to(world)
 		if distance < radius * 1.5:
 			player.hurt(90.0 * (1.0 - distance / (radius * 1.5)), "a lava bomb")
+
+
+## The crater is always deadly: inside the bowl, up to CRATER_HEADROOM over
+## its rim (much further while it erupts), the heat burns the character and
+## every part of a build, and its lava kills or melts at a touch. Near the
+## rim the screen glows and a warning comes first.
+func _run_crater(delta: float) -> void:
+	if terrain == null:
+		return
+	var centre: Vector2 = Terrain.VOLCANO
+	var cone: Node = terrain.volcano
+	var erupting := _eruption >= 0.0
+	var crater_radius: float = cone.CRATER_RADIUS if cone != null else Terrain.CRATER_RADIUS
+	var reach: float = crater_radius * (2.2 if erupting else 1.0)
+	var rim: float = cone.rim_y if cone != null else terrain.height_at(centre.x + crater_radius, centre.y)
+	var ceiling: float = rim + (1500.0 if erupting else CRATER_HEADROOM)
+	var hot := 0.0
+	if player != null and not bool(player.dead):
+		var here := Origin.to_map(player.global_position)
+		var off := Vector2(here.x, here.z).distance_to(centre)
+		hot = clampf(1.0 - (off - reach) / (reach * 0.5), 0.0, 1.0) if here.y < ceiling + 100.0 else 0.0
+		if off < reach * 0.95 and here.y < ceiling:
+			if cone != null and cone.in_lava(here) or cone == null and here.y - terrain.height_at(here.x, here.z) < 2.5 and off < crater_radius * 0.8:
+				player.hurt(LAVA_BURN * delta, "the volcano's lava")
+			else:
+				player.hurt(CRATER_HEAT * delta, "the volcano's heat")
+			hot = 1.0
+		if hot > 0.2 and _clock - _heat_warned > 8.0:
+			_heat_warned = _clock
+			if game_hud != null:
+				game_hud.announce("EXTREME HEAT", "Get out of the crater!", 3.0, Color(1.0, 0.45, 0.15))
+	if game_hud != null:
+		game_hud.heat = hot
+	# Every build in or over the crater.
+	for node in get_tree().get_nodes_in_group("combat"):
+		var spawner: Node = node.spawner
+		if spawner == null or not bool(spawner.spawned):
+			continue
+		var where: Variant = spawner.where()
+		if where == null:
+			continue
+		var spot := Origin.to_map(where as Vector3)
+		if Vector2(spot.x, spot.z).distance_to(centre) > reach + 200.0:
+			continue
+		var burns: Dictionary = {}
+		var records: Dictionary = spawner.all_records()
+		for key in spawner.live_parts():
+			var uid := int(key)
+			var place: Array = spawner.part_place(uid)
+			if place.is_empty():
+				continue
+			var at := Origin.to_map(place[0] as Vector3)
+			var off := Vector2(at.x, at.z).distance_to(centre)
+			if off > reach * 0.95 or at.y > ceiling:
+				continue
+			var health: float = spawner.health_of(uid)
+			if cone != null and cone.in_lava(at) or cone == null and at.y - terrain.height_at(at.x, at.z) < 3.0 and off < crater_radius * 0.8:
+				burns[uid] = health + 1.0e6      # lava: gone
+			else:
+				var material := str((records.get(uid, {}) as Dictionary).get("material", "steel"))
+				var full: float = spawner.full_health_of(uid)
+				if is_inf(full):
+					continue
+				burns[uid] = maxf(full, 50.0) * float(HEAT_SHARE.get(material, 0.05)) * delta
+		if not burns.is_empty():
+			spawner.damage_parts(burns)
+
+
+## The hurricane's eye wall: a band of cloud kilometres high, wheeling round
+## a clear eye over the lake, out a way from you.
+func _make_eye() -> void:
+	if _eye != null or player == null:
+		return
+	var here := Origin.to_map(player.global_position)
+	var centre := Vector2(here.x, here.z)
+	for attempt in 40:
+		var angle := _random.randf() * TAU
+		var spot := Vector2(here.x, here.z) + Vector2(cos(angle), sin(angle)) * _random.randf_range(9000.0, 16000.0)
+		if terrain.is_lake(spot.x, spot.y):
+			centre = spot
+			break
+	_eye = Node3D.new()
+	_eye.name = "HurricaneEye"
+	add_child(_eye)
+	_eye.set_meta("centre", centre)
+	var band := CylinderMesh.new()
+	band.top_radius = 8500.0
+	band.bottom_radius = 6000.0
+	band.height = 12000.0
+	band.radial_segments = 64
+	band.rings = 6
+	band.cap_top = false
+	band.cap_bottom = false
+	var look := ShaderMaterial.new()
+	look.shader = Tornado.SWIRL_SHADER
+	look.set_shader_parameter("noise_map", noise)
+	look.set_shader_parameter("tint", Vector3(0.4, 0.42, 0.45))
+	look.set_shader_parameter("opacity", 0.7)
+	look.set_shader_parameter("strength", 0.0)
+	band.material = look
+	_eye_ring = MeshInstance3D.new()
+	_eye_ring.mesh = band
+	_eye_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_eye_ring.extra_cull_margin = 20000.0
+	_eye_ring.position.y = 6000.0
+	_eye.add_child(_eye_ring)
+
+
+func _run_eye(delta: float) -> void:
+	if _eye == null:
+		return
+	var centre: Vector2 = _eye.get_meta("centre")
+	_eye.global_position = Origin.to_world(Vector3(centre.x, MapInfo.LAKE_Y, centre.y))
+	_eye_ring.rotation.y += delta * 0.02
+	var strength := clampf((HURRICANE_TIME - _hurricane_left) / 20.0, 0.0, 1.0) * clampf(_hurricane_left / 30.0, 0.0, 1.0)
+	((_eye_ring.mesh as CylinderMesh).material as ShaderMaterial).set_shader_parameter("strength", strength)
+	if _hurricane_left <= 0.0:
+		_eye.queue_free()
+		_eye = null
+		_eye_ring = null
 
 
 ## Rivers of lava down the steepest ground from the crater's rim.

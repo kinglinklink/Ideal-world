@@ -84,6 +84,10 @@ const PORTS := {
 		"inputs": [],
 		"outputs": [["pressed", "Pressed", "bool"], ["value", "Value", "number"]],
 	},
+	"mouse_click": {
+		"inputs": [],
+		"outputs": [["pressed", "Pressed", "bool"], ["x", "Cursor X (-1 to 1)", "number"], ["y", "Cursor Y (-1 to 1)", "number"]],
+	},
 	"boolean_gate": {
 		"inputs": [["a", "A", "bool"], ["b", "B", "bool"]],
 		"outputs": [["result", "Result", "bool"]],
@@ -132,6 +136,7 @@ const PORTS := {
 	# Combat
 	"explosive_block": {"inputs": [["detonate", "Detonate", "bool"]], "outputs": []},
 	"machine_gun": {"inputs": GUN_IN, "outputs": []},
+	"hitscan_gun": {"inputs": GUN_IN, "outputs": [["firing", "Firing", "bool"], ["hit_distance", "Distance to aim point", "number"]]},
 	"large_cannon": {"inputs": GUN_IN, "outputs": []},
 	"ammo_generator": {
 		"inputs": [],

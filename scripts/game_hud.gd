@@ -20,6 +20,8 @@ var _announce_time := 0.0
 var _sub: Label
 var _flash: ColorRect
 var _flash_amount := 0.0
+var _heat: ColorRect
+var heat := 0.0                  # 0 to 1: the crater's heat on the screen (disasters.gd)
 var _shown_cash := -1
 var side: VBoxContainer          # top-left column for race and graph readouts
 var _graph_views: Array = []     # graph_view.gd, one per graph screen shown
@@ -42,6 +44,12 @@ func _ready() -> void:
 	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_flash)
 	move_child(_flash, 0)
+	_heat = ColorRect.new()
+	_heat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_heat.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_heat.color = Color(1.0, 0.35, 0.05, 0.0)
+	add_child(_heat)
+	move_child(_heat, 0)
 
 	# Health and cash, low in the middle, above the tool bar.
 	var bottom := VBoxContainer.new()
@@ -151,6 +159,7 @@ func _process(delta: float) -> void:
 			_sub.text = ""
 	_flash_amount = maxf(_flash_amount - delta * 0.8, 0.0)
 	_flash.color = Color(0.8, 0.0, 0.0, _flash_amount)
+	_heat.color.a = clampf(heat, 0.0, 1.0) * (0.32 + 0.06 * sin(Time.get_ticks_msec() * 0.008))
 	_graph_check -= delta
 	if _graph_check <= 0.0:
 		_graph_check = 0.25

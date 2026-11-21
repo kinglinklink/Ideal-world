@@ -2,7 +2,14 @@ extends RefCounted
 ## Building materials, lightest first. Densities are real. Friction and strength are starting
 ## values to tune in play. Health of a block = its mass x strength.
 
+const MaterialTextures = preload("res://scripts/material_textures.gd")
+const PART_SHADER = preload("res://shaders/part.gdshader")
+const TINT_SHADER = preload("res://shaders/part_tint.gdshader")
+const SHINE_SHADER = preload("res://shaders/part_shine.gdshader")
+
 const DEFAULT_ID := "plastic"
+## See-through materials: drawn as a tint over what is behind, plus reflections.
+const CLEAR := ["glass", "acrylic", "diamond"]
 
 ## density in kg/m^3, friction as a coefficient, strength in HP per kg.
 const MATERIALS := {
@@ -72,6 +79,7 @@ const MATERIALS := {
 }
 
 static var _surface_cache: Dictionary = {}
+static var _texture_cache: Dictionary = {}
 
 
 static func ids() -> Array:
@@ -127,14 +135,96 @@ static func tooltip(material_id: String) -> String:
 
 
 ## A render material for one building material in one color. Cached, so every
-## block that shares a look also shares a material.
-static func surface(material_id: String, color: Color) -> StandardMaterial3D:
+## block that shares a look also shares a material. The colour picked is
+## multiplied by the material's own pattern (tools/make_textures.py), laid on
+## in metres so big blocks don't stretch it. A metal given a colour of its
+## own is painted: duller, and the brushing shows only faintly. Glass,
+## acrylic and diamond are see-through, tinted by their colour.
+static func surface(material_id: String, color: Color) -> Material:
 	var key := "%s#%s" % [material_id, color.to_html(true)]
 	if not _surface_cache.has(key):
-		var data: Dictionary = info(material_id)
-		var surface_material := StandardMaterial3D.new()
-		surface_material.albedo_color = color
-		surface_material.metallic = float(data["metallic"])
-		surface_material.roughness = float(data["roughness"])
-		_surface_cache[key] = surface_material
+		_surface_cache[key] = _clear_surface(material_id, color) if is_clear(material_id) else _solid_surface(material_id, color)
 	return _surface_cache[key]
+
+
+static func is_clear(material_id: String) -> bool:
+	return CLEAR.has(material_id)
+
+
+## Whether a metal has been given a colour of its own (painted).
+static func is_painted(material_id: String, color: Color) -> bool:
+	var data: Dictionary = info(material_id)
+	if float(data["metallic"]) < 0.5:
+		return false
+	var base: Color = data["color"]
+	return absf(base.r - color.r) + absf(base.g - color.g) + absf(base.b - color.b) > 0.3
+
+
+static func _pattern(material_id: String) -> Dictionary:
+	return MaterialTextures.TEXTURES.get(material_id, {"tile": 1.0, "bump": 0.0, "gain": 1.0, "rough_var": 0.0, "normals": false})
+
+
+static func _lay_pattern(look: ShaderMaterial, material_id: String) -> void:
+	var pattern := _pattern(material_id)
+	var picture := texture(material_id)
+	if picture != null:
+		look.set_shader_parameter("detail", picture)
+	look.set_shader_parameter("tile", float(pattern["tile"]))
+	var bumps: Texture2D = texture(material_id + "_n") if bool(pattern["normals"]) else null
+	look.set_shader_parameter("bump", float(pattern["bump"]) if bumps != null else 0.0)
+	if bumps != null:
+		look.set_shader_parameter("bumps", bumps)
+
+
+static func _solid_surface(material_id: String, color: Color) -> ShaderMaterial:
+	var data: Dictionary = info(material_id)
+	var pattern := _pattern(material_id)
+	var look := ShaderMaterial.new()
+	look.shader = PART_SHADER
+	_lay_pattern(look, material_id)
+	look.set_shader_parameter("albedo", color)
+	look.set_shader_parameter("gain", float(pattern["gain"]))
+	look.set_shader_parameter("rough_var", float(pattern["rough_var"]))
+	if is_painted(material_id, color):
+		look.set_shader_parameter("metallic", 0.2)
+		look.set_shader_parameter("roughness", 0.45)
+		look.set_shader_parameter("pattern", 0.25)
+	else:
+		look.set_shader_parameter("metallic", float(data["metallic"]))
+		look.set_shader_parameter("roughness", float(data["roughness"]))
+		look.set_shader_parameter("pattern", 1.0)
+	return look
+
+
+## Two passes: the tint over what is behind, then the reflections.
+static func _clear_surface(material_id: String, color: Color) -> ShaderMaterial:
+	var data: Dictionary = info(material_id)
+	var tint := ShaderMaterial.new()
+	tint.shader = TINT_SHADER
+	tint.set_shader_parameter("albedo", color)
+	var shine := ShaderMaterial.new()
+	shine.shader = SHINE_SHADER
+	_lay_pattern(shine, material_id)
+	shine.set_shader_parameter("albedo", color)
+	shine.set_shader_parameter("roughness", float(data["roughness"]))
+	tint.next_pass = shine
+	return tint
+
+
+## One of the material pictures, by name ("oak", "oak_n"), or null if it
+## isn't there. Imported by the editor when it is open; read straight from
+## the file otherwise (in tests).
+static func texture(picture: String) -> Texture2D:
+	if _texture_cache.has(picture):
+		return _texture_cache[picture]
+	var path := "res://textures/materials/%s.png" % picture
+	var found: Texture2D = null
+	if ResourceLoader.exists(path):
+		found = load(path) as Texture2D
+	elif FileAccess.file_exists(path):
+		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+		if image != null and not image.is_empty():
+			image.generate_mipmaps()
+			found = ImageTexture.create_from_image(image)
+	_texture_cache[picture] = found
+	return found

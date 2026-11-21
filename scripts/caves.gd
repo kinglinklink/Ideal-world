@@ -10,10 +10,12 @@ extends Node3D
 ## the tunnel heads into the hill, dropping about 1 in 3, far enough that the
 ## cavern sits at least 35 m under the ground everywhere above it.
 ##
-## The rock is one mesh per cave with the same triangles for collision. The
-## tunnel mouth is a hole in the ground (terrain.gd leaves the ground out
-## there, drawn and solid) with a ring of solid ground round it, since the
-## ground's own collision gives way a few metres wider than the hole.
+## The rock is one closed skin per cave, worked out with exact booleans
+## (see _build), drawn and solid with the same triangles. The way in is a
+## ramp cut into the hillside. The ground has a hole over the cut (terrain.gd
+## leaves the ground out there, drawn and solid) with a ring of solid ground
+## round it, since the ground's own collision gives way a little wider. In
+## case anyone still ends up inside the rock, they are put back at the mouth.
 ##
 ## Down in a cave the daylight goes (daylight.underground) and the
 ## character carries a headlamp.
@@ -72,7 +74,8 @@ func setup(the_terrain: Node) -> void:
 		plan["name"] = site[0]
 		caves.append(plan)
 		_build(plan, index)
-		mouths.append([plan["mouth_a"], plan["mouth_b"], TUNNEL_RADIUS * 0.9])
+		if plan.has("hole"):
+			mouths.append(plan["hole"])
 		map_points.append([site[1], str(site[0])])
 	terrain.set_holes(mouths)
 
@@ -95,7 +98,9 @@ func clearings() -> Array:
 func _plan(entrance: Vector2, heading: float, seed_value: int) -> Dictionary:
 	var along := Vector2(cos(heading), sin(heading))
 	var mouth_y: float = terrain.height_at(entrance.x, entrance.y)
-	var start_y := mouth_y - TUNNEL_RADIUS * 0.3
+	# The floor starts just above the ground at the mouth, so the way in is a
+	# ramp cut into the hillside that deepens until the roof closes over it.
+	var start_y := mouth_y + TUNNEL_RADIUS * 0.5 + 0.3
 	var length := 300.0
 	var centre := Vector3.ZERO
 	var end_y := 0.0
@@ -168,6 +173,12 @@ func _lowest_ground(middle: Vector2, half: Vector3, heading: float) -> float:
 
 # --- Building -------------------------------------------------------------------------
 
+## The rock is worked out as solids of air: the tunnel, both caverns and the
+## passage are closed shapes joined with Godot's CSG (exact booleans), the
+## stalactites and stalagmites cut back out of them, and the ground over the
+## mouth cut away. What is left is one closed skin with a single opening
+## where the tunnel meets the hillside, so nothing can fall out through a
+## seam where a tunnel joins a cavern.
 func _build(cave: Dictionary, index: int) -> void:
 	var noise := FastNoiseLite.new()
 	noise.seed = 77 + index
@@ -175,26 +186,81 @@ func _build(cave: Dictionary, index: int) -> void:
 	noise.fractal_octaves = 3
 	var random := RandomNumberGenerator.new()
 	random.seed = 4242 + index
-	var rock := SurfaceTool.new()
-	rock.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var faces := PackedVector3Array()
 	var tunnel: PackedVector3Array = cave["tunnel"]
 	var passage: PackedVector3Array = cave["passage"]
 	var first := [cave["cavern"], CAVERN, cave["heading"]]
 	var deep := [cave["deep"], DEEP_CAVERN, cave["deep_heading"]]
-	_tube(rock, faces, tunnel, TUNNEL_RADIUS, noise, true, [first])
-	_tube(rock, faces, passage, PASSAGE_RADIUS, noise, false, [first, deep])
-	_chamber(rock, faces, first, noise, [[_near(tunnel, first), TUNNEL_RADIUS], [_near(passage, first), PASSAGE_RADIUS]])
-	_chamber(rock, faces, deep, noise, [[_near(passage, deep), PASSAGE_RADIUS]])
-	_spikes(rock, faces, first, random, 30)
-	_spikes(rock, faces, deep, random, 45)
-	rock.generate_normals()
+	var cover: Dictionary = _cover(cave)
+	var combiner := CSGCombiner3D.new()
+	add_child(combiner)
+	_solid(combiner, _tube_solid(tunnel, TUNNEL_RADIUS, noise), CSGShape3D.OPERATION_UNION)
+	_solid(combiner, _tube_solid(passage, PASSAGE_RADIUS, noise), CSGShape3D.OPERATION_UNION)
+	_solid(combiner, _chamber_solid(first, noise, [[_near(tunnel, first), TUNNEL_RADIUS],
+			[_near(passage, first), PASSAGE_RADIUS]]), CSGShape3D.OPERATION_UNION)
+	_solid(combiner, _chamber_solid(deep, noise, [[_near(passage, deep), PASSAGE_RADIUS]]), CSGShape3D.OPERATION_UNION)
+	for spike in _spikes(first, random, 30) + _spikes(deep, random, 45):
+		_solid(combiner, spike, CSGShape3D.OPERATION_SUBTRACTION)
+	_solid(combiner, cover["mesh"], CSGShape3D.OPERATION_SUBTRACTION)
+	var baked: ConcavePolygonShape3D = combiner.bake_collision_shape()
+	combiner.queue_free()
+	if baked == null:
+		push_warning("Cave %d could not be built" % index)
+		return
+	var faces := baked.get_faces()
+	# Each face's (b - a) x (c - a) points into the air. Faces lying on the
+	# ground over the mouth are the lid the cut left: open where the ground
+	# is open (the mouth), solid but not drawn elsewhere, under the ground.
+	var mouth: Array = _mouth_from_lid(faces, cover, cave)
+	cave["hole"] = mouth
+	var rock := SurfaceTool.new()
+	rock.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var lid := SurfaceTool.new()
+	lid.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var solid := PackedVector3Array()
+	for at in range(0, faces.size(), 3):
+		var a := faces[at]
+		var b := faces[at + 1]
+		var c := faces[at + 2]
+		var middle := (a + b + c) / 3.0
+		if _on_ground(a, cover) and _on_ground(b, cover) and _on_ground(c, cover):
+			if not _in_capsule(Vector2(middle.x, middle.z), mouth):
+				# Under the ground round the opening: solid, and drawn as rock
+				# from below only (from above the ground is drawn over it).
+				solid.append_array(PackedVector3Array([a, b, c]))
+				lid.set_color(Color(0.3, 0.27, 0.24))
+				lid.set_normal(Vector3.DOWN)
+				lid.add_vertex(a)
+				lid.add_vertex(c)
+				lid.add_vertex(b)
+			continue
+		solid.append_array(PackedVector3Array([a, b, c]))
+		var normal := (b - a).cross(c - a)
+		if normal.length_squared() < 1e-8:
+			continue
+		normal = normal.normalized()
+		var shade := 0.55 + 0.25 * fposmod(sin(middle.x * 0.13) * cos(middle.z * 0.11) * 3.0, 1.0)
+		rock.set_color(Color(0.42 * shade, 0.38 * shade, 0.34 * shade))
+		rock.set_normal(normal)
+		# Seen from the air side the corners must run clockwise (Godot's front).
+		rock.add_vertex(a)
+		rock.add_vertex(c)
+		rock.add_vertex(b)
 	var mesh := rock.commit()
-	mesh.surface_set_material(0, _rock)
+	if mesh.get_surface_count() > 0:
+		mesh.surface_set_material(0, _rock)
 	var shown := MeshInstance3D.new()
 	shown.name = "Cave%d" % index
 	shown.mesh = mesh
 	add_child(shown)
+	var lid_mesh := lid.commit()
+	if lid_mesh.get_surface_count() > 0:
+		var underside: StandardMaterial3D = _rock.duplicate()
+		underside.cull_mode = BaseMaterial3D.CULL_BACK
+		lid_mesh.surface_set_material(0, underside)
+		var lid_shown := MeshInstance3D.new()
+		lid_shown.mesh = lid_mesh
+		lid_shown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(lid_shown)
 	var body := StaticBody3D.new()
 	body.name = "CaveRock%d" % index
 	body.collision_layer = Units.LAYER_WORLD
@@ -202,7 +268,7 @@ func _build(cave: Dictionary, index: int) -> void:
 	body.physics_material_override = Units.world_surface()
 	var shape := ConcavePolygonShape3D.new()
 	shape.backface_collision = true
-	shape.set_faces(faces)
+	shape.set_faces(solid)
 	var collider := CollisionShape3D.new()
 	collider.shape = shape
 	body.add_child(collider)
@@ -212,14 +278,57 @@ func _build(cave: Dictionary, index: int) -> void:
 	_glow(deep, random, 5, 40, Color(0.6, 0.4, 1.0))
 
 
-## A tunnel along `path`: rings of rock round it, a flat floor to drive on.
-## With `open_top`, rings poking out of the hillside are pressed down onto
-## the ground and the parts lying on it left out, which opens the mouth.
-## Triangles inside any of `chambers` are left out, so it opens into them.
-func _tube(rock: SurfaceTool, faces: PackedVector3Array, path: PackedVector3Array, radius: float,
-		noise: FastNoiseLite, open_top: bool, chambers: Array) -> void:
-	var rings: Array = []
-	var pressed: Array = []
+func _solid(combiner: CSGCombiner3D, mesh: ArrayMesh, operation: CSGShape3D.Operation) -> void:
+	var shape := CSGMesh3D.new()
+	shape.mesh = mesh
+	shape.operation = operation
+	combiner.add_child(shape)
+
+
+## A closed mesh from corners and triangles, wound the way Godot's CSG reads
+## a solid: (b - a) x (c - a) pointing inwards (its signed volume negative).
+static func _closed_mesh(points: PackedVector3Array, triangles: PackedInt32Array) -> ArrayMesh:
+	var volume := 0.0
+	for at in range(0, triangles.size(), 3):
+		volume += points[triangles[at]].dot(points[triangles[at + 1]].cross(points[triangles[at + 2]]))
+	if volume > 0.0:
+		for at in range(0, triangles.size(), 3):
+			var swap := triangles[at + 1]
+			triangles[at + 1] = triangles[at + 2]
+			triangles[at + 2] = swap
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	arrays[Mesh.ARRAY_INDEX] = triangles
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## Joins ring `a` (indices from `a_start`) to ring `b`, `sides` corners each.
+static func _band(triangles: PackedInt32Array, a_start: int, b_start: int, sides: int) -> void:
+	for step in sides:
+		var next := (step + 1) % sides
+		triangles.append_array(PackedInt32Array([a_start + step, b_start + step, b_start + next,
+				a_start + step, b_start + next, a_start + next]))
+
+
+## Closes a ring with a fan to `centre_index`. A ring that was the first of
+## a band takes `reverse` false, the second true, so every edge of the
+## closed mesh runs one way in one triangle and the other way in the next.
+static func _fan(triangles: PackedInt32Array, start: int, sides: int, centre_index: int, reverse := false) -> void:
+	for step in sides:
+		if reverse:
+			triangles.append_array(PackedInt32Array([centre_index, start + (step + 1) % sides, start + step]))
+		else:
+			triangles.append_array(PackedInt32Array([centre_index, start + step, start + (step + 1) % sides]))
+
+
+## A tunnel of air along `path`, flat-floored, with lumpy walls, closed at
+## both ends. Where it pokes out of the hillside the cover cut opens it.
+func _tube_solid(path: PackedVector3Array, radius: float, noise: FastNoiseLite) -> ArrayMesh:
+	var points := PackedVector3Array()
+	var triangles := PackedInt32Array()
 	for index in path.size():
 		var here := path[index]
 		var ahead := path[mini(index + 1, path.size() - 1)]
@@ -227,8 +336,6 @@ func _tube(rock: SurfaceTool, faces: PackedVector3Array, path: PackedVector3Arra
 		var forward := (ahead - behind).normalized()
 		var side := forward.cross(Vector3.UP).normalized()
 		var up := side.cross(forward).normalized()
-		var ring := PackedVector3Array()
-		var flags: Array = []
 		for step in RING_SIDES:
 			var angle := TAU * float(step) / RING_SIDES
 			var across := cos(angle) * radius
@@ -239,53 +346,37 @@ func _tube(rock: SurfaceTool, faces: PackedVector3Array, path: PackedVector3Arra
 			var point := here + side * across + up * height
 			var bump := noise.get_noise_3dv(point) * radius * (0.03 if on_floor else 0.16)
 			point += (side * cos(angle) + up * sin(angle)) * bump
-			var pushed := false
-			if open_top:
-				var ground: float = terrain.height_at(point.x, point.z)
-				if point.y > ground:
-					point.y = ground
-					pushed = true
-			ring.append(point)
-			flags.append(pushed)
-		rings.append(ring)
-		pressed.append(flags)
-	for index in rings.size() - 1:
-		var a: PackedVector3Array = rings[index]
-		var b: PackedVector3Array = rings[index + 1]
-		var a_flags: Array = pressed[index]
-		var b_flags: Array = pressed[index + 1]
+			points.append(point)
+		if index > 0:
+			_band(triangles, (index - 1) * RING_SIDES, index * RING_SIDES, RING_SIDES)
+	for end in [0, path.size() - 1]:
+		var centre := Vector3.ZERO
 		for step in RING_SIDES:
-			var next := (step + 1) % RING_SIDES
-			for tri in [[a[step], b[step], b[next], a_flags[step], b_flags[step], b_flags[next]],
-					[a[step], b[next], a[next], a_flags[step], b_flags[next], a_flags[next]]]:
-				if tri[3] and tri[4] and tri[5]:
-					continue   # lies on the ground: this is the open mouth
-				var middle: Vector3 = (tri[0] + tri[1] + tri[2]) / 3.0
-				if _inside_any(middle, chambers, 0.97):
-					continue
-				_triangle(rock, faces, tri[0], tri[1], tri[2], middle)
+			centre += points[end * RING_SIDES + step]
+		points.append(centre / RING_SIDES)
+		_fan(triangles, end * RING_SIDES, RING_SIDES, points.size() - 1, end != 0)
+	return _closed_mesh(points, triangles)
 
 
-## A cavern: a squashed, lumpy ball with a flat floor, holed where tunnels
-## come in. `chamber` is [centre, half-sizes, heading].
-func _chamber(rock: SurfaceTool, faces: PackedVector3Array, chamber: Array, noise: FastNoiseLite, tubes: Array) -> void:
+## A cavern of air: a squashed, lumpy ball with a flat floor. Smooth where
+## the tunnels come in. `chamber` is [centre, half-sizes, heading].
+func _chamber_solid(chamber: Array, noise: FastNoiseLite, tubes: Array) -> ArrayMesh:
 	var centre: Vector3 = chamber[0]
 	var half: Vector3 = chamber[1]
 	var heading: float = chamber[2]
 	var along := Vector3(cos(heading), 0.0, sin(heading))
 	var side := along.cross(Vector3.UP).normalized()
-	var rows := 30
-	var columns := 52
-	var grid: Array = []
-	for row in rows + 1:
-		var polar := PI * float(row) / rows   # 0 at the top
-		var line := PackedVector3Array()
+	var rows := 40
+	var columns := 72
+	var points := PackedVector3Array()
+	var triangles := PackedInt32Array()
+	points.append(centre + Vector3(0.0, half.y, 0.0))          # the top
+	for row in range(1, rows):
+		var polar := PI * float(row) / rows
 		for column in columns:
 			var azimuth := TAU * float(column) / columns
 			var unit := Vector3(sin(polar) * cos(azimuth), cos(polar), sin(polar) * sin(azimuth))
-			var local := Vector3(unit.x * half.x, unit.y * half.y, unit.z * half.z)
-			var point := centre + side * local.x + Vector3.UP * local.y + along * local.z
-			# Lumpy walls, but smooth where a tunnel joins, and a flat floor.
+			var point := centre + side * unit.x * half.x + Vector3.UP * unit.y * half.y + along * unit.z * half.z
 			var calm := 1.0
 			for item in tubes:
 				var tube: Array = item
@@ -293,29 +384,26 @@ func _chamber(rock: SurfaceTool, faces: PackedVector3Array, chamber: Array, nois
 			var lump := 1.0 + noise.get_noise_3dv(point * 0.6) * 0.22 * calm
 			point = centre + (point - centre) * lump
 			point.y = maxf(point.y, centre.y - half.y * 0.6 + noise.get_noise_3dv(point) * 1.2)
-			line.append(point)
-		grid.append(line)
-	for row in rows:
-		var top: PackedVector3Array = grid[row]
-		var bottom: PackedVector3Array = grid[row + 1]
-		for column in columns:
-			var next := (column + 1) % columns
-			for tri in [[top[column], bottom[column], bottom[next]], [top[column], bottom[next], top[next]]]:
-				var middle: Vector3 = (tri[0] + tri[1] + tri[2]) / 3.0
-				var holed := false
-				for item in tubes:
-					var tube: Array = item
-					if _distance_to_path(middle, tube[0]) < float(tube[1]) * 0.97:
-						holed = true
-						break
-				if not holed:
-					_triangle(rock, faces, tri[0], tri[1], tri[2], middle)
+			points.append(point)
+	var bottom := centre + Vector3(0.0, -half.y * 0.6, 0.0)
+	points.append(bottom)
+	var last := points.size() - 1
+	for column in columns:
+		triangles.append_array(PackedInt32Array([0, 1 + column, 1 + (column + 1) % columns]))
+	for row in rows - 2:
+		_band(triangles, 1 + row * columns, 1 + (row + 1) * columns, columns)
+	var final_row := 1 + (rows - 2) * columns
+	for column in columns:
+		triangles.append_array(PackedInt32Array([last, final_row + (column + 1) % columns, final_row + column]))
+	return _closed_mesh(points, triangles)
 
 
-## Stalactites hanging from the roof and stalagmites rising from the floor.
-func _spikes(rock: SurfaceTool, faces: PackedVector3Array, chamber: Array, random: RandomNumberGenerator, count: int) -> void:
+## Stalactites hanging from the roof and stalagmites rising from the floor:
+## pointed solids of rock, reaching well into the rock behind so they join it.
+func _spikes(chamber: Array, random: RandomNumberGenerator, count: int) -> Array:
 	var centre: Vector3 = chamber[0]
 	var half: Vector3 = chamber[1]
+	var list: Array = []
 	for index in count:
 		var hanging := index % 3 != 0
 		var angle := random.randf() * TAU
@@ -325,20 +413,151 @@ func _spikes(rock: SurfaceTool, faces: PackedVector3Array, chamber: Array, rando
 		var length := random.randf_range(radius * 2.5, radius * 6.0)
 		var base: Vector3
 		var tip: Vector3
+		var root: Vector3
 		if hanging:
-			var roof := half.y * sqrt(maxf(1.0 - reach * reach, 0.05)) * 0.9
+			var roof := half.y * sqrt(maxf(1.0 - reach * reach, 0.05)) * 0.85
 			base = spot + Vector3(0.0, roof, 0.0)
 			tip = base - Vector3(0.0, length, 0.0)
+			root = base + Vector3(0.0, half.y * 0.5, 0.0)
 		else:
 			base = spot + Vector3(0.0, -half.y * 0.6, 0.0)
 			tip = base + Vector3(0.0, length * 0.7, 0.0)
+			root = base - Vector3(0.0, 8.0, 0.0)
 		var sides := 7
-		for step in sides:
-			var a0 := TAU * float(step) / sides
-			var a1 := TAU * float(step + 1) / sides
-			var p0 := base + Vector3(cos(a0), 0.0, sin(a0)) * radius
-			var p1 := base + Vector3(cos(a1), 0.0, sin(a1)) * radius
-			_triangle(rock, faces, p0, p1, tip, (p0 + p1 + tip) / 3.0)
+		var points := PackedVector3Array()
+		var triangles := PackedInt32Array()
+		for ring_at in [base, root]:
+			for step in sides:
+				var a0 := TAU * float(step) / sides
+				points.append((ring_at as Vector3) + Vector3(cos(a0), 0.0, sin(a0)) * radius)
+		points.append(tip)
+		points.append(root)
+		_band(triangles, 0, sides, sides)
+		_fan(triangles, 0, sides, sides * 2)
+		_fan(triangles, sides, sides, sides * 2 + 1, true)
+		list.append(_closed_mesh(points, triangles))
+	return list
+
+
+## The ground over the mouth as a solid to cut away: a block from the
+## hillside up into the sky, over a strip along the tunnel from before its
+## mouth to past where it goes under. Its underside is the ground, sampled
+## every 2 m.
+func _cover(cave: Dictionary) -> Dictionary:
+	var a: Vector2 = cave["mouth_a"]
+	var b: Vector2 = cave["mouth_b"]
+	var along := (b - a).normalized()
+	var across := Vector2(-along.y, along.x)
+	var origin := a - along * 30.0 - across * (TUNNEL_RADIUS + 20.0)
+	var length := a.distance_to(b) + 70.0
+	var width := (TUNNEL_RADIUS + 20.0) * 2.0
+	var step := 2.0
+	var nu := int(ceil(length / step)) + 1
+	var nv := int(ceil(width / step)) + 1
+	var points := PackedVector3Array()
+	var top := -INF
+	for i in nu:
+		for j in nv:
+			var spot := origin + along * float(i) * step + across * float(j) * step
+			var y: float = terrain.height_at(spot.x, spot.y)
+			top = maxf(top, y)
+			points.append(Vector3(spot.x, y, spot.y))
+	top += 80.0
+	var base := points.size()
+	for i in nu:
+		for j in nv:
+			var under := points[i * nv + j]
+			points.append(Vector3(under.x, top, under.z))
+	var triangles := PackedInt32Array()
+	for i in nu - 1:
+		for j in nv - 1:
+			var p00 := i * nv + j
+			var p10 := (i + 1) * nv + j
+			var p01 := i * nv + j + 1
+			var p11 := (i + 1) * nv + j + 1
+			triangles.append_array(PackedInt32Array([p00, p10, p11, p00, p11, p01]))
+			triangles.append_array(PackedInt32Array([base + p00, base + p11, base + p10, base + p00, base + p01, base + p11]))
+	# The four sides.
+	var border: Array = []
+	for i in nu:
+		border.append(i * nv)
+	for j in range(1, nv):
+		border.append((nu - 1) * nv + j)
+	for i in range(nu - 2, -1, -1):
+		border.append(i * nv + nv - 1)
+	for j in range(nv - 2, 0, -1):
+		border.append(j)
+	for k in border.size():
+		var p: int = border[k]
+		var q: int = border[(k + 1) % border.size()]
+		triangles.append_array(PackedInt32Array([q, p, base + p, q, base + p, base + q]))
+	return {"mesh": _closed_mesh(points, triangles), "origin": origin, "along": along, "across": across,
+			"length": length, "width": width}
+
+
+## True if `point` lies on the ground the cover cut along (within a few cm).
+func _on_ground(point: Vector3, cover: Dictionary) -> bool:
+	var local := Vector2(point.x, point.z) - (cover["origin"] as Vector2)
+	var u := local.dot(cover["along"])
+	var v := local.dot(cover["across"])
+	if u < -0.5 or v < -0.5 or u > float(cover["length"]) + 2.5 or v > float(cover["width"]) + 2.5:
+		return false
+	return absf(point.y - terrain.height_at(point.x, point.z)) < 0.12
+
+
+## The mouth: the opening where the tunnel meets the ground, fitted as a
+## capsule [start, end, radius] lying inside the cut, so the ground drawn
+## round it always has rock or open tunnel under it.
+func _mouth_from_lid(faces: PackedVector3Array, cover: Dictionary, cave: Dictionary) -> Array:
+	var lid: Array = []
+	for at in range(0, faces.size(), 3):
+		if _on_ground(faces[at], cover) and _on_ground(faces[at + 1], cover) and _on_ground(faces[at + 2], cover):
+			lid.append([Vector2(faces[at].x, faces[at].z), Vector2(faces[at + 1].x, faces[at + 1].z),
+					Vector2(faces[at + 2].x, faces[at + 2].z)])
+	var a: Vector2 = cave["mouth_a"]
+	var b: Vector2 = cave["mouth_b"]
+	var along := (b - a).normalized()
+	var across := Vector2(-along.y, along.x)
+	# Along the tunnel, how far either side of its line the opening reaches.
+	var best_start := -1.0
+	var best_end := -1.0
+	var radius := TUNNEL_RADIUS * 0.6
+	var u := -30.0
+	var run_start := -INF
+	while u < a.distance_to(b) + 40.0:
+		# Nudged off the cut's 2 m grid, whose lines lie between triangles.
+		var middle := a + along * (u + 0.37) + across * 0.29
+		var open := true
+		for v in [-radius, -radius * 0.5, 0.0, radius * 0.5, radius]:
+			if not _in_lid(middle + across * float(v), lid):
+				open = false
+				break
+		if open and run_start == -INF:
+			run_start = u
+		if (not open or u + 1.0 >= a.distance_to(b) + 40.0) and run_start != -INF:
+			if u - run_start > best_end - best_start:
+				best_start = run_start
+				best_end = u
+			run_start = -INF
+		u += 1.0
+	if best_end - best_start < radius * 2.0:
+		return [a, a, 0.0]
+	# A capsule's round ends reach a radius past its line: pull them in.
+	var start := a + along * (best_start + radius)
+	var end := a + along * maxf(best_end - radius, best_start + radius)
+	return [start, end, radius]
+
+
+static func _in_lid(point: Vector2, lid: Array) -> bool:
+	for item in lid:
+		var tri: Array = item
+		if Geometry2D.point_is_inside_triangle(point, tri[0], tri[1], tri[2]):
+			return true
+	return false
+
+
+static func _in_capsule(point: Vector2, mouth: Array) -> bool:
+	return _to_segment(point, mouth[0], mouth[1]) < float(mouth[2])
 
 
 ## Glowing crystal clusters on the floor, and lamps among them.
@@ -391,9 +610,10 @@ func _glow(chamber: Array, random: RandomNumberGenerator, lamps: int, clusters: 
 ## Solid ground round a mouth, where the ground's own collision has gone
 ## with the hole. Only for collision: the ground is drawn there already.
 func _collar(cave: Dictionary) -> CollisionShape3D:
-	var a: Vector2 = cave["mouth_a"]
-	var b: Vector2 = cave["mouth_b"]
-	var hole := TUNNEL_RADIUS * 0.9
+	var mouth: Array = cave["hole"]
+	var a: Vector2 = mouth[0]
+	var b: Vector2 = mouth[1]
+	var hole: float = mouth[2]
 	var low := a.min(b) - Vector2.ONE * (hole + COLLAR)
 	var high := a.max(b) + Vector2.ONE * (hole + COLLAR)
 	var step := 2.0
@@ -418,32 +638,6 @@ func _collar(cave: Dictionary) -> CollisionShape3D:
 	var collider := CollisionShape3D.new()
 	collider.shape = shape
 	return collider
-
-
-func _triangle(rock: SurfaceTool, faces: PackedVector3Array, a: Vector3, b: Vector3, c: Vector3, middle: Vector3) -> void:
-	var shade := 0.55 + 0.25 * fposmod(sin(middle.x * 0.13) * cos(middle.z * 0.11) * 3.0, 1.0)
-	rock.set_color(Color(0.42 * shade, 0.38 * shade, 0.34 * shade))
-	rock.add_vertex(a)
-	rock.add_vertex(b)
-	rock.add_vertex(c)
-	faces.append(a)
-	faces.append(b)
-	faces.append(c)
-
-
-func _inside_any(point: Vector3, chambers: Array, share: float) -> bool:
-	for item in chambers:
-		var chamber: Array = item
-		var centre: Vector3 = chamber[0]
-		var half: Vector3 = chamber[1]
-		var heading: float = chamber[2]
-		var along := Vector3(cos(heading), 0.0, sin(heading))
-		var side := along.cross(Vector3.UP).normalized()
-		var off := point - centre
-		var local := Vector3(off.dot(side) / half.x, off.y / half.y, off.dot(along) / half.z)
-		if local.length() < share:
-			return true
-	return false
 
 
 ## The part of a path that comes near a chamber, which is all a chamber

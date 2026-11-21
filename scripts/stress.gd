@@ -26,6 +26,8 @@ extends Node
 ## checks in a row breaks off, and everything it held goes with it.
 
 const MaterialLibrary = preload("res://scripts/material_library.gd")
+const PartLibrary = preload("res://scripts/part_library.gd")
+const FailureLog = preload("res://scripts/failure_log.gd")
 
 const EVERY := 4                 # physics ticks between checks (60 per second)
 const BREAK_CHECKS := 2          # checks in a row past the limit before a part breaks
@@ -57,6 +59,7 @@ var _ratio: Dictionary = {}      # piece -> stress over strength at its face
 var _over: Dictionary = {}       # piece -> checks in a row past the limit
 var _coloured: Dictionary = {}   # MeshInstance3D -> true while it shows a stress colour
 var _bands: Array = []           # a glowing material per colour band
+var _why: Dictionary = {}        # piece -> [stress Pa, limit Pa] when it was found overloaded
 
 
 static func strength_of(material: String) -> float:
@@ -122,11 +125,44 @@ func run(alive_time: float) -> void:
 	if failure and alive_time > GRACE and not doomed.is_empty():
 		var uids: Dictionary = {}
 		for piece in doomed:
-			uids[int(piece) >> 3] = true   # a part's pieces are numbered uid x 8 + 0, 1, 2 ...
+			uids[int(piece) >> 3] = piece   # a part's pieces are numbered uid x 8 + 0, 1, 2 ...
 			if uids.size() >= MAX_BREAKS:
 				break
 		for uid in uids:
+			_note_break(int(uid), int(uids[uid]))
 			spawner.destroy_part(int(uid))
+	_why.clear()
+
+
+## A line for the failure log: which part broke, the stress at its joint,
+## its material's limit, and how fast it was going.
+func _note_break(uid: int, piece: int) -> void:
+	var record: Dictionary = spawner.record_of(uid)
+	if record.is_empty():
+		return
+	var why: Array = _why.get(piece, [])
+	var material := str(record.get("material", ""))
+	var body: RigidBody3D = spawner.piece_body(piece)
+	var speed := body.linear_velocity.length() if body != null and is_instance_valid(body) else 0.0
+	var text := "%s %s (part %d) broke" % [MaterialLibrary.display_name(material), PartLibrary.part_name(str(record["type"])).to_lower(), uid]
+	if why.size() == 2:
+		text += ": %.0f MPa at its joint, past %s's %.0f MPa limit" % [float(why[0]) / 1.0e6,
+				MaterialLibrary.display_name(material).to_lower(), float(why[1]) / 1.0e6]
+	text += ", at %.0f m/s" % speed
+	# A part that was spinning: how fast, as a shaft's rpm.
+	var spin := body.angular_velocity.length() if body != null and is_instance_valid(body) else 0.0
+	if spin * 60.0 / TAU >= 30.0:
+		text += ", turning at %s rpm" % _thousands(spin * 60.0 / TAU)
+	FailureLog.note(text)
+
+
+static func _thousands(value: float) -> String:
+	var whole := str(int(roundf(value)))
+	var grouped := ""
+	while whole.length() > 3:
+		grouped = "," + whole.substr(whole.length() - 3) + grouped
+		whole = whole.substr(0, whole.length() - 3)
+	return whole + grouped
 
 
 ## The load tree of a body: the order to add up loads in (outermost first)
@@ -261,6 +297,7 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 	# worked out again with it gone.
 	var worst := -1
 	var worst_ratio := 1.0
+	var worst_why: Array = []
 	var force: Dictionary = {}
 	var moment: Dictionary = {}
 	for index in range(order.size() - 1, -1, -1):
@@ -284,6 +321,7 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 			if int(_over[piece]) >= BREAK_CHECKS and ratio > worst_ratio:
 				worst = piece
 				worst_ratio = ratio
+				worst_why = [stress, limit]
 		else:
 			_over.erase(piece)
 		# Hand the load on to the parent, with its moment about the parent's face.
@@ -295,6 +333,7 @@ func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spi
 		_ratio[root] = 0.0
 	if worst >= 0:
 		doomed.append(worst)
+		_why[worst] = worst_why
 
 
 func _band_material(band: int) -> StandardMaterial3D:

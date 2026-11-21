@@ -32,10 +32,11 @@ func _process(delta: float) -> bool:
 			disasters.start_hurricane()
 	if frame % 120 == 0:
 		var player: Node3D = main.get_node("Player")
-		print("TEST t=%.1f %s | wind here %s | water %.2f | bombs %d flows %d tornadoes %d | hp %.0f" % [
+		print("TEST t=%.1f %s | wind here %s | water %.2f | bombs %d rocks %d flows %d tornadoes %d | column %s eye %s | tsunami r %.0f amp %.0f | hp %.0f" % [
 			clock, weather.describe(), str(weather._wind_at(player.global_position).snapped(Vector3(0.1, 0.1, 0.1))),
-			weather.water_height(player.global_position), disasters._bombs.size(), disasters._flows.size(),
-			disasters._tornadoes.size(), player.hp])
+			weather.water_height(player.global_position), disasters._bombs.size(), disasters._rocks.size(),
+			disasters._flows.size(), disasters._tornadoes.size(), disasters._column != null, disasters._eye != null,
+			float(weather.tsunami.get("radius", 0.0)), float(weather.tsunami.get("amp", 0.0)), player.hp])
 	if frame == 1500:
 		disasters.calm_everything()
 	return frame > 1530

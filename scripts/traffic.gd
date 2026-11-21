@@ -18,6 +18,7 @@ const MapInfo = preload("res://scripts/map_info.gd")
 const Units = preload("res://scripts/units.gd")
 const Roads = preload("res://scripts/roads.gd")
 const Sound = preload("res://scripts/sound.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const MAX_CARS := 18
 const CAR_NEAR := 400.0         # metres from you at the closest a new car appears
@@ -66,6 +67,12 @@ func setup(the_terrain: Node, the_player: Node3D) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var started := Profiler.start()
+	_physics_tick(delta)
+	Profiler.add("traffic", started)
+
+
+func _physics_tick(delta: float) -> void:
 	if terrain == null:
 		return
 	var shifted := Origin.offset != _last_offset

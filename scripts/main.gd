@@ -67,6 +67,8 @@ var _game_hud: CanvasLayer      # game_hud.gd: health, cash, announcements
 var _respawn_after_replay := false
 var _rigging: Node              # rigging.gd: magnets, winches and couplers of the pad's build
 var _weather: Node              # weather.gd
+var _clock_save := 60.0
+var _missions: Node = null      # missions.gd
 var _disasters: Node            # disasters.gd
 var _weather_panel: RefCounted  # weather_panel.gd
 var _panel_timer := 0.0
@@ -74,6 +76,21 @@ var _races: Node               # races.gd: races, cargo runs and the people who 
 var _recent_hurt := 0.0         # health lost in the last second or so, for the crash replay
 const CRASH_REPLAY_HURT := 35.0 # lose this much in a moment while riding and the replay plays
 const START_HEADING := PI
+const Profile = preload("res://scripts/profile.gd")
+const Missions = preload("res://scripts/missions.gd")
+const Birds = preload("res://scripts/birds.gd")
+const BirdGuide = preload("res://scripts/bird_guide.gd")
+const PhotoCamera = preload("res://scripts/photo_camera.gd")
+const Fuel = preload("res://scripts/fuel.gd")
+const Boats = preload("res://scripts/boats.gd")
+const Ice = preload("res://scripts/ice.gd")
+const Flowers = preload("res://scripts/flowers.gd")
+const DamageFx = preload("res://scripts/damage_fx.gd")
+const FailureLog = preload("res://scripts/failure_log.gd")
+const Inspector = preload("res://scripts/inspector.gd")
+const PerfOverlay = preload("res://scripts/perf_overlay.gd")
+const TestStand = preload("res://scripts/test_stand.gd")
+const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
 
 
 func _ready() -> void:
@@ -99,6 +116,8 @@ func _ready() -> void:
 	var pad_size: Vector3 = grid.size_metres()
 	var map_features: Array = _make_garage(pad_size)
 	map_features.append([Rect2(0.0, 0.0, pad_size.x, pad_size.z), Color(0.20, 0.26, 0.36), "Build pad"])
+	map_features.append([Rect2(pad_size.x + 8.0, pad_size.z * 0.5 - TestStand.SIZE * 0.5, TestStand.SIZE, TestStand.SIZE),
+			Color(0.5, 0.48, 0.4), "Test stand"])
 
 	var player: CharacterBody3D = Player.new()
 	player.name = "Player"
@@ -199,6 +218,7 @@ func _ready() -> void:
 	menus.hud = hud
 	menus.version = "Ideal World  %s" % Hud.VERSION
 	menus.connect("respawn_requested", _respawn)
+	menus.connect("slot_chosen", _on_slot_chosen)
 	hud.menus = menus
 	hud.setup_settings(terrain.forest, _daylight, menus.settings_panel)
 	menus.show_title()
@@ -260,9 +280,118 @@ func _ready() -> void:
 	races.controller = controller
 	races.fleet = _fleet
 	races.game_hud = game_hud
+	races.minimap = hud.minimap()
 	races.setup(terrain, traffic.roads)
 	controller.talk_handler = Callable(races, "talk")
 	_races = races
+
+	# Birds and their nests, the bird guide (B) and the camera (C).
+	var birds: Node3D = Birds.new()
+	birds.name = "Birds"
+	add_child(birds)
+	birds.terrain = terrain
+	birds.weather = _weather
+	birds.player = player
+	birds.game_hud = game_hud
+	birds.islands = hud.minimap().islands()
+	birds.towns = hud.minimap().towns()
+	birds.setup()
+	var guide := BirdGuide.new()
+	guide.player = player
+	game_hud.root.add_child(guide)
+	var camera_tool: CanvasLayer = PhotoCamera.new()
+	camera_tool.name = "PhotoCamera"
+	add_child(camera_tool)
+	camera_tool.screens = [hud, game_hud]
+	camera_tool.birds = birds
+	camera_tool.game_hud = game_hud
+	camera_tool.player = player
+	hud.birds_pressed.connect(guide.toggle)
+	hud.photos_pressed.connect(camera_tool.toggle_photos)
+
+	# The docks, boats on the lake in summer, and boat races at the docks.
+	var boats: Node = Boats.new()
+	boats.name = "Boats"
+	add_child(boats)
+	boats.terrain = terrain
+	boats.weather = _weather
+	boats.player = player
+	boats.setup()
+	races.add_boat_hosts(boats.docks)
+	combat.structures.append(boats)
+	var ice: Node3D = Ice.new()
+	ice.name = "Ice"
+	add_child(ice)
+	ice.terrain = terrain
+	ice.weather = _weather
+	ice.player = player
+	var flowers: Node3D = Flowers.new()
+	flowers.name = "Flowers"
+	add_child(flowers)
+	flowers.terrain = terrain
+	flowers.weather = _weather
+	flowers.player = player
+
+	# Fuel stations, smoke and fire on damaged builds, and the failure log (L).
+	var fuel: Node = Fuel.new()
+	fuel.name = "Fuel"
+	add_child(fuel)
+	fuel.terrain = terrain
+	fuel.races = races
+	fuel.roads = traffic.roads
+	fuel.player = player
+	fuel.game_hud = game_hud
+	fuel.setup()
+	for dock in boats.docks:
+		fuel.add_dock_station(str(dock["name"]), Vector2((dock["shore"] as Vector3).x, (dock["shore"] as Vector3).z))
+	var effects: Node3D = DamageFx.new()
+	effects.name = "DamageFx"
+	add_child(effects)
+	var failures: CanvasLayer = FailureLog.new()
+	failures.name = "FailureLog"
+	add_child(failures)
+	camera_tool.screens.append(failures)
+	_replay.screens.append(failures)
+
+	# The Inspector (8), the performance overlay (F3) and the test stand.
+	var inspector: Node = Inspector.new()
+	inspector.name = "Inspector"
+	inspector.spawner = spawner
+	inspector.engines = engines
+	inspector.game_hud = game_hud
+	add_child(inspector)
+	var overlay: CanvasLayer = PerfOverlay.new()
+	overlay.name = "PerfOverlay"
+	overlay.spawner = spawner
+	overlay.engines = engines
+	add_child(overlay)
+	camera_tool.screens.append(overlay)
+	var stand: Node3D = TestStand.new()
+	stand.name = "TestStand"
+	stand.spawner = spawner
+	stand.controller = controller
+	stand.grid = grid
+	stand.terrain = terrain
+	stand.game_hud = game_hud
+	stand.player = player
+	add_child(stand)
+	stand.setup(pad_size)
+	hud.test_stand_pressed.connect(func() -> void: stand.open_stand())
+
+	# The mission board, and the markers on the full map.
+	var missions: Node = Missions.new()
+	missions.name = "Missions"
+	add_child(missions)
+	missions.races = races
+	missions.terrain = terrain
+	missions.minimap = hud.minimap()
+	missions.game_hud = game_hud
+	missions.player = player
+	missions.birds = birds
+	missions.setup()
+	camera_tool.missions = missions
+	hud.world_map().missions = missions
+	_missions = missions
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -277,6 +406,31 @@ func _unhandled_input(event: InputEvent) -> void:
 			and get_viewport().gui_get_focus_owner() == null and bool(_controller.spawned):
 		Stress.view = not Stress.view
 		_game_hud.announce("", "Stress view on: blue easy, red at breaking point" if Stress.view else "Stress view off", 2.5)
+
+
+## A save slot was picked: the year and the day carry on from where that
+## slot left them, and the character starts at the hangar.
+func _on_slot_chosen(_slot: int) -> void:
+	var saved: Dictionary = Profile.clock()
+	if not saved.is_empty() and _weather != null and _daylight != null:
+		_weather.year_fraction = float(saved.get("year", _weather.year_fraction))
+		_weather.day = int(saved.get("day", 0))
+		_daylight.set_time(float(saved.get("time", 0.1)))
+	_respawn()
+	get_tree().call_group("slot_listeners", "slot_changed")
+
+
+## Notes the year and the time of day in the slot, and saves it.
+func _keep_clock() -> void:
+	if _weather == null or _daylight == null:
+		return
+	Profile.set_clock(_weather.year_fraction, _weather.day, _daylight.day_fraction)
+	Profile.save()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_keep_clock()
 
 
 ## Sends the character back to the hangar, in front of its door. The world
@@ -319,6 +473,10 @@ func _on_replay_finished(_reason: String) -> void:
 
 func _process(delta: float) -> void:
 	_recent_hurt = maxf(_recent_hurt - delta * 30.0, 0.0)
+	_clock_save -= delta
+	if _clock_save <= 0.0:
+		_clock_save = 60.0
+		_keep_clock()
 	_panel_timer -= delta
 	if _panel_timer <= 0.0 and _weather_panel != null:
 		_panel_timer = 0.5
@@ -334,6 +492,11 @@ func _physics_process(_delta: float) -> void:
 	if absf(at.x) > Origin.SHIFT_DISTANCE or absf(at.z) > Origin.SHIFT_DISTANCE:
 		var shift := Vector3(snappedf(at.x, Origin.SHIFT_STEP), 0.0, snappedf(at.z, Origin.SHIFT_STEP))
 		_shift_world(shift)
+	# Far below anything there is (the deepest cavern floor is about 160 m
+	# under the pad): fallen out of the world, so back to the hangar.
+	if Origin.to_map(at).y < FALLEN_OUT_Y and not bool(_player.seated):
+		_game_hud.announce("", "You fell out of the world. Back to the hangar.", 3.0)
+		_respawn()
 
 
 ## Moves everything in the world by -`shift`, so the player is back near the
@@ -356,6 +519,8 @@ func _shift_world(shift: Vector3) -> void:
 			node.position -= shift
 	_combat.shift_origin(shift)
 	_rigging.shift_origin(shift)
+	if _disasters != null:
+		_disasters.shift_origin(shift)
 	if _races != null:
 		_races.shift_origin(shift)
 	_terrain.origin_shifted()

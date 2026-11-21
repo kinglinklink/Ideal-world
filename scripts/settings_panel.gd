@@ -28,7 +28,9 @@ const CONTROLS := [
 	"  E              also talks to race hosts and cargo agents at airports",
 	"",
 	"Building",
-	"  1 to 5         Place, Delete, Config, Transform, Paint (again to put away)",
+	"  1 to 6         Place, Delete, Config, Transform, Paint, Scale (again to put away)",
+	"  7              sub-assemblies: save a selection, drag one onto your build",
+	"  G              grab the selection and carry it onto another part (Esc puts it back)",
 	"  Left click     use the tool               R / T / Y   turn 90° about X / Y / Z",
 	"  Ctrl+Z / Ctrl+Y   undo / redo",
 	"  Transform: Shift+click add, arrows and Page Up/Down move,",
@@ -41,11 +43,20 @@ const CONTROLS := [
 	"  Keys you bind in input blocks work while you sit in a seat.",
 	"  0              replay the last 30 seconds (Space or Esc skips)",
 	"  9              stress view: parts coloured by load, blue to red",
+	"  8              inspector: signals, shaft speeds and torque, fluid flow on the build",
+	"  Left click     fires hit-scan guns at the crosshair",
+	"",
+	"Anywhere",
+	"  C              camera (wheel zoom, F filter, click: photo)   B   bird guide",
+	"  J              mission board            L   failure log      F3   performance",
+	"  F              refuel, at a pump",
+	"  Hover the mouse over a bird for a close-up",
 	"  F1 or the Guide button: what every part does.",
 ]
 
 var values: Dictionary = {}
 var _forest: Node = null
+var _events: OptionButton
 var _mode: OptionButton
 var _cap: SpinBox
 var _scale: HSlider
@@ -206,6 +217,16 @@ func _build() -> void:
 	_check(world, "player_damage", "You can be hurt (crashes, falls, blasts, too many g)")
 	_check(world, "random_disasters", "Random disasters (a tornado, hurricane, tsunami or eruption every 20 to 40 minutes)")
 	_check(world, "traffic", "Traffic: cars on the highways and planes between the airports")
+	var events_row := _row(world, "Event distance")
+	_events = OptionButton.new()
+	_events.focus_mode = Control.FOCUS_NONE
+	for km in Settings.EVENT_DISTANCES:
+		_events.add_item("%d km%s" % [int(km), "  (the whole map)" if int(km) == 50 else ""])
+	_events.item_selected.connect(func(index: int) -> void:
+		values["event_distance"] = Settings.EVENT_DISTANCES[index]
+		_commit())
+	events_row.add_child(_events)
+	world.add_child(_note("How far from you disasters can start and are fully simulated (lava bombs,\ntornado damage). Further off they are still drawn. Higher costs speed."))
 	world.add_child(_note("A day lasts 20 minutes: 10 of daylight, 10 of night.\nRunway lights come on after dusk.\nCrash damage: a body whose speed changes faster than 20 g (over 50 ms) damages\nevery part in it, by its mass: heavy, weak parts break first."))
 
 	# --- Controls ---
@@ -297,6 +318,7 @@ func _preset(cap: int, resolution: int, msaa: String, shadows: bool, trees: floa
 	values["msaa"] = msaa
 	values["shadows"] = shadows
 	values["tree_distance"] = trees
+	values["event_distance"] = 5 if resolution < 100 else 30
 	_commit()
 
 
@@ -313,6 +335,7 @@ func _show_values() -> void:
 	_fps.set_pressed_no_signal(bool(values["show_fps"]))
 	_sky.select(Settings.SKIES.find(str(values["sky"])))
 	_crash.set_pressed_no_signal(bool(values["crash_damage"]))
+	_events.select(Settings.EVENT_DISTANCES.find(int(values["event_distance"])))
 	for key in _checks:
 		(_checks[key] as CheckBox).set_pressed_no_signal(bool(values.get(key, true)))
 	for key in _volume_sliders:

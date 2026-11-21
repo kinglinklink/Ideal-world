@@ -11,3 +11,8 @@ export_presets.cfg
 tools/terrain_cache/
 tools/__pycache__/
 tools/osm_cache/
+
+# Per-player data written by the game
+saves/ghosts/
+photos/
+logs/

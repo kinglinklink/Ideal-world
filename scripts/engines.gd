@@ -41,6 +41,7 @@ const Units = preload("res://scripts/units.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Aero = preload("res://scripts/aero.gd")
 const Sound = preload("res://scripts/sound.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const FLUID_TYPES := ["fluid_cylinder", "pump", "valve", "fluid_pipe", "fuel_tank", "pressure_tank",
 		"combustion_cylinder", "compressor", "combustor", "turbine", "nozzle", "thruster"]
@@ -78,6 +79,7 @@ var _spools: Dictionary = {}      # first compressor uid of a jet -> spool speed
 var _jet_flames: Dictionary = {}  # nozzle uid -> flame
 var _rockets: Dictionary = {}     # solid rocket uid -> state
 var _mass_timer := 0.0
+var _info: Array = []             # per network this tick: {"kind", "pressure" Pa, "flow" L/s}, for the inspector
 
 
 func setup(the_spawner: Node3D) -> void:
@@ -92,13 +94,17 @@ func _physics_process(delta: float) -> void:
 		if _generation != -1:
 			_clear()
 		return
+	var started := Profiler.start()
 	if int(spawner.generation) != _generation:
 		_clear()
 		_start()
 	_find_networks()
+	_info.resize(_networks.size())
 	for index in _networks.size():
-		_run_network(_networks[index], delta)
+		_info[index] = {"kind": "fuel", "pressure": 0.0, "flow": 0.0}
+		_run_network(_networks[index], delta, index)
 	_run_rockets(delta)
+	Profiler.add("fluids and engines", started)
 	_mass_timer -= delta
 	if _mass_timer <= 0.0:
 		_mass_timer = 0.25
@@ -236,7 +242,7 @@ func _find_networks() -> void:
 		_networks.append(members)
 
 
-func _run_network(members: Array, delta: float) -> void:
+func _run_network(members: Array, delta: float, network: int) -> void:
 	var by_type: Dictionary = {}
 	for item in members:
 		var uid: int = item
@@ -260,6 +266,10 @@ func _run_network(members: Array, delta: float) -> void:
 		flow += pumped
 		pump_pressure = maxf(pump_pressure, float(props.get("max_pressure", 10.0)) * 1000000.0)
 		spawner.set_outputs(uid, {"flow": pumped})
+	var info: Dictionary = _info[network]
+	info["flow"] = flow
+	info["pressure"] = ambient + (pump_pressure if absf(flow) > 0.0 else 0.0)
+	info["max_pressure"] = pump_pressure
 
 	# Hydraulic oil: cylinders move at the flow over their whole area.
 	var hydraulic: Array = []
@@ -278,6 +288,8 @@ func _run_network(members: Array, delta: float) -> void:
 			total_area += float(_cylinders[uid]["area"])
 		var speed := flow / 1000.0 / maxf(total_area, 1e-6)
 		var pressure := pump_pressure if absf(flow) > 0.0 else HOLD_PRESSURE
+		info["kind"] = "oil"
+		info["pressure"] = pressure
 		for item in hydraulic:
 			var uid: int = item
 			var area: float = _cylinders[uid]["area"]
@@ -301,6 +313,9 @@ func _run_network(members: Array, delta: float) -> void:
 				amount = maxf(amount + flow / 1000.0 * ambient / (GAS_CONSTANT * AIR_TEMPERATURE) * delta, 0.0)
 			flow = 0.0
 		var pressure := amount * GAS_CONSTANT * AIR_TEMPERATURE / maxf(volume, 1e-9)
+		info["kind"] = "gas"
+		info["pressure"] = pressure
+		info["max_pressure"] = maxf(float(info["max_pressure"]), pressure)
 		for item in gas_parts:
 			var uid: int = item
 			var share := _gas_volume(uid) / maxf(volume, 1e-9)
@@ -341,6 +356,30 @@ func _run_network(members: Array, delta: float) -> void:
 		spawner.set_outputs(uid, {"level": 100.0 * float(tank["fuel"]) / maxf(float(tank["capacity"]), 1e-9)})
 
 	_run_jet(members, by_type, delta)
+
+
+## What the fluid network a part is in is doing this tick: {"kind" ("fuel",
+## "oil" or "gas"), "pressure" Pa, "max_pressure" Pa, "flow" L/s from the
+## pumps}, or {} if the part is in none (a closed valve, or not fluid).
+func network_info(uid: int) -> Dictionary:
+	if not _network.has(uid):
+		return {}
+	var index: int = _network[uid]
+	return _info[index] if index < _info.size() and _info[index] != null else {}
+
+
+## Which network a fluid part is in this tick, or -1.
+func network_index(uid: int) -> int:
+	return int(_network.get(uid, -1))
+
+
+func network_count() -> int:
+	return _networks.size()
+
+
+## Which fluid parts touch which: uid -> Array of uids.
+func fluid_neighbours() -> Dictionary:
+	return _neighbours
 
 
 func _gas_volume(uid: int) -> float:
@@ -406,6 +445,38 @@ func total_fuel() -> float:
 		if _alive(key):
 			held += float(_tanks[key]["fuel"])
 	return held
+
+
+## One fuel tank's state ({"fuel", "capacity", ...}), or empty.
+func tank_of(uid: int) -> Dictionary:
+	return _tanks.get(uid, {}) if _alive(uid) else {}
+
+
+## Burns `litres` out of one tank (a fire). Returns what it took.
+func drain_tank(uid: int, litres: float) -> float:
+	if not _tanks.has(uid):
+		return 0.0
+	var tank: Dictionary = _tanks[uid]
+	var taken := minf(float(tank["fuel"]), maxf(litres, 0.0))
+	tank["fuel"] = float(tank["fuel"]) - taken
+	return taken
+
+
+## Litres every live tank of the build could hold.
+func total_capacity() -> float:
+	var room := 0.0
+	for key in _tanks:
+		if _alive(key):
+			room += float(_tanks[key]["capacity"])
+	return room
+
+
+## Joules in a litre of the build's fuel (its first tank's), for pricing it.
+func energy_per_litre() -> float:
+	for key in _tanks:
+		if _alive(key):
+			return float(_tanks[key]["energy"])
+	return 34.0e6
 
 
 ## Takes up to `litres` from every tank alike. Returns what it took.

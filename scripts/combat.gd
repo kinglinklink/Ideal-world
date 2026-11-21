@@ -13,6 +13,10 @@ extends Node3D
 ##                   energy that took. One shot per 0.5 s per metre of barrel.
 ##   ammo generator  makes its rate per second, up to its storage, and weighs
 ##                   more as it fills. A gun linked to one spends from it.
+##   hit-scan gun    the machine gun aimed by the mouse: where the cursor
+##                   (a crosshair) points, each gun in reach and within its
+##                   aiming cone fires at its rate, 4 HP a round, straight to
+##                   that point (a part, a building, a crate, a car).
 ##   explosive       damage = D0 x (1 - distance / radius), D0 = 1000 HP per
 ##                   metre of blast radius, and a push of 1 N s per HP dealt.
 ##                   An explosive destroyed by anything goes off one tick later,
@@ -22,6 +26,7 @@ const Units = preload("res://scripts/units.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const Sound = preload("res://scripts/sound.gd")
+const Birds = preload("res://scripts/birds.gd")
 
 const BULLET_DAMAGE := 4.0          # HP per machine gun round
 const BULLET_MASS := 0.01           # kg, the bullet itself
@@ -37,6 +42,12 @@ const TRACER_LIFE := 0.05           # s
 const FLASH_LIFE := 0.35            # s
 const MAX_TRACERS := 96
 const RAY_MASK := Units.LAYER_WORLD | Units.LAYER_BODIES
+const AIM_REACH := 10000.0          # m the aiming ray from the camera looks
+
+## The mouse cursor becomes a crosshair while any hit-scan gun can be aimed.
+static var _crosshair_frame := -100
+static var _crosshair_on := false
+static var _crosshair_texture: ImageTexture = null
 
 var spawner: Node3D = null   # spawner.gd
 var structures: Array = []   # towns.gd, towers.gd: things in the world that can be destroyed
@@ -123,7 +134,7 @@ func _start() -> void:
 		var uid: int = key
 		var record: Dictionary = records[uid]
 		var type: String = record["type"]
-		if type == "machine_gun" or type == "large_cannon":
+		if type == "machine_gun" or type == "large_cannon" or type == "hitscan_gun":
 			_guns[uid] = {"cooldown": 0.0}
 			if type == "large_cannon":
 				var source: int = spawner.link_source(record.get("links", {}), "ammo")
@@ -211,7 +222,7 @@ func _take_round(record: Dictionary) -> bool:
 	if not _generators.has(source) or spawner.record_of(source).is_empty():
 		return false
 	var generator: Dictionary = _generators[source]
-	var wanted := "Machine gun rounds" if record["type"] == "machine_gun" else "Cannon shells"
+	var wanted := "Cannon shells" if record["type"] == "large_cannon" else "Machine gun rounds"
 	if generator["kind"] != wanted or float(generator["stored"]) < 1.0:
 		return false
 	generator["stored"] = float(generator["stored"]) - 1.0
@@ -222,6 +233,8 @@ func _take_round(record: Dictionary) -> bool:
 # --- Guns --------------------------------------------------------------------
 
 func _run_guns(delta: float) -> void:
+	var aim: Dictionary = {}
+	var aimed := false
 	for key in _guns:
 		var uid: int = key
 		var gun: Dictionary = _guns[uid]
@@ -231,12 +244,18 @@ func _run_guns(delta: float) -> void:
 		var cooldown: float = maxf(float(gun["cooldown"]) - delta, -delta)
 		var links: Dictionary = record.get("links", {})
 		var firing: bool = spawner.input_value(links, "fire", 0.0) != 0.0
+		var props: Dictionary = record.get("props", {})
+		if record["type"] == "hitscan_gun":
+			if not aimed:
+				aimed = true
+				aim = _aim_point()
+			firing = _hitscan_wants(uid, record, aim, firing)
+			gun["aim"] = aim.get("point", Vector3.ZERO)
 		if not firing:
 			gun["cooldown"] = maxf(cooldown, 0.0)
 			continue
-		var props: Dictionary = record.get("props", {})
 		var interval: float
-		if record["type"] == "machine_gun":
+		if record["type"] == "machine_gun" or record["type"] == "hitscan_gun":
 			var rate: float = float(props.get("fire_rate", 10.0))
 			if rate <= 0.0:
 				gun["cooldown"] = 0.0
@@ -251,11 +270,174 @@ func _run_guns(delta: float) -> void:
 				break
 			if record["type"] == "machine_gun":
 				_fire_bullet(uid, record)
+			elif record["type"] == "hitscan_gun":
+				_fire_at(uid, record, gun["aim"])
 			else:
 				_fire_shell(uid, record)
 			cooldown += interval
 			shots += 1
 		gun["cooldown"] = cooldown
+
+
+## Where the mouse points: the camera's ray through the cursor (the middle
+## of the screen in first person), past this build's own parts and the
+## character. {"point", "hit"} or empty when there is no mouse to aim with.
+func _aim_point() -> Dictionary:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return {}
+	var screen := get_viewport().get_visible_rect().size
+	var cursor := get_viewport().get_mouse_position()
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		cursor = screen * 0.5
+	var from := camera.project_ray_origin(cursor)
+	var direction := camera.project_ray_normal(cursor)
+	var query := PhysicsRayQueryParameters3D.create(from, from + direction * AIM_REACH, RAY_MASK)
+	var skip: Array[RID] = []
+	for body in spawner.all_bodies():
+		if is_instance_valid(body):
+			skip.append((body as RigidBody3D).get_rid())
+	var player := get_tree().get_first_node_in_group("player") as CollisionObject3D
+	if player != null:
+		skip.append(player.get_rid())
+	query.exclude = skip
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+	var end: Vector3 = from + direction * AIM_REACH if hit.is_empty() else hit["position"]
+	if terrain != null:
+		var ground := _ground_hit(from, end)
+		if not ground.is_empty():
+			return {"point": ground[0], "hit": true}
+	return {"point": end, "hit": not hit.is_empty()}
+
+
+## Whether a hit-scan gun fires this tick: on its Fire input if linked (or
+## set to), else while the mouse button is held, and only if the aim point
+## is in its range and inside its aiming cone. The mouse only works for the
+## build you sit in, or the one on the pad if it has no seat.
+func _hitscan_wants(uid: int, record: Dictionary, aim: Dictionary, signal_on: bool) -> bool:
+	var props: Dictionary = record.get("props", {})
+	var trigger := str(props.get("trigger", "Left mouse button"))
+	var linked: bool = spawner.link_source(record.get("links", {}), "fire") != 0
+	var firing := signal_on
+	if not linked and trigger != "Fire input only":
+		var mine: bool = int(spawner.occupied_seat) != 0 or (resets_world and not _has_seat())
+		var button := MOUSE_BUTTON_RIGHT if trigger == "Right mouse button" else MOUSE_BUTTON_LEFT
+		firing = mine and Input.is_mouse_button_pressed(button) and get_viewport().gui_get_hovered_control() == null
+		if mine:
+			_crosshair_frame = Engine.get_physics_frames()
+	var out := {"firing": 0.0, "hit_distance": 0.0}
+	var muzzle: Array = _muzzle(uid, record)
+	if aim.is_empty() or muzzle.is_empty() or not bool(aim.get("hit", false)):
+		spawner.set_outputs(uid, out)
+		return false
+	var to_aim: Vector3 = (aim["point"] as Vector3) - (muzzle[0] as Vector3)
+	out["hit_distance"] = to_aim.length()
+	var reach: float = maxf(float(props.get("range", 500.0)), 1.0)
+	var cone := deg_to_rad(clampf(float(props.get("cone", 60.0)), 1.0, 360.0)) * 0.5
+	var can_hit := to_aim.length() <= reach and (muzzle[1] as Vector3).angle_to(to_aim) <= cone
+	out["firing"] = 1.0 if firing and can_hit else 0.0
+	spawner.set_outputs(uid, out)
+	return firing and can_hit
+
+
+func _has_seat() -> bool:
+	for key in spawner.all_records():
+		if str((spawner.all_records()[key] as Dictionary)["type"]) == "seat":
+			return true
+	return false
+
+
+## A hit-scan round: straight from the muzzle to the aim point (the first
+## thing in the way takes it), 4 HP and a small push.
+func _fire_at(uid: int, record: Dictionary, aim: Vector3) -> void:
+	var muzzle: Array = _muzzle(uid, record)
+	if muzzle.is_empty():
+		return
+	var from: Vector3 = muzzle[0]
+	var direction: Vector3 = (aim - from).normalized()
+	var body: RigidBody3D = muzzle[2]
+	var to: Vector3 = aim + direction * 0.5
+	var hit: Dictionary = _cast(from, to)
+	if not hit.is_empty():
+		to = hit["position"]
+		var target := hit["collider"] as RigidBody3D
+		if target != null and not target.freeze:
+			target.sleeping = false
+			target.apply_impulse(direction * BULLET_MASS * BULLET_SPEED, to - target.global_position)
+		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
+		if part != 0:
+			_spark(to, spawner.record_of(part))
+			spawner.damage_part(part, BULLET_DAMAGE)
+		elif hit["collider"] != null:
+			_hit_other(hit["collider"], int(hit["shape"]), BULLET_DAMAGE)
+	if body != null and not body.freeze:
+		body.apply_impulse(-direction * BULLET_MASS * BULLET_SPEED, from - body.global_position)
+	_add_tracer(from, to)
+	Sound.gun("gunshot", from, -2.0, 30.0)
+
+
+const METALS := ["steel", "aluminum", "titanium", "cast_iron", "brass", "copper", "tungsten", "magnesium",
+		"lead", "silver", "gold"]
+
+
+## Sparks and a ping where a round hits metal.
+func _spark(at: Vector3, record: Dictionary) -> void:
+	if not METALS.has(str(record.get("material", ""))):
+		return
+	_add_flash(at, 0.25)
+	Sound.play_at("spark", at, -6.0, 40.0, randf_range(0.9, 1.2))
+
+
+## Sets off a blast at a world point next tick (a fuel tank going up).
+func add_blast(world: Vector3, radius: float) -> void:
+	_pending_blasts.append([world, radius])
+
+
+## Damage to something that is not a part of this build: another build's
+## part (a fleet vehicle), or a building or tower block.
+func _hit_other(collider: Object, shape: int, amount: float) -> void:
+	for node in get_tree().get_nodes_in_group("combat"):
+		if node == self:
+			continue
+		var other: Node = node.spawner
+		if other == null or not bool(other.spawned):
+			continue
+		var part: int = other.part_of_shape(collider, shape)
+		if part != 0:
+			other.damage_part(part, amount)
+			return
+	_damage_structure(collider, shape, amount)
+
+
+func _process(_delta: float) -> void:
+	# One crosshair for every build: on while any hit-scan gun can be aimed.
+	var wanted := Engine.get_physics_frames() - _crosshair_frame < 8
+	if wanted != _crosshair_on:
+		_crosshair_on = wanted
+		if wanted:
+			Input.set_custom_mouse_cursor(_crosshair(), Input.CURSOR_ARROW, Vector2(16, 16))
+		else:
+			Input.set_custom_mouse_cursor(null)
+
+
+static func _crosshair() -> ImageTexture:
+	if _crosshair_texture == null:
+		var image := Image.create(33, 33, false, Image.FORMAT_RGBA8)
+		image.fill(Color(0, 0, 0, 0))
+		for i in 33:
+			for along in [i]:
+				var gap := absi(along - 16) < 4
+				if gap:
+					continue
+				for width in [-1, 0, 1]:
+					var shade := Color(0, 0, 0, 0.8) if width != 0 else Color(1.0, 1.0, 1.0, 1.0)
+					image.set_pixel(along, 16 + width, shade)
+					image.set_pixel(16 + width, along, shade)
+		for x in range(15, 18):
+			for y in range(15, 18):
+				image.set_pixel(x, y, Color(1.0, 0.25, 0.2))
+		_crosshair_texture = ImageTexture.create_from_image(image)
+	return _crosshair_texture
 
 
 ## The gun's muzzle and the way it points, and its body: [muzzle, direction,
@@ -293,6 +475,7 @@ func _fire_bullet(uid: int, record: Dictionary) -> void:
 			target.apply_impulse(direction * BULLET_MASS * BULLET_SPEED, to - target.global_position)
 		var part: int = spawner.part_of_shape(hit["collider"], int(hit["shape"]))
 		if part != 0:
+			_spark(to, spawner.record_of(part))
 			spawner.damage_part(part, BULLET_DAMAGE)
 		else:
 			_damage_structure(hit["collider"], int(hit["shape"]), BULLET_DAMAGE)
@@ -502,6 +685,7 @@ func _set_off_blasts() -> void:
 		var radius: float = blast[1]
 		var peak: float = BLAST_HP_PER_METRE * radius
 		_add_flash(centre, radius * 2.0)
+		Birds.startle_all(get_tree(), centre, maxf(radius * 30.0, 60.0))
 		Sound.play_at("explosion", centre, clampf(linear_to_db(maxf(radius / 2.0, 0.2)), -8.0, 10.0),
 				clampf(radius * 25.0, 40.0, 1500.0), clampf(1.15 - radius * 0.02, 0.6, 1.2))
 		for key in spawner.live_parts():

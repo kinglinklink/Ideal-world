@@ -14,6 +14,7 @@ const MapInfo = preload("res://scripts/map_info.gd")
 const Origin = preload("res://scripts/origin.gd")
 const Aero = preload("res://scripts/aero.gd")
 const Weather = preload("res://scripts/weather.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const GATE_PASSES := 4       # chains of up to this many gates settle in one tick
 const GRAVITY := 9.81
@@ -53,6 +54,12 @@ func setup(the_spawner: Node3D) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var started := Profiler.start()
+	_physics_tick(delta)
+	Profiler.add("logic", started)
+
+
+func _physics_tick(delta: float) -> void:
 	if spawner == null:
 		return
 	if not bool(spawner.spawned):

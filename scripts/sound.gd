@@ -33,9 +33,13 @@ const FILES := {
 	"eruption": "res://sounds/eruption.wav", "wave_crash": "res://sounds/wave_crash.wav",
 	"beep": "res://sounds/beep.wav", "go": "res://sounds/go.wav",
 	"checkpoint": "res://sounds/checkpoint.wav", "cash": "res://sounds/cash.wav",
+	"fire_loop": "res://sounds/fire_loop.wav", "fire_whoosh": "res://sounds/fire_whoosh.wav",
+	"sputter": "res://sounds/sputter.wav", "spark": "res://sounds/spark.wav",
+	"shutter": "res://sounds/shutter.wav", "boat_loop": "res://sounds/boat_loop.wav",
+	"chirp": "res://sounds/chirp.wav",
 }
 const LOOPS := ["motor_loop", "jet_loop", "rocket_loop", "thruster_loop", "prop_loop", "wind_loop", "day_loop",
-		"night_loop", "rain_loop", "tornado_loop", "car_loop", "plane_loop"]
+		"night_loop", "rain_loop", "tornado_loop", "car_loop", "plane_loop", "fire_loop", "boat_loop"]
 const VOICES := 24            # one-shots that can sound at once; the oldest gives way
 const MAX_MACHINES := 32      # machine sounds on one build
 const GUN_GAP := 0.03         # s: shots from guns closer together than this share one sound

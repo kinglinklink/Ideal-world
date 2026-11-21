@@ -25,6 +25,10 @@ const GAP := 6.0    # metres between the character and the near end of a new veh
 var terrain: Node3D = null    # terrain.gd
 var structures: Array = []    # what guns can damage: towns.gd, towers.gd
 var vehicles: Array = []      # {"name", "spawner", "logic", "engines", "combat", "parts", "mass"}
+
+
+func _ready() -> void:
+	add_to_group("fleet")
 var player: Node3D = null     # player.gd: vehicles far from it are parked
 var main_spawner: Node = null # the pad's build, parked the same way
 

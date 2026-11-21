@@ -1,5 +1,6 @@
 extends Node3D
-## The five build-mode tools: Place, Delete, Transform, Config and Paint.
+## The build-mode tools: Place, Delete, Config, Transform, Paint and Scale,
+## plus grabbing a selection (G) and carrying it onto another part.
 
 signal tool_changed(new_tool: int)
 signal part_type_changed(type: String)
@@ -8,6 +9,7 @@ signal selection_changed
 signal snap_changed(units: int)
 signal message(text: String)
 signal spawn_changed(is_spawned: bool)
+signal assemblies_requested
 
 const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
@@ -19,9 +21,11 @@ const Player = preload("res://scripts/player.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
 
 ## NONE means every tool is put away: nothing is aimed, placed or selected.
-enum Tool { NONE = -1, PLACE, DELETE, CONFIG, TRANSFORM, PAINT }
+enum Tool { NONE = -1, PLACE, DELETE, CONFIG, TRANSFORM, PAINT, SCALE }
 
-const TOOL_NAMES := ["Place", "Delete", "Config", "Transform", "Paint"]
+const TOOL_NAMES := ["Place", "Delete", "Config", "Transform", "Paint", "Scale"]
+const HANDLE_COLORS := [Color(0.95, 0.25, 0.2), Color(0.3, 0.9, 0.3), Color(0.3, 0.5, 1.0)]
+const HANDLE_BLOCKED := Color(1.0, 0.15, 0.1)
 const REACH := 400.0         # metres the tools can reach from the camera
 const AIM_EVERY_TICKS := 4   # the aim ray runs at 60 Hz, a quarter of the physics rate
 const PASTE_PREVIEW_LIMIT := 200   # most parts drawn in the paste preview
@@ -86,6 +90,11 @@ var _paste_markers: Array = []
 var _axis_markers: Array = []  # three bars showing the placement ghost's own X, Y and Z
 var _link_lines: MeshInstance3D
 var _link_mesh: ImmediateMesh
+var _handles: Array = []       # Scale tool: six handles, [-X, +X, -Y, +Y, -Z, +Z]
+var _handle_label: Label3D
+var _drag: Dictionary = {}     # Scale tool: the handle being pulled; see _begin_scale_drag
+var _grabbed: Array = []       # G: records lifted to be carried somewhere, to put back if cancelled
+var _grab_listeners: Array = []   # [listener uid, input id, grabbed uid, output id] for links into the grabbed parts
 
 
 func setup(p_grid: Node3D, p_player: CharacterBody3D, p_spawner: Node3D) -> void:
@@ -125,6 +134,29 @@ func _ready() -> void:
 	line_material.vertex_color_use_as_albedo = true
 	line_material.no_depth_test = true
 	_link_lines.material_override = line_material
+
+	# The Scale tool's handles: a cube on each face of the selection.
+	for index in 6:
+		var handle := _new_marker("ScaleHandle%d" % index)
+		var cube := BoxMesh.new()
+		cube.size = Vector3.ONE
+		handle.mesh = cube
+		var handle_look := StandardMaterial3D.new()
+		handle_look.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		handle_look.albedo_color = HANDLE_COLORS[index >> 1]
+		handle_look.no_depth_test = true
+		handle_look.render_priority = 3
+		handle.material_override = handle_look
+		_handles.append(handle)
+	_handle_label = Label3D.new()
+	_handle_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_handle_label.no_depth_test = true
+	_handle_label.render_priority = 4
+	_handle_label.font_size = 40
+	_handle_label.outline_size = 10
+	_handle_label.pixel_size = 0.003
+	_handle_label.visible = false
+	add_child(_handle_label)
 
 
 ## A ball with a name floating over it, drawn on top of everything.
@@ -179,9 +211,12 @@ func toggle_tool(tool_index: int) -> void:
 func set_tool(new_tool: int) -> void:
 	if new_tool < Tool.NONE or new_tool >= TOOL_NAMES.size() or new_tool == current_tool:
 		return
+	if not _grabbed.is_empty():
+		_drop_grab_back()
 	current_tool = new_tool
 	eyedropper = ""
 	paste_armed = false
+	_drag = {}
 	link_input = ""
 	link_source_uid = 0
 	selection = []
@@ -260,6 +295,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
 			get_viewport().gui_release_focus()
 			_use_tool()
+		elif button.button_index == MOUSE_BUTTON_LEFT and not button.pressed and not _drag.is_empty():
+			_end_scale_drag()
+	elif event is InputEventMouseMotion and not _drag.is_empty():
+		_update_scale_drag()
 
 
 func _on_key(key: InputEventKey) -> void:
@@ -312,6 +351,14 @@ func _on_key(key: InputEventKey) -> void:
 		toggle_tool(Tool.TRANSFORM)
 	elif code == KEY_5:
 		toggle_tool(Tool.PAINT)
+	elif code == KEY_6:
+		toggle_tool(Tool.SCALE)
+	elif code == KEY_7:
+		assemblies_requested.emit()
+	elif code == KEY_G:
+		grab_selection()
+	elif code == KEY_ESCAPE and not _grabbed.is_empty():
+		_drop_grab_back()
 	elif code == KEY_R:
 		_on_rotate_key(Vector3(1.0, 0.0, 0.0))
 	elif code == KEY_T:
@@ -341,8 +388,28 @@ func _on_rotate_key(axis: Vector3) -> void:
 		return
 	if current_tool == Tool.PLACE:
 		place_rotation = _quarter_turn(axis) * place_rotation
+	elif current_tool == Tool.TRANSFORM and paste_armed:
+		_rotate_clipboard(axis)
 	elif current_tool == Tool.TRANSFORM:
 		rotate_selection(axis)
+
+
+## Turns the copy waiting to be put down (a paste, a sub-assembly or a grab)
+## a quarter turn about its anchor.
+func _rotate_clipboard(axis: Vector3) -> void:
+	var quarter: Basis = _quarter_turn(axis)
+	_clipboard_low = Vector3(INF, INF, INF)
+	_clipboard_high = Vector3(-INF, -INF, -INF)
+	for item in _clipboard:
+		var record: Dictionary = item
+		var pos: Vector3i = record["pos"]
+		record["pos"] = Vector3i((quarter * Vector3(pos)).round())
+		var turned: Basis = quarter * (record["rot"] as Basis)
+		record["rot"] = Basis(turned.x.round(), turned.y.round(), turned.z.round())
+		var half: Vector3 = BuildGrid.half_extent_units(record)
+		var middle := Vector3(record["pos"] as Vector3i)
+		_clipboard_low = _clipboard_low.min(middle - half)
+		_clipboard_high = _clipboard_high.max(middle + half)
 
 
 ## A rotation matrix with exact 0 / +1 / -1 entries, so quarter turns never drift.
@@ -395,6 +462,10 @@ func _use_tool() -> void:
 		if _hit_uid != 0:
 			grid.remove_part(_hit_uid)
 			_hit_uid = 0
+	elif current_tool == Tool.SCALE:
+		if _begin_scale_drag():
+			return
+		_select_hit()
 	elif current_tool == Tool.TRANSFORM:
 		if paste_armed:
 			paste()
@@ -420,6 +491,274 @@ func _use_tool() -> void:
 		_refresh_markers()
 	elif current_tool == Tool.PAINT:
 		_use_paint()
+
+
+## Click selects, Shift+click adds or removes (Transform and Scale).
+func _select_hit() -> void:
+	if _hit_uid == 0:
+		selection = []
+	elif Input.is_physical_key_pressed(KEY_SHIFT):
+		if selection.has(_hit_uid):
+			selection.erase(_hit_uid)
+		else:
+			selection.append(_hit_uid)
+	else:
+		selection = [_hit_uid]
+	selection_changed.emit()
+	_refresh_markers()
+
+
+# --- Scale tool ------------------------------------------------------------------
+
+## The box round the selection, in the grid's own space (metres).
+func _selection_bounds() -> AABB:
+	var bounds := AABB()
+	var first := true
+	for uid in selection:
+		if not grid.has_part(uid):
+			continue
+		var part_bounds: AABB = BuildGrid.bounds_of(grid.get_part(uid))
+		bounds = part_bounds if first else bounds.merge(part_bounds)
+		first = false
+	return bounds
+
+
+func _handle_size(bounds: AABB) -> float:
+	return clampf(bounds.get_longest_axis_size() * 0.08, 0.06, 0.8)
+
+
+## Where handle `index` sits (grid space): on the middle of its face, just off it.
+func _handle_point(bounds: AABB, index: int) -> Vector3:
+	var axis := index >> 1
+	var outward := 1.0 if index % 2 == 1 else -1.0
+	var point := bounds.get_center()
+	point[axis] = (bounds.end[axis] if outward > 0.0 else bounds.position[axis]) + outward * _handle_size(bounds) * 1.2
+	return point
+
+
+func _update_handles() -> void:
+	var showing := current_tool == Tool.SCALE and not selection.is_empty() and not spawned
+	if not showing:
+		for handle in _handles:
+			(handle as MeshInstance3D).visible = false
+		if _drag.is_empty():
+			_handle_label.visible = false
+		return
+	var bounds: AABB = _drag.get("shown", _selection_bounds())
+	var size := _handle_size(bounds)
+	for index in 6:
+		var handle: MeshInstance3D = _handles[index]
+		var dragging := not _drag.is_empty() and int(_drag["index"]) == index
+		handle.visible = _drag.is_empty() or dragging
+		var scale_by := size * (1.35 if dragging else 1.0)
+		handle.global_transform = grid.global_transform * Transform3D(Basis.from_scale(Vector3.ONE * scale_by), _handle_point(bounds, index))
+		var look: StandardMaterial3D = handle.material_override
+		look.albedo_color = HANDLE_BLOCKED if dragging and str(_drag.get("problem", "")) != "" else HANDLE_COLORS[index >> 1]
+
+
+## Starts pulling a handle if one is under the cursor. True if it did.
+func _begin_scale_drag() -> bool:
+	if selection.is_empty() or player == null:
+		return false
+	var bounds := _selection_bounds()
+	var ray: Array = player.get_pick_ray()
+	var origin: Vector3 = ray[0]
+	var direction: Vector3 = ray[1]
+	var size := _handle_size(bounds)
+	var best := -1
+	var best_along := INF
+	for index in 6:
+		var centre: Vector3 = grid.global_transform * _handle_point(bounds, index)
+		var along := (centre - origin).dot(direction)
+		if along <= 0.0:
+			continue
+		var miss := (origin + direction * along).distance_to(centre)
+		if miss < size * 1.1 and along < best_along:
+			best = index
+			best_along = along
+	if best < 0:
+		return false
+	var records: Dictionary = {}
+	for uid in selection:
+		records[uid] = grid.get_part(uid)
+	_drag = {"index": best, "bounds": bounds, "records": records, "start": _drag_param(best, bounds),
+			"delta": 0, "problem": "", "updates": {}, "shown": bounds}
+	return true
+
+
+## How far along its own axis (metres, grid space) the cursor's ray passes
+## the line through handle `index`.
+func _drag_param(index: int, bounds: AABB) -> float:
+	var axis := index >> 1
+	var line_origin: Vector3 = grid.global_transform * _handle_point(bounds, index)
+	var along := Vector3.ZERO
+	along[axis] = 1.0
+	var line_direction: Vector3 = (grid.global_transform.basis * along).normalized()
+	var ray: Array = player.get_pick_ray()
+	var ray_origin: Vector3 = ray[0]
+	var ray_direction: Vector3 = ray[1]
+	var w := line_origin - ray_origin
+	var b := line_direction.dot(ray_direction)
+	var d := line_direction.dot(w)
+	var e := ray_direction.dot(w)
+	var denominator := 1.0 - b * b
+	if denominator < 0.0001:
+		return 0.0
+	return (b * e - d) / denominator
+
+
+func _update_scale_drag() -> void:
+	var index: int = _drag["index"]
+	var bounds: AABB = _drag["bounds"]
+	var axis := index >> 1
+	var outward := 1 if index % 2 == 1 else -1
+	var moved: float = (_drag_param(index, bounds) - float(_drag["start"])) * outward
+	var step := Units.UNITS_PER_CELL if Input.is_physical_key_pressed(KEY_SHIFT) else 2
+	var delta := int(round(moved / Units.UNIT / step)) * step
+	var both := Input.is_physical_key_pressed(KEY_ALT)
+	var updates := _scaled(delta, axis, outward, both)
+	var problem := ""
+	for uid in updates:
+		problem = grid.check(updates[uid], updates.keys())
+		if problem != "":
+			break
+	_drag["delta"] = delta
+	_drag["updates"] = updates
+	_drag["problem"] = problem
+	var shown := AABB()
+	var first := true
+	for uid in updates:
+		var box: AABB = BuildGrid.bounds_of(updates[uid])
+		shown = box if first else shown.merge(box)
+		first = false
+	_drag["shown"] = shown
+	# The selection's highlight takes the new shape as it is pulled.
+	for i in selection.size():
+		if i < _selection_markers.size() and updates.has(selection[i]):
+			_fit_marker(_selection_markers[i], updates[selection[i]], PREVIEW_BLOCKED if problem != "" else SELECTED, 1.02)
+	var total_mass := 0.0
+	for uid in updates:
+		total_mass += BuildGrid.mass_of(updates[uid])
+	var length := shown.size[axis]
+	_handle_label.text = "%s %.3f m (%s blocks)\n%s%s" % [["X", "Y", "Z"][axis], length,
+			str(snappedf(length / Units.CELL, 0.01)), _kilograms(total_mass),
+			("\n" + problem) if problem != "" else ""]
+	_handle_label.modulate = Color(1.0, 0.5, 0.45) if problem != "" else Color(1, 1, 1)
+	_handle_label.global_position = grid.global_transform * (_handle_point(shown, index) + Vector3.UP * _handle_size(shown) * 2.0)
+	_handle_label.visible = true
+	_update_handles()
+
+
+static func _kilograms(mass: float) -> String:
+	return "%.1f t" % (mass / 1000.0) if mass >= 1000.0 else "%.2f kg" % mass
+
+
+## The selection stretched by `delta` units along grid axis `axis`, pulled
+## from its `outward` face (the opposite face stays put), or from both faces
+## about its middle with `both`. Parts keep their places in proportion.
+func _scaled(delta: int, axis: int, outward: int, both: bool) -> Dictionary:
+	var bounds: AABB = _drag["bounds"]
+	var records: Dictionary = _drag["records"]
+	var length_units := bounds.size[axis] / Units.UNIT
+	var grow := float(delta) * (2.0 if both else 1.0)
+	var new_length := maxf(length_units + grow, 1.0)
+	var factor := new_length / maxf(length_units, 0.001)
+	var fixed: float
+	if both:
+		fixed = bounds.get_center()[axis] / Units.UNIT
+	else:
+		fixed = (bounds.position[axis] if outward > 0 else bounds.end[axis]) / Units.UNIT
+	var updates: Dictionary = {}
+	for key in records:
+		var record: Dictionary = (records[key] as Dictionary).duplicate(true)
+		var rot: Basis = record["rot"]
+		var own := 0
+		for k in 3:
+			if absf(rot[k][axis]) > 0.5:
+				own = k
+		var size: Vector3i = record["size"]
+		var new_size := clampi(int(round(float(size[own]) * factor)), 1, BuildGrid.MAX_SIZE_UNITS)
+		if records.size() == 1:
+			new_size = clampi(size[own] + int(grow), 1, BuildGrid.MAX_SIZE_UNITS)
+		size[own] = new_size
+		record["size"] = size
+		var pos: Vector3i = record["pos"]
+		var half_before := BuildGrid.half_extent_units(records[key])
+		var half_after := BuildGrid.half_extent_units(record)
+		if records.size() == 1 and not both:
+			# Keep the far face exactly where it was.
+			var face := float(pos[axis]) - float(outward) * half_before[axis]
+			pos[axis] = int(round(face + float(outward) * half_after[axis]))
+		else:
+			pos[axis] = int(round(fixed + (float(pos[axis]) - fixed) * factor))
+		record["pos"] = pos
+		updates[key] = record
+	return updates
+
+
+func _end_scale_drag() -> void:
+	var updates: Dictionary = _drag.get("updates", {})
+	var problem: String = _drag.get("problem", "")
+	_drag = {}
+	_handle_label.visible = false
+	if not updates.is_empty() and problem == "":
+		_apply(updates)
+	elif problem != "":
+		_say(problem)
+	_refresh_markers()
+
+
+# --- Grab --------------------------------------------------------------------------
+
+## G in the Transform tool: picks the selection up and carries it with the
+## cursor; a click puts it down on whatever it touches, joined there, with
+## the Transform tool still holding it to nudge into place. Esc or G again
+## puts it back where it was.
+func grab_selection() -> void:
+	if not _grabbed.is_empty():
+		_drop_grab_back()
+		return
+	if current_tool != Tool.TRANSFORM and current_tool != Tool.SCALE:
+		_say("Select parts with the Transform tool (4), then press G to grab them.")
+		return
+	if selection.is_empty():
+		_say("Select what to grab first.")
+		return
+	var chosen: Array = selection.duplicate()
+	var lifted: Array = []
+	for uid in chosen:
+		lifted.append(grid.get_part(uid))
+	if current_tool != Tool.TRANSFORM:
+		set_tool(Tool.TRANSFORM)
+	selection = chosen
+	_grab_listeners = []
+	for other in grid.all_uids():
+		if chosen.has(other):
+			continue
+		var other_links: Dictionary = (grid.get_part(other) as Dictionary).get("links", {})
+		for input_id in other_links:
+			var link: Dictionary = other_links[input_id]
+			if chosen.has(int(link.get("uid", 0))):
+				_grab_listeners.append([other, str(input_id), int(link["uid"]), str(link.get("output", ""))])
+	copy_selection()
+	_grabbed = lifted
+	delete_selection()
+	paste_armed = true
+	selection_changed.emit()
+	_say("Carrying %d part(s): click where they go. Esc or G puts them back." % lifted.size())
+
+
+func _drop_grab_back() -> void:
+	var lifted: Array = _grabbed
+	_grabbed = []
+	paste_armed = false
+	if lifted.is_empty():
+		return
+	_grab_listeners = []
+	grid.undo()   # the lift was one step: undoing it puts every part back as it was, links and all
+	selection_changed.emit()
+	_refresh_markers()
+	_say("Put back.")
 
 
 func _use_place() -> void:
@@ -661,8 +1000,20 @@ func _paste_at(base: Vector3i) -> bool:
 			elif not grid.has_part(source):
 				links.erase(input_id)
 		grid.set_links(uid, links)
+	# Parts left behind that listened to grabbed parts listen to them again
+	# where they have been put down.
+	for item in _grab_listeners:
+		var entry: Array = item
+		var listener: int = entry[0]
+		if not grid.has_part(listener) or not new_uid_of.has(int(entry[2])):
+			continue
+		var listener_links: Dictionary = (grid.get_part(listener) as Dictionary).get("links", {})
+		listener_links[entry[1]] = {"uid": new_uid_of[int(entry[2])], "output": entry[3]}
+		grid.set_links(listener, listener_links)
+	_grab_listeners = []
 	grid.end_batch()
 	paste_armed = false
+	_grabbed = []
 	selection = pasted
 	selection_changed.emit()
 	_refresh_markers()
@@ -1178,6 +1529,7 @@ func _physics_process(_delta: float) -> void:
 	_update_target()
 	_update_cursor_markers()
 	_update_paste_preview()
+	_update_handles()
 
 
 ## Casts the aim ray and works out which part and which cell it points at.

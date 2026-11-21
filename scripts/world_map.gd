@@ -4,7 +4,9 @@ extends Control
 ## Scroll to zoom in and out about the mouse, drag to move the map, click to
 ## set a waypoint (shown on the mini map, with its distance and bearing on
 ## screen), right-click to clear it. It shows the whole lake and the land
-## round it: towns, islands, airports, wizard towers and where you are.
+## round it: towns, islands, airports, wizard towers and where you are,
+## and markers for races, cargo agents, photo jobs, fuel stations and docks:
+## click one for what it is, with a button to set it as the waypoint.
 
 const Origin = preload("res://scripts/origin.gd")
 
@@ -19,6 +21,17 @@ const MAX_SCALE := 120.0    # zoomed right out
 
 var minimap: Control = null   # minimap.gd: the picture and the names
 var player: Node3D = null     # player.gd
+var missions: Node = null     # missions.gd: the markers
+
+const MARKER_COLORS := {"race": Color(1.0, 0.85, 0.2), "cargo": Color(0.85, 0.6, 0.35), "photo": Color(0.45, 0.9, 1.0),
+		"fuel": Color(0.35, 1.0, 0.45), "dock": Color(0.4, 0.6, 1.0), "boat": Color(0.3, 0.85, 1.0)}
+const MARKER_LETTERS := {"race": "R", "cargo": "C", "photo": "P", "fuel": "F", "dock": "D", "boat": "B"}
+var _markers: Array = []      # as missions.gd gives them, refreshed while open
+var _marker_check := 0.0
+var _card: PanelContainer = null
+var _card_title: Label = null
+var _card_info: Label = null
+var _card_at := Vector2.ZERO
 
 var _centre := Vector2.ZERO   # the map position in the middle of the screen
 var _scale := 40.0            # metres per pixel
@@ -31,6 +44,39 @@ func _ready() -> void:
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_card = PanelContainer.new()
+	_card.visible = false
+	_card.custom_minimum_size = Vector2(360, 0)
+	add_child(_card)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 10)
+	_card.add_child(margin)
+	var column := VBoxContainer.new()
+	margin.add_child(column)
+	_card_title = Label.new()
+	_card_title.add_theme_font_size_override("font_size", 17)
+	column.add_child(_card_title)
+	_card_info = Label.new()
+	_card_info.add_theme_font_size_override("font_size", 13)
+	_card_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_card_info.custom_minimum_size = Vector2(340, 0)
+	column.add_child(_card_info)
+	var buttons := HBoxContainer.new()
+	column.add_child(buttons)
+	var mark := Button.new()
+	mark.text = "Set waypoint"
+	mark.focus_mode = Control.FOCUS_NONE
+	mark.pressed.connect(func() -> void:
+		minimap.waypoint = _card_at
+		minimap.has_waypoint = true
+		_card.visible = false)
+	buttons.add_child(mark)
+	var close := Button.new()
+	close.text = "Close"
+	close.focus_mode = Control.FOCUS_NONE
+	close.pressed.connect(func() -> void: _card.visible = false)
+	buttons.add_child(close)
 
 
 ## Opens the map centred on the player, zoomed to show the whole lake, or closes it.
@@ -49,10 +95,18 @@ func toggle() -> void:
 	if player != null:
 		var at := Origin.to_map(player.global_position)
 		_centre = Vector2(at.x, at.z)
+	_card.visible = false
+	_marker_check = 0.0
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if visible:
+		_marker_check -= delta
+		if _marker_check <= 0.0 and missions != null:
+			_marker_check = 1.0
+			_markers = missions.markers()
+		if _card.visible:
+			_card.position = (_to_screen(_card_at) + Vector2(14, -20)).clamp(Vector2.ZERO, size - _card.size)
 		queue_redraw()
 
 
@@ -80,8 +134,17 @@ func _gui_input(event: InputEvent) -> void:
 			else:
 				_dragging = false
 				if _dragged < 6.0:
-					minimap.waypoint = _to_map(button.position)
-					minimap.has_waypoint = true
+					var marker := _marker_at(button.position)
+					if not marker.is_empty():
+						_card_at = marker["at"]
+						_card_title.text = str(marker["name"]) + ("   ✓ done" if bool(marker.get("done", false)) else "")
+						_card_info.text = str(marker.get("info", ""))
+						_card.visible = true
+						_card.reset_size()
+					else:
+						_card.visible = false
+						minimap.waypoint = _to_map(button.position)
+						minimap.has_waypoint = true
 		elif button.button_index == MOUSE_BUTTON_RIGHT and button.pressed:
 			minimap.has_waypoint = false
 		accept_event()
@@ -91,6 +154,19 @@ func _gui_input(event: InputEvent) -> void:
 		_centre -= motion.relative * _scale
 		_dragged += motion.relative.length()
 		accept_event()
+
+
+## The marker under a screen point, or empty.
+func _marker_at(screen_point: Vector2) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance := 12.0
+	for item in _markers:
+		var marker: Dictionary = item
+		var distance := _to_screen(marker["at"]).distance_to(screen_point)
+		if distance < best_distance:
+			best_distance = distance
+			best = marker
+	return best
 
 
 func _draw() -> void:
@@ -135,6 +211,26 @@ func _draw() -> void:
 			draw_string(font, spot + Vector2(7.0, 4.0), str(place[1]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12,
 					Color(0.9, 0.8, 1.0, 0.95) if tower else Color(1.0, 0.92, 0.6, 0.95))
 
+	# Races, cargo agents, photo jobs, fuel stations, docks.
+	for item in _markers:
+		var marker: Dictionary = item
+		var spot := _to_screen(marker["at"])
+		if spot.x < -20.0 or spot.y < -20.0 or spot.x > size.x + 20.0 or spot.y > size.y + 20.0:
+			continue
+		var kind := str(marker["kind"])
+		var color: Color = MARKER_COLORS.get(kind, Color(1, 1, 1))
+		if bool(marker.get("done", false)):
+			color = color.darkened(0.45)
+		draw_circle(spot, 9.0, Color(0.05, 0.06, 0.08, 0.9))
+		draw_circle(spot, 7.5, color)
+		draw_string(font, spot + Vector2(-4.0, 5.0), str(MARKER_LETTERS.get(kind, "?")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13,
+				Color(0.05, 0.05, 0.07))
+		if bool(marker.get("done", false)):
+			draw_string(font, spot + Vector2(6.0, -6.0), "✓", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14, Color(1.0, 0.85, 0.3))
+		if _scale < 15.0:
+			draw_string(font, spot + Vector2(11.0, 4.0), str(marker["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12,
+					Color(color, 0.95))
+
 	# Fleet vehicles.
 	for item in minimap.vehicle_spots():
 		var vehicle: Array = item
@@ -172,6 +268,6 @@ func _draw() -> void:
 	draw_line(corner, corner + Vector2(bar, 0.0), Color(1, 1, 1, 0.9), 3.0)
 	draw_string(font, corner + Vector2(0.0, -8.0), "%d km" % int(bar_metres / 1000.0), HORIZONTAL_ALIGNMENT_LEFT,
 			-1.0, 14, Color(1, 1, 1, 0.9))
-	draw_string(font, Vector2(24.0, 34.0), "MAP    M to close    scroll to zoom    drag to move    click: set waypoint    right-click: clear it",
+	draw_string(font, Vector2(24.0, 34.0), "MAP    M to close    scroll to zoom    drag to move    click a marker for what it is, or anywhere to set a waypoint    right-click: clear it",
 			HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(1, 1, 1, 0.85))
 	draw_string(font, Vector2(size.x * 0.5 - 5.0, 60.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20, Color(1, 1, 1, 0.9))

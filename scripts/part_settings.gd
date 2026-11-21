@@ -158,19 +158,28 @@ static func _build_table() -> void:
 	]
 
 	# --- Logic ---
+	var shown := _flag("visible_after_spawn", "Visible after spawn (weighs and collides, for checking)", false)
 	_table["input_block"] = [
 		_text("key", "Key", "W"),
 		_choice("mode", "Mode", ["Hold", "Toggle"]),
 		_choice("output", "Output", ["Boolean", "Number from two keys"]),
 		_text("second_key", "Second key", "S"),
+		shown,
+	]
+	_table["mouse_click"] = [
+		_choice("button", "Mouse button", ["Left", "Right", "Middle"]),
+		_choice("mode", "Mode", ["Hold", "Toggle", "Pulse"]),
+		shown,
 	]
 	_table["boolean_gate"] = [
 		_choice("operation", "Gate", ["AND", "OR", "NOT", "XOR", "NAND", "NOR", "Latch", "Timer"]),
 		_number("seconds", "Timer length", "s", 1.0, 0.0, 100000.0, 0.01),
+		shown,
 	]
 	_table["pwm_generator"] = [
 		_number("frequency", "Frequency", "Hz", 2.0, 0.01, 120.0, 0.01),
 		_number("duty", "Duty cycle", "%", 50.0, 0.0, 100.0, 0.1),
+		shown,
 	]
 	_table["number_gate"] = [
 		_choice("operation", "Operation", [
@@ -178,6 +187,7 @@ static func _build_table() -> void:
 			"Min", "Max", "Clamp", "Compare", "Select", "Map range", "Modulo", "Between",
 		]),
 		_number("value", "Constant", "", 0.0, -1000000000.0, 1000000000.0, 0.001),
+		shown,
 	]
 	_table["pid_controller"] = [
 		_number("kp", "Kp", "", 1.0, -1000000.0, 1000000.0, 0.001),
@@ -185,6 +195,7 @@ static func _build_table() -> void:
 		_number("kd", "Kd", "", 0.0, -1000000.0, 1000000.0, 0.001),
 		_number("output_min", "Lowest output", "", -1.0, -1000000000.0, 1000000000.0, 0.001),
 		_number("output_max", "Highest output", "", 1.0, -1000000000.0, 1000000000.0, 0.001),
+		shown,
 	]
 	_table["distance_sensor"] = [_number("range", "Range", "m", 100.0, 0.0, 100000.0, 0.1)]
 	_table["graph_display"] = [
@@ -213,6 +224,13 @@ static func _build_table() -> void:
 		_number("fire_rate", "Fire rate", "rounds/s", 10.0, 0.0, 1000.0, 0.1),
 		_number("range", "Range", "m", 500.0, 1.0, 10000.0, 1.0),
 		_flag("unlimited_ammo", "Unlimited ammo", true),
+	]
+	_table["hitscan_gun"] = [
+		_number("fire_rate", "Fire rate", "rounds/s", 10.0, 0.0, 1000.0, 0.1),
+		_number("range", "Range", "m", 500.0, 1.0, 10000.0, 1.0),
+		_flag("unlimited_ammo", "Unlimited ammo", true),
+		_number("cone", "Aiming cone (full angle)", "°", 60.0, 1.0, 360.0, 1.0),
+		_choice("trigger", "Fires on", ["Left mouse button", "Right mouse button", "Fire input only"]),
 	]
 	var material_names: Array = []
 	for material_id in MaterialLibrary.ids():

@@ -14,12 +14,13 @@ const Minimap = preload("res://scripts/minimap.gd")
 const WorldMap = preload("res://scripts/world_map.gd")
 const Sound = preload("res://scripts/sound.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
+const AssemblyMenu = preload("res://scripts/assembly_menu.gd")
 
 const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 26"
+const VERSION := "Build 27"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -34,6 +35,9 @@ const TAB_LABELS := {
 signal garage_button_pressed
 signal weather_pressed
 signal respawn_pressed
+signal birds_pressed
+signal photos_pressed
+signal test_stand_pressed
 
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
@@ -103,9 +107,6 @@ var _build_bar: Control              # search and rotation, beside the Spawn but
 var _build_only: Array = []          # controls that are hidden while the build is spawned
 var _seat_label: Label
 var _modules_panel: PanelContainer
-var _modules_list: ItemList
-var _module_name: LineEdit
-var _modules_status: Label
 
 
 func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
@@ -120,6 +121,7 @@ func setup(p_controller: Node, p_grid: Node, p_player: CharacterBody3D) -> void:
 	controller.connect("selection_changed", _on_changed)
 	controller.connect("message", _on_message)
 	controller.connect("spawn_changed", _on_changed_with_value)
+	controller.connect("assemblies_requested", toggle_assemblies)
 	grid.connect("parts_changed", _on_changed)
 	grid.connect("parts_changed", _on_parts_sound)
 	controller.connect("spawn_changed", _on_spawn_sound)
@@ -164,6 +166,16 @@ func _on_jump_time(fraction: float) -> void:
 		_settings_panel.values["sky"] = "cycle"   # a jump starts the clock again
 		_settings_panel.call("_commit")
 	daylight.set_time(fraction)
+
+
+## The mini map (minimap.gd), for things that set its waypoint.
+func minimap() -> Control:
+	return _minimap
+
+
+## The full map (world_map.gd).
+func world_map() -> Control:
+	return _world_map
 
 
 func set_fleet(the_fleet: Node) -> void:
@@ -321,8 +333,8 @@ func _build_interface() -> void:
 	var help := _outlined(_label(
 			"WASD walk or swim   Shift run   Space jump (swim up)   E sit, or talk   Scroll zoom\n"
 			+ "Hold right mouse to look   Esc free cursor (first person)   P back to the hangar   M map\n"
-			+ "Spawned: 0 replay the last 30 s   9 stress view   F2 give up a race or cargo run\n"
-			+ "1 Place   2 Delete   3 Config   4 Transform   5 Paint (press again to put away)   Left click use tool\n"
+			+ "Spawned: 0 replay the last 30 s   9 stress view   F2 give up a race   C camera   B birds   J missions\n"
+			+ "1 Place  2 Delete  3 Config  4 Transform  5 Paint  6 Scale  7 Sub-assemblies  G grab (press again to put away)\n"
 			+ "R / T / Y turn a part   Enter or the Spawn button (bottom left) sets the build loose", 14))
 	help.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	help.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -361,6 +373,20 @@ func _build_interface() -> void:
 	weather_button.tooltip_text = "The weather, the season, the wind, and disasters to set off"
 	weather_button.pressed.connect(func() -> void: weather_pressed.emit())
 	top_buttons.add_child(weather_button)
+	var missions_button := _button("Missions (J)", 120.0)
+	missions_button.tooltip_text = "Races to win, cargo runs, photo jobs and birds still to photograph"
+	missions_button.pressed.connect(func() -> void:
+		for node in get_tree().get_nodes_in_group("missions"):
+			node.toggle())
+	top_buttons.add_child(missions_button)
+	var birds_button := _button("Birds (B)", 100.0)
+	birds_button.tooltip_text = "The bird guide: every bird you have spotted and photographed"
+	birds_button.pressed.connect(func() -> void: birds_pressed.emit())
+	top_buttons.add_child(birds_button)
+	var photos_button := _button("Photos", 84.0)
+	photos_button.tooltip_text = "Your photos (C takes one)"
+	photos_button.pressed.connect(func() -> void: photos_pressed.emit())
+	top_buttons.add_child(photos_button)
 	var guide := _button("Guide (F1)", 110.0)
 	guide.tooltip_text = "What every part does, its settings, inputs and outputs"
 	guide.pressed.connect(func() -> void:
@@ -436,6 +462,7 @@ func _build_interface() -> void:
 		_build_config_panel(),
 		_build_transform_panel(),
 		_build_paint_panel(),
+		_build_scale_panel(),
 	]
 	for panel in _panels:
 		if panel != null:
@@ -477,12 +504,9 @@ func _build_interface() -> void:
 	file_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	readouts.add_child(file_row)
 	_build_only.append(file_row)
-	var modules_button := _button("Modules", 110.0)
-	modules_button.tooltip_text = "Save a selection (a wing, an engine pod) and put it into any build"
-	modules_button.pressed.connect(func() -> void:
-		_modules_panel.visible = not _modules_panel.visible
-		if _modules_panel.visible:
-			_refresh_modules("Select parts with the Transform tool, name the module and save it."))
+	var modules_button := _button("Sub-assemblies (7)", 170.0)
+	modules_button.tooltip_text = "Save a selection (a wing, an engine pod) and drag it into any build"
+	modules_button.pressed.connect(toggle_assemblies)
 	file_row.add_child(modules_button)
 	var saves_button := _button("Saves", 110.0)
 	saves_button.pressed.connect(_on_saves_button)
@@ -514,8 +538,10 @@ func _build_interface() -> void:
 	_fleet_panel = _build_fleet_panel()
 	root.add_child(_fleet_panel)
 
-	# Modules window, screen centre, from the Modules button.
-	_modules_panel = _build_modules_panel()
+	# Sub-assemblies window, screen centre, from its button or key 7.
+	_modules_panel = AssemblyMenu.new()
+	_modules_panel.controller = controller
+	_modules_panel.player = player
 	root.add_child(_modules_panel)
 
 
@@ -589,6 +615,15 @@ func _build_bottom_bar() -> Control:
 	_build_bar = _row()
 	_build_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(_build_bar)
+
+	var stand_button := _button("Test stand", 100.0)
+	stand_button.custom_minimum_size = Vector2(100, 56)
+	stand_button.tooltip_text = "Spawn the build on the test stand beside the pad, held fixed, for the dyno and the wind tunnel"
+	_tint_button(stand_button, Color(0.95, 0.75, 0.25))
+	stand_button.pressed.connect(func() -> void:
+		_part_search.release_focus()
+		test_stand_pressed.emit())
+	_build_bar.add_child(stand_button)
 
 	var search_box := _column()
 	search_box.add_theme_constant_override("separation", 2)
@@ -778,6 +813,21 @@ func _build_transform_panel() -> Control:
 			+ "the copy rests on the surface\n"
 			+ "Ctrl+Shift+V pastes in place\n"
 			+ "Ctrl+Z undo, Ctrl+Y redo", 13))
+	return panel
+
+
+func _build_scale_panel() -> Control:
+	var panel := _column()
+	panel.add_child(_label("Scale"))
+	panel.add_child(_label(
+			"Click a part to select it, Shift+click\n"
+			+ "to add more. Pull a coloured handle\n"
+			+ "to stretch or shrink the selection\n"
+			+ "along that axis; the far side stays put.\n"
+			+ "Shift: whole blocks   Alt: both sides\n"
+			+ "A group keeps its parts in proportion.\n"
+			+ "Exact sizes: type them in Config (3).\n"
+			+ "Ctrl+Z undoes.", 13))
 	return panel
 
 
@@ -1195,86 +1245,12 @@ func _build_saves_panel() -> PanelContainer:
 	return panel
 
 
-func _build_modules_panel() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	panel.visible = false
-	var margin := MarginContainer.new()
-	for margin_name in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
-		margin.add_theme_constant_override(margin_name, 12)
-	panel.add_child(margin)
-	var box := _column()
-	margin.add_child(box)
-	box.add_child(_label("Modules", 18))
-	var about := _label("A module is part of a build saved on its own: a wing, an engine pod, a landing gear.\n"
-			+ "Place one and it is put in like a paste: click where it goes with the Transform tool.", 13)
-	box.add_child(about)
-	_modules_list = ItemList.new()
-	_modules_list.custom_minimum_size = Vector2(440, 220)
-	_modules_list.focus_mode = Control.FOCUS_NONE
-	_modules_list.item_selected.connect(func(index: int) -> void: _module_name.text = _modules_list.get_item_text(index))
-	_modules_list.item_activated.connect(func(_index: int) -> void: _place_module())
-	box.add_child(_modules_list)
-	var name_row := _row()
-	name_row.add_child(_label("Name"))
-	_module_name = LineEdit.new()
-	_module_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_module_name.placeholder_text = "Type a name for the module"
-	name_row.add_child(_module_name)
-	box.add_child(name_row)
-	var actions := _row()
-	box.add_child(actions)
-	var save_button := _button("Save selection", 140.0)
-	save_button.pressed.connect(func() -> void:
-		var module_name := SaveManager.clean_name(_module_name.text)
-		if module_name == "":
-			_refresh_modules("Type a name first.")
-			return
-		var problem: String = controller.save_selection_as_module(module_name)
-		_refresh_modules(problem if problem != "" else "Saved \"%s\"." % module_name))
-	actions.add_child(save_button)
-	var place_button := _button("Place", 104.0)
-	place_button.pressed.connect(_place_module)
-	actions.add_child(place_button)
-	var delete_button := _button("Delete", 104.0)
-	delete_button.pressed.connect(func() -> void:
-		var module_name := SaveManager.clean_name(_module_name.text)
-		if module_name != "" and _confirmed("delete module " + module_name):
-			SaveManager.delete_module(module_name)
-			_refresh_modules("Deleted \"%s\"." % module_name)
-		elif module_name != "":
-			_modules_status.text = "Click Delete again to delete \"%s\"." % module_name)
-	actions.add_child(delete_button)
-	var close_button := _button("Close", 104.0)
-	close_button.pressed.connect(func() -> void: panel.visible = false)
-	actions.add_child(close_button)
-	_modules_status = _label("", 13)
-	_modules_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(_modules_status)
-	return panel
-
-
-func _refresh_modules(status: String) -> void:
-	_modules_list.clear()
-	for module_name in SaveManager.list_modules():
-		_modules_list.add_item(str(module_name))
-	_modules_status.text = status
-
-
-func _place_module() -> void:
-	var module_name := SaveManager.clean_name(_module_name.text)
-	if module_name == "":
-		_refresh_modules("Pick a module first.")
-		return
-	var problem: String = controller.place_module(module_name)
-	if problem != "":
-		_modules_status.text = problem
-	else:
-		_modules_panel.visible = false
-
-
 ## Re-reads the saves folder and shows a status line under the list.
+func toggle_assemblies() -> void:
+	if not bool(controller.spawned):
+		_modules_panel.toggle()
+
+
 func _refresh_saves(status: String) -> void:
 	_pending_action = ""
 	_saves_list.clear()
