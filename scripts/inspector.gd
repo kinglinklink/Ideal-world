@@ -184,8 +184,8 @@ func _draw_links(notes: Dictionary) -> void:
 				_line(tip, tip - back + side, colour)
 				_line(tip, tip - back - side, colour)
 			var port := PartPorts.find_port(PartPorts.inputs_of(str(record["type"])), str(input_id))
-			var name: String = str(port[1]) if not port.is_empty() else str(input_id)
-			_note(notes, uid, "%s ← %s" % [name, _number(value)], colour if value != 0.0 else Color.WHITE)
+			var port_name: String = str(port[1]) if not port.is_empty() else str(input_id)
+			_note(notes, uid, "%s ← %s" % [port_name, _number(value)], colour if value != 0.0 else Color.WHITE)
 			_note_outputs(notes, source)
 
 

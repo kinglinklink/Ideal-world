@@ -100,10 +100,10 @@ func _process(delta: float) -> void:
 func lines_from(totals: Dictionary, frames: int, physics_ms: float, render_ms: float) -> Dictionary:
 	var per_frame: Dictionary = {}
 	var ours_in_physics := 0.0
-	for name in totals:
-		var ms := float(totals[name]) / 1000.0 / maxf(frames, 1)
-		per_frame[name] = ms
-		if IN_PHYSICS.has(name):
+	for subsystem in totals:
+		var ms := float(totals[subsystem]) / 1000.0 / maxf(frames, 1)
+		per_frame[subsystem] = ms
+		if IN_PHYSICS.has(subsystem):
 			ours_in_physics += ms
 	per_frame["Jolt physics"] = maxf(physics_ms - ours_in_physics, 0.0)
 	per_frame["drawing"] = render_ms
@@ -115,21 +115,21 @@ func _show(totals: Dictionary) -> void:
 	var per_frame := lines_from(totals, frames, _physics_seconds * 1000.0 / frames, _render_ms / frames)
 	var heaviest := ""
 	var most := -1.0
-	for name in ORDER:
-		if float(per_frame.get(name, 0.0)) > most:
-			most = float(per_frame.get(name, 0.0))
-			heaviest = name
+	for subsystem in ORDER:
+		if float(per_frame.get(subsystem, 0.0)) > most:
+			most = float(per_frame.get(subsystem, 0.0))
+			heaviest = subsystem
 	var fps := Engine.get_frames_per_second()
 	var lines: Array = ["[b]Performance[/b]  (F3)   %d fps, %.1f ms a frame" % [fps, 1000.0 / maxf(fps, 1.0)]]
 	var table := "[table=2]"
-	for name in ORDER:
-		var ms := float(per_frame.get(name, 0.0))
+	for subsystem in ORDER:
+		var ms := float(per_frame.get(subsystem, 0.0))
 		var colour := "#ffffff"
-		if name == heaviest and ms > 0.05:
+		if subsystem == heaviest and ms > 0.05:
 			colour = "#ffb347"
 		elif ms < 0.01:
 			colour = "#888888"
-		table += "[cell][color=%s]%s[/color][/cell][cell][right][color=%s]%.2f ms[/color][/right][/cell]" % [colour, name, colour, ms]
+		table += "[cell][color=%s]%s[/color][/cell][cell][right][color=%s]%.2f ms[/color][/right][/cell]" % [colour, subsystem, colour, ms]
 	if _gpu_ms > 0.0:
 		table += "[cell][color=#aaaaaa](GPU drawing)[/color][/cell][cell][right][color=#aaaaaa]%.2f ms[/color][/right][/cell]" % (_gpu_ms / frames)
 	lines.append(table + "[/table]")
