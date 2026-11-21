@@ -29,6 +29,7 @@ const Player = preload("res://scripts/player.gd")
 const Tornado = preload("res://scripts/tornado.gd")
 const Terrain = preload("res://scripts/terrain.gd")
 const Birds = preload("res://scripts/birds.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const FIRST_RANDOM := 600.0          # seconds into a game before the first random disaster
 const RANDOM_GAP := Vector2(1200.0, 2400.0)
@@ -229,6 +230,12 @@ func _quake(map_point: Vector3, strength: float, seconds: float) -> void:
 # --- Running them -----------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	var started := Profiler.start()
+	_tick(delta)
+	Profiler.add("weather and disasters", started)
+
+
+func _tick(delta: float) -> void:
 	_clock += delta
 	if random_events and _clock > _next_random:
 		_next_random = _clock + _random.randf_range(RANDOM_GAP.x, RANDOM_GAP.y)

@@ -87,6 +87,9 @@ const Ice = preload("res://scripts/ice.gd")
 const Flowers = preload("res://scripts/flowers.gd")
 const DamageFx = preload("res://scripts/damage_fx.gd")
 const FailureLog = preload("res://scripts/failure_log.gd")
+const Inspector = preload("res://scripts/inspector.gd")
+const PerfOverlay = preload("res://scripts/perf_overlay.gd")
+const TestStand = preload("res://scripts/test_stand.gd")
 const FALLEN_OUT_Y := -600.0         # map y below which the character has fallen out of the world
 
 
@@ -113,6 +116,8 @@ func _ready() -> void:
 	var pad_size: Vector3 = grid.size_metres()
 	var map_features: Array = _make_garage(pad_size)
 	map_features.append([Rect2(0.0, 0.0, pad_size.x, pad_size.z), Color(0.20, 0.26, 0.36), "Build pad"])
+	map_features.append([Rect2(pad_size.x + 8.0, pad_size.z * 0.5 - TestStand.SIZE * 0.5, TestStand.SIZE, TestStand.SIZE),
+			Color(0.5, 0.48, 0.4), "Test stand"])
 
 	var player: CharacterBody3D = Player.new()
 	player.name = "Player"
@@ -347,6 +352,31 @@ func _ready() -> void:
 	add_child(failures)
 	camera_tool.screens.append(failures)
 	_replay.screens.append(failures)
+
+	# The Inspector (8), the performance overlay (F3) and the test stand.
+	var inspector: Node = Inspector.new()
+	inspector.name = "Inspector"
+	inspector.spawner = spawner
+	inspector.engines = engines
+	inspector.game_hud = game_hud
+	add_child(inspector)
+	var overlay: CanvasLayer = PerfOverlay.new()
+	overlay.name = "PerfOverlay"
+	overlay.spawner = spawner
+	overlay.engines = engines
+	add_child(overlay)
+	camera_tool.screens.append(overlay)
+	var stand: Node3D = TestStand.new()
+	stand.name = "TestStand"
+	stand.spawner = spawner
+	stand.controller = controller
+	stand.grid = grid
+	stand.terrain = terrain
+	stand.game_hud = game_hud
+	stand.player = player
+	add_child(stand)
+	stand.setup(pad_size)
+	hud.test_stand_pressed.connect(func() -> void: stand.open_stand())
 
 	# The mission board, and the markers on the full map.
 	var missions: Node = Missions.new()

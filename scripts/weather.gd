@@ -23,6 +23,7 @@ extends Node
 const Origin = preload("res://scripts/origin.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Sound = preload("res://scripts/sound.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const YEAR_DAYS := 10.0
 const KINDS := ["clear", "cloudy", "rain", "storm", "snow", "fog", "hurricane"]
@@ -44,6 +45,12 @@ const EASE_TIME := 45.0           # seconds for the weather to most of the way c
 const WAVES := [[41.0, 0.0, 0.45, 0.0], [27.0, 0.45, 0.25, 1.7], [63.0, -0.35, 0.2, 4.1], [19.0, 0.8, 0.1, 2.6]]
 const TSUNAMI_WIDTH := 600.0      # metres, the width of the wave's hump: a wall of water, not a swell
 
+## The test stand's wind tunnel (test_stand.gd): inside tunnel_radius of
+## tunnel_centre (map coordinates) the air moves at tunnel_air, whatever the
+## weather. A radius of 0 turns it off.
+static var tunnel_centre := Vector3.ZERO
+static var tunnel_radius := 0.0
+static var tunnel_air := Vector3.ZERO
 static var instance: Node = null
 
 var daylight: Node = null         # daylight.gd: the day count comes from its clock
@@ -113,6 +120,8 @@ func _ready() -> void:
 
 ## The wind at a place in the world, in m/s: where the air is going.
 static func wind_at(world: Vector3) -> Vector3:
+	if tunnel_radius > 0.0 and Origin.to_map(world).distance_to(tunnel_centre) < tunnel_radius:
+		return tunnel_air
 	if instance == null:
 		return Vector3.ZERO
 	return instance._wind_at(world)
@@ -220,6 +229,12 @@ func start_tsunami(centre: Vector2, amp: float) -> void:
 
 
 func _process(delta: float) -> void:
+	var started := Profiler.start()
+	_tick(delta)
+	Profiler.add("weather and disasters", started)
+
+
+func _tick(delta: float) -> void:
 	_time += delta
 	# The day count and the season, from the day-and-night clock.
 	if daylight != null:

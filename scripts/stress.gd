@@ -149,7 +149,20 @@ func _note_break(uid: int, piece: int) -> void:
 		text += ": %.0f MPa at its joint, past %s's %.0f MPa limit" % [float(why[0]) / 1.0e6,
 				MaterialLibrary.display_name(material).to_lower(), float(why[1]) / 1.0e6]
 	text += ", at %.0f m/s" % speed
+	# A part that was spinning: how fast, as a shaft's rpm.
+	var spin := body.angular_velocity.length() if body != null and is_instance_valid(body) else 0.0
+	if spin * 60.0 / TAU >= 30.0:
+		text += ", turning at %s rpm" % _thousands(spin * 60.0 / TAU)
 	FailureLog.note(text)
+
+
+static func _thousands(value: float) -> String:
+	var whole := str(int(roundf(value)))
+	var grouped := ""
+	while whole.length() > 3:
+		grouped = "," + whole.substr(whole.length() - 3) + grouped
+		whole = whole.substr(0, whole.length() - 3)
+	return whole + grouped
 
 
 ## The load tree of a body: the order to add up loads in (outermost first)

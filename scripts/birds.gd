@@ -32,6 +32,7 @@ const Origin = preload("res://scripts/origin.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Profile = preload("res://scripts/profile.gd")
 const Sound = preload("res://scripts/sound.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const AREA := 800.0              # m, the squares birds are rolled for
 const NEAR := 1600.0             # m, squares nearer than this are rolled
@@ -166,6 +167,12 @@ func _ground_y(x: float, z: float) -> float:
 # --- Spawning ---------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	var started := Profiler.start()
+	_tick(delta)
+	Profiler.add("birds", started)
+
+
+func _tick(delta: float) -> void:
 	if terrain == null or player == null:
 		return
 	_clock += delta

@@ -31,6 +31,7 @@ const Aero = preload("res://scripts/aero.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Stress = preload("res://scripts/stress.gd")
 const Weather = preload("res://scripts/weather.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 ## Emitted when a part's health runs out and it is removed.
 signal part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary)
@@ -169,6 +170,13 @@ var _parked: Dictionary = {}       # body -> [linear velocity, angular velocity]
 var parked := false
 var race_hold := false             # held parked at a race start (races.gd)
 var gear_conflicts := 0            # gear trains whose ratios disagree, found at spawn
+var conflict_gears: Dictionary = {} # gear uid -> true for gears in a train whose ratios disagree
+var gear_load: Dictionary = {}     # gear uid -> torque through its teeth, N m, smoothed (for the inspector)
+var held_body: RigidBody3D = null  # the body held fixed on the test stand, or null
+var air_force := Vector3.ZERO      # aero forces summed since the test stand last read them (world, N x ticks)
+var air_moment := Vector3.ZERO     # and their moment about the held body's centre of mass (N m x ticks)
+var air_ticks := 0
+var _anchors: Dictionary = {}      # hidden control part uid -> [piece it rides with, offset in that piece's body]
 var _belt_mesh: MeshInstance3D = null
 var applied: Dictionary = {}       # piece -> force put on it this check (world), for stress.gd
 var stress: Node = null            # stress.gd
@@ -318,6 +326,10 @@ func spawn(grid: Node3D) -> Dictionary:
 	_alive_time = 0.0
 	_parked.clear()
 	parked = false
+	conflict_gears.clear()
+	gear_load.clear()
+	_anchors.clear()
+	held_body = null
 
 	# Every piece and its box.
 	var all_pieces: Array = []
@@ -609,6 +621,10 @@ func despawn() -> void:
 	_speed_history.clear()
 	_parked.clear()
 	parked = false
+	conflict_gears.clear()
+	gear_load.clear()
+	_anchors.clear()
+	held_body = null
 	if _belt_mesh != null and is_instance_valid(_belt_mesh):
 		_belt_mesh.queue_free()
 	_belt_mesh = null
@@ -1136,7 +1152,7 @@ func _drag_areas(pieces: Array) -> Array:
 func _run_body_drag() -> void:
 	for body in _bodies:
 		var spawned_body: RigidBody3D = body
-		if not is_instance_valid(spawned_body) or spawned_body.freeze or not _drag.has(spawned_body):
+		if not is_instance_valid(spawned_body) or (spawned_body.freeze and spawned_body != held_body) or not _drag.has(spawned_body):
 			continue
 		var axes: Array = _drag[spawned_body]["axes"]
 		var frame: Transform3D = spawned_body.global_transform
@@ -1157,8 +1173,10 @@ func _run_body_drag() -> void:
 				continue
 			var force: float = 0.5 * density * BODY_DRAG * area * speed * absf(speed)
 			# Never more than would stop that motion in one tick.
-			force = minf(absf(force), spawned_body.mass * absf(speed) * 240.0 * 0.5) * signf(force)
+			if spawned_body != held_body:
+				force = minf(absf(force), spawned_body.mass * absf(speed) * 240.0 * 0.5) * signf(force)
 			spawned_body.apply_force(-direction * force, arm)
+			_note_air(spawned_body, -direction * force, arm)
 			pushed = true
 		if pushed:
 			spawned_body.sleeping = false
@@ -2339,7 +2357,20 @@ func _run_gears() -> void:
 		var push: float = slip / give
 		_twist_gear(a, -push * weight_a)
 		_twist_gear(b, sense * push * weight_b)
+		var ticks := float(Engine.physics_ticks_per_second)
+		mesh["torque_now_a"] = absf(push * weight_a) * ticks
+		mesh["torque_now_b"] = absf(push * weight_b) * ticks
 	_meshes = alive
+	# The torque through each gear's teeth, smoothed over about a tenth of a second.
+	var loads: Dictionary = {}
+	for item in _meshes:
+		var mesh: Dictionary = item
+		loads[mesh["a"]] = float(loads.get(mesh["a"], 0.0)) + float(mesh.get("torque_now_a", 0.0))
+		loads[mesh["b"]] = float(loads.get(mesh["b"], 0.0)) + float(mesh.get("torque_now_b", 0.0))
+		mesh["torque_now_a"] = 0.0
+		mesh["torque_now_b"] = 0.0
+	for uid in loads:
+		gear_load[uid] = lerpf(float(gear_load.get(uid, 0.0)), float(loads[uid]), 0.04)
 
 	for item in _racks:
 		var rack: Dictionary = item
@@ -2516,6 +2547,104 @@ func body_motions() -> Array:
 	return motions
 
 
+## Where a part is in the world now, or null if it is gone. A hidden
+## control part (logic, inputs) has no body of its own: it rides with the
+## nearest part that has one, from where it was built.
+func part_position(uid: int) -> Variant:
+	var place: Array = part_place(uid)
+	if not place.is_empty():
+		return place[0]
+	if not _records.has(uid) or _dead.has(uid):
+		return null
+	var anchor: Array = _anchors.get(uid, [])
+	if anchor.is_empty() or not _pieces.has(anchor[0]):
+		var own: Vector3 = _piece_centre(uid * PIECES, _records[uid])
+		var nearest := -1
+		var best := INF
+		for piece in _pieces:
+			var other: int = piece
+			var distance := own.distance_squared_to(_piece_centre(other, _records[_uid_of(other)]))
+			if distance < best:
+				best = distance
+				nearest = other
+		if nearest < 0:
+			return null
+		var body: RigidBody3D = _pieces[nearest]["body"]
+		anchor = [nearest, own - body_origin_in_grid(body)]
+		_anchors[uid] = anchor
+	var carrier: RigidBody3D = _pieces[anchor[0]]["body"]
+	return carrier.global_transform * (anchor[1] as Vector3)
+
+
+## Every turning joint (see _add_turner), for the inspector and the test
+## stand to read; not to be changed.
+func turners() -> Array:
+	return _turners
+
+
+## Gear meshes: {"a", "b"} gear uids, for the inspector to draw.
+func gear_meshes() -> Array:
+	return _meshes
+
+
+## How much of each kind of thing the build has, for the performance overlay.
+func counts() -> Dictionary:
+	return {"bodies": _bodies.size(), "joints": _joints.size(), "parts": _health.size(),
+			"turning joints": _turners.size(), "sliders": _sliders.size(), "gear meshes": _meshes.size(),
+			"aero panels": _panels.size(), "floating bodies": _floats.size(), "thrusters": _thrusters.size()}
+
+
+func is_dead(uid: int) -> bool:
+	return _dead.has(uid)
+
+
+## Holds a body fixed where it is, for the test stand: it no longer moves,
+## but the air still pushes on it and the push is summed, as a balance
+## would read it (read_balance). Null lets it go.
+func hold(body: RigidBody3D) -> void:
+	if held_body != null and is_instance_valid(held_body):
+		held_body.freeze = false
+	held_body = body
+	air_force = Vector3.ZERO
+	air_moment = Vector3.ZERO
+	air_ticks = 0
+	if body != null:
+		body.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+		body.freeze = true
+		body.linear_velocity = Vector3.ZERO
+		body.angular_velocity = Vector3.ZERO
+
+
+## The heaviest body: what the test stand holds.
+func heaviest_body() -> RigidBody3D:
+	var best: RigidBody3D = null
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if is_instance_valid(body) and (best == null or body.mass > best.mass):
+			best = body
+	return best
+
+
+## The test stand's balance: the air's push since the last read, averaged
+## per tick: [force (world, N), moment about the held body's centre of mass
+## (world, N m)]. Then it starts again.
+func read_balance() -> Array:
+	var ticks := maxi(air_ticks, 1)
+	var reading := [air_force / ticks, air_moment / ticks]
+	air_force = Vector3.ZERO
+	air_moment = Vector3.ZERO
+	air_ticks = 0
+	return reading
+
+
+func _note_air(body: RigidBody3D, force: Vector3, arm: Vector3) -> void:
+	if held_body == null or not is_instance_valid(held_body):
+		return
+	air_force += force
+	var about: Vector3 = held_body.global_transform * held_body.center_of_mass
+	air_moment += (body.global_position + arm - about).cross(force)
+
+
 ## Every spawned part's record, by uid, as it was spawned. Destroyed parts
 ## are still listed; ask record_of to leave those out.
 func all_records() -> Dictionary:
@@ -2610,17 +2739,31 @@ func set_part_mass(uid: int, mass: float) -> void:
 func _physics_process(delta: float) -> void:
 	if not spawned:
 		return
+	var started := Profiler.start()
 	_update_inputs()
+	Profiler.add("logic", started)
+	started = Profiler.start()
 	_run_turners(delta)
 	_run_sliders(delta)
 	_run_gears()
+	Profiler.add("drivetrain", started)
+	started = Profiler.start()
 	_run_thrusters()
+	Profiler.add("fluids and engines", started)
+	started = Profiler.start()
+	if held_body != null:
+		air_ticks += 1
 	_run_aero(delta)
 	_run_body_drag()
+	Profiler.add("aero and drag", started)
+	started = Profiler.start()
 	_run_buoyancy(delta)
+	Profiler.add("buoyancy", started)
+	started = Profiler.start()
 	_alive_time += delta
 	_run_crash_damage(delta)
 	stress.run(_alive_time)
+	Profiler.add("stress", started)
 
 
 func _process(_delta: float) -> void:
@@ -2784,6 +2927,8 @@ func _check_gear_trains() -> int:
 				if ratio.has(other):
 					if absf(float(ratio[other]) - expected) > 0.001 * maxf(absf(expected), 1.0):
 						conflicts += 1
+						conflict_gears[current] = true
+						conflict_gears[other] = true
 				else:
 					ratio[other] = expected
 					queue.append(other)
@@ -3101,7 +3246,7 @@ func _run_aero(delta: float) -> void:
 		if body == null:
 			continue   # destroyed
 		alive.append(panel)
-		if body.freeze or body.sleeping:
+		if (body.freeze or body.sleeping) and body != held_body:
 			continue
 		var frame: Transform3D = body.global_transform
 		var centre: Vector3 = panel[1]
@@ -3114,7 +3259,9 @@ func _run_aero(delta: float) -> void:
 		var force: Vector3 = Aero.panel_force(moving, frame.basis * flat, area, dragless, density)
 		# A tiny, light body in a fast airflow could be thrown about by one
 		# tick's force. Never push harder than would stop it dead in two ticks.
-		force = force.limit_length(0.5 * body.mass * moving.length() / delta)
+		if body != held_body:
+			force = force.limit_length(0.5 * body.mass * moving.length() / delta)
 		body.apply_force(force, arm)
 		note_force(panel[0], force)
+		_note_air(body, force, arm)
 	_panels = alive

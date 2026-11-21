@@ -37,6 +37,7 @@ signal weather_pressed
 signal respawn_pressed
 signal birds_pressed
 signal photos_pressed
+signal test_stand_pressed
 
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
@@ -614,6 +615,15 @@ func _build_bottom_bar() -> Control:
 	_build_bar = _row()
 	_build_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(_build_bar)
+
+	var stand_button := _button("Test stand", 100.0)
+	stand_button.custom_minimum_size = Vector2(100, 56)
+	stand_button.tooltip_text = "Spawn the build on the test stand beside the pad, held fixed, for the dyno and the wind tunnel"
+	_tint_button(stand_button, Color(0.95, 0.75, 0.25))
+	stand_button.pressed.connect(func() -> void:
+		_part_search.release_focus()
+		test_stand_pressed.emit())
+	_build_bar.add_child(stand_button)
 
 	var search_box := _column()
 	search_box.add_theme_constant_override("separation", 2)

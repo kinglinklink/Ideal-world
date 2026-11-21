@@ -17,6 +17,7 @@ const MapInfo = preload("res://scripts/map_info.gd")
 const Units = preload("res://scripts/units.gd")
 const Sound = preload("res://scripts/sound.gd")
 const Weather = preload("res://scripts/weather.gd")
+const Profiler = preload("res://scripts/profiler.gd")
 
 const MAX_BOATS := 10
 const NEAR := 3500.0
@@ -195,6 +196,12 @@ func map_markers() -> Array:
 # --- Boats -------------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	var started := Profiler.start()
+	_physics_tick(delta)
+	Profiler.add("traffic", started)
+
+
+func _physics_tick(delta: float) -> void:
 	if terrain == null or player == null:
 		return
 	var summer: bool = weather == null or weather.season_name() == "summer"
