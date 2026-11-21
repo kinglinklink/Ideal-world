@@ -39,6 +39,10 @@ var _trunk_shapes: Dictionary = {}
 var _trunk_mesh: ArrayMesh
 var _crown_mesh: ArrayMesh
 var _crown_look: ShaderMaterial
+var _leafy_mesh: ArrayMesh        # cottonwoods by the water
+var _leafy_look: ShaderMaterial
+const SHORE_RISE := 14.0          # m above the lake where cottonwoods grow
+const COTTONWOOD_SHARE := 0.55    # of the trees that low
 var _check := 0.0
 
 
@@ -54,6 +58,7 @@ func setup(world: Dictionary) -> void:
 		_cells.append([Vector2i(int(cell[0]), int(cell[1])), int(cell[2]), int(cell[3])])
 	_trunk_mesh = _make_trunk_mesh()
 	_crown_mesh = _make_crown_mesh()
+	_leafy_mesh = _make_leafy_mesh()
 
 
 ## The season on the trees: gold larches in autumn, snow above the snow line.
@@ -63,6 +68,9 @@ func set_season(autumn: float, snow_line_y: float, cold: float) -> void:
 	_crown_look.set_shader_parameter("autumn", autumn)
 	_crown_look.set_shader_parameter("snow_line_y", snow_line_y)
 	_crown_look.set_shader_parameter("cold", cold)
+	_leafy_look.set_shader_parameter("autumn", autumn)
+	_leafy_look.set_shader_parameter("snow_line_y", snow_line_y)
+	_leafy_look.set_shader_parameter("cold", cold)
 
 
 ## Sets how far trees are drawn, and applies it to the squares already built.
@@ -164,14 +172,28 @@ func _build_cell(cell: Array) -> void:
 		buffer[o + 14] = 0.14 + 0.10 * shade
 		buffer[o + 15] = 1.0
 	var middle := Vector3((square.x + 0.5) * MapInfo.CELL, 0.0, (square.y + 0.5) * MapInfo.CELL)
+	# Low by the lake, about half the trees are cottonwoods: their crowns are
+	# drawn from a second buffer.
+	var pines := PackedFloat32Array()
+	var leafy := PackedFloat32Array()
+	for index in count:
+		var at := (first + index) * FLOATS
+		var one := buffer.slice(index * 16, index * 16 + 16)
+		if _trees[at + 1] < MapInfo.LAKE_Y + SHORE_RISE and _hash((first + index) * 31 + 7) < COTTONWOOD_SHARE:
+			leafy.append_array(one)
+		else:
+			pines.append_array(one)
 	var pair: Array = []
-	for part in 2:
+	for part in 3:
+		var chosen: PackedFloat32Array = buffer if part == 0 else (pines if part == 1 else leafy)
+		if chosen.is_empty():
+			continue
 		var batch := MultiMesh.new()
 		batch.transform_format = MultiMesh.TRANSFORM_3D
 		batch.use_colors = true
-		batch.mesh = _trunk_mesh if part == 0 else _crown_mesh
-		batch.instance_count = count
-		batch.buffer = buffer
+		batch.mesh = [_trunk_mesh, _crown_mesh, _leafy_mesh][part]
+		batch.instance_count = chosen.size() / 16
+		batch.buffer = chosen
 		var reach := MapInfo.CELL * 0.5 + 10.0
 		batch.custom_aabb = AABB(Vector3(-reach, -300.0, -reach), Vector3(reach * 2.0, 2600.0, reach * 2.0))
 		var instance := MultiMeshInstance3D.new()
@@ -232,6 +254,22 @@ func _make_trunk_mesh() -> ArrayMesh:
 	bark.albedo_color = Color(0.36, 0.25, 0.16)
 	bark.roughness = 1.0
 	mesh.surface_set_material(0, bark)
+	return mesh
+
+
+## A cottonwood: a broad, lumpy crown of leaves on a tall trunk. Its
+## leaves turn gold in autumn and fall in winter (tree_crown.gdshader).
+func _make_leafy_mesh() -> ArrayMesh:
+	var surface := Kit.new_surface()
+	for lump in [[Vector3(0.0, 4.0, 0.0), 2.0], [Vector3(1.1, 3.4, 0.4), 1.4], [Vector3(-1.0, 3.6, -0.6), 1.5],
+			[Vector3(0.2, 5.3, -0.3), 1.4], [Vector3(-0.4, 3.2, 1.0), 1.2]]:
+		Kit.add_sphere(surface, lump[0], lump[1], 7, 5)
+	surface.generate_normals()
+	var mesh: ArrayMesh = surface.commit()
+	_leafy_look = ShaderMaterial.new()
+	_leafy_look.shader = CROWN_SHADER
+	_leafy_look.set_shader_parameter("broadleaf", 1.0)
+	mesh.surface_set_material(0, _leafy_look)
 	return mesh
 
 

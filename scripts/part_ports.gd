@@ -116,6 +116,7 @@ const PORTS := {
 		],
 	},
 	"distance_sensor": {"inputs": [], "outputs": [["distance", "Distance", "number"]]},
+	"instrument": {"inputs": [["value", "Value (Value dial)", "number"]], "outputs": []},
 	"graph_display": {
 		"inputs": [["a", "Line A", "number"], ["b", "Line B", "number"],
 				["c", "Line C", "number"], ["d", "Line D", "number"]],
