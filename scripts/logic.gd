@@ -43,6 +43,7 @@ var _vanish: Array = []       # {"uid", "gone"}
 var _props: Array = []        # {"uid", "radius", "advance", "factor"}
 var _tanks: Array = []        # {"uid", "lift"}
 var _graphs: Array = []       # see _new_graph
+var _instruments: Array = []  # see _new_instrument
 var _graph_clock := 0.0
 var _graph_timer := 0.0
 var _graph_draw := 0.0
@@ -79,6 +80,7 @@ func _physics_tick(delta: float) -> void:
 	_run_propellers()
 	_run_tanks()
 	_run_graphs(delta)
+	_run_instruments()
 
 
 func _start() -> void:
@@ -112,6 +114,8 @@ func _start() -> void:
 					"factor": PROP_BLADE_FACTOR * blades})
 		elif type == "graph_display":
 			_graphs.append(_new_graph(uid, props, size_m))
+		elif type == "instrument":
+			_instruments.append(_new_instrument(uid, props))
 		elif type == "lift_gas_tank":
 			var cells := size_m.x * size_m.y * size_m.z / pow(Units.CELL, 3)
 			_tanks.append({"uid": uid, "lift": maxf(float(props.get("lift_per_block", 1.0)), 0.0) * cells})
@@ -132,6 +136,11 @@ func _clear() -> void:
 	_props.clear()
 	_tanks.clear()
 	_graphs.clear()
+	for item in _instruments:
+		var dial: Node = (item as Dictionary)["viewport"]
+		if is_instance_valid(dial):
+			dial.queue_free()
+	_instruments.clear()
 	_graph_clock = 0.0
 
 
@@ -544,6 +553,161 @@ func _new_graph(uid: int, props: Dictionary, _size_m: Vector3) -> Dictionary:
 				screen.transform = place * Transform3D(turn, Vector3(0.0, 0.0, facing * (size.z * 0.5 + 0.003)))
 				return screen)
 	return graph
+
+
+# --- Instruments ------------------------------------------------------------
+
+const MAX_INSTRUMENTS := 16
+const INSTRUMENT_SIZE := 192
+
+## A dial drawn in its own little viewport, shown on both faces of the part.
+func _new_instrument(uid: int, props: Dictionary) -> Dictionary:
+	var dial := {"uid": uid, "kind": str(props.get("kind", "Airspeed")), "top": float(props.get("top", 100.0)),
+			"bottom": float(props.get("bottom", 0.0)), "label": str(props.get("label", "")), "viewport": null, "face": null}
+	if _instruments.size() >= MAX_INSTRUMENTS:
+		return dial
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(INSTRUMENT_SIZE, INSTRUMENT_SIZE)
+	viewport.transparent_bg = false
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var face := DialFace.new()
+	face.size = Vector2(INSTRUMENT_SIZE, INSTRUMENT_SIZE)
+	face.kind = dial["kind"]
+	face.label = dial["label"]
+	viewport.add_child(face)
+	add_child(viewport)
+	dial["viewport"] = viewport
+	dial["face"] = face
+	var look := StandardMaterial3D.new()
+	look.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	look.albedo_texture = viewport.get_texture()
+	for side in [1.0, -1.0]:
+		var facing: float = side
+		spawner.attach_extra(uid, func(place: Transform3D, size: Vector3) -> Node3D:
+			var quad := QuadMesh.new()
+			quad.size = Vector2(size.x * 0.9, size.y * 0.9)
+			var screen := MeshInstance3D.new()
+			screen.mesh = quad
+			screen.material_override = look
+			screen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var turn := Basis.IDENTITY if facing > 0.0 else Basis(Vector3.UP, PI)
+			screen.transform = place * Transform3D(turn, Vector3(0.0, 0.0, facing * (size.z * 0.5 + 0.004)))
+			return screen)
+	return dial
+
+
+func _fuel_share() -> float:
+	for sibling in get_parent().get_children():
+		if sibling != self and sibling.has_method("total_fuel") and sibling.get("spawner") == spawner:
+			var capacity: float = sibling.total_capacity()
+			return float(sibling.total_fuel()) / capacity if capacity > 0.0 else 0.0
+	return 0.0
+
+
+func _run_instruments() -> void:
+	for item in _instruments:
+		var dial: Dictionary = item
+		var face: Control = dial["face"]
+		if face == null or not is_instance_valid(face):
+			continue
+		var uid: int = dial["uid"]
+		var frame: Array = spawner.part_frame(uid)
+		if frame.is_empty():
+			continue
+		var place: Transform3D = frame[0]
+		var body: RigidBody3D = frame[1]
+		var reading := 0.0
+		var shown := 0.0
+		match str(dial["kind"]):
+			"Airspeed":
+				reading = (body.linear_velocity - Weather.wind_at(place.origin)).length()
+				shown = reading / maxf(float(dial["top"]), 1e-6)
+				face.set("text", "%.0f m/s" % reading)
+			"Altitude":
+				reading = Origin.to_map(place.origin).y + MapInfo.BASE_ELEVATION
+				shown = fposmod(reading / maxf(float(dial["top"]), 1e-6), 1.0)
+				face.set("text", "%.0f m" % reading)
+			"Fuel":
+				reading = _fuel_share()
+				shown = reading
+				face.set("text", "%.0f%%" % (reading * 100.0))
+			"Value":
+				var record: Dictionary = spawner.record_of(uid)
+				reading = spawner.input_value(record.get("links", {}), "value", 0.0)
+				var bottom: float = dial["bottom"]
+				shown = (reading - bottom) / maxf(float(dial["top"]) - bottom, 1e-6)
+				face.set("text", "%.2f" % reading if absf(reading) < 100.0 else "%.0f" % reading)
+			"Artificial horizon":
+				# The part's face looks back at the pilot: the vehicle's nose is its -Z.
+				var nose := -place.basis.z.normalized()
+				var right := place.basis.x.normalized()
+				face.set("pitch", asin(clampf(nose.y, -1.0, 1.0)))
+				face.set("roll", atan2(right.y, place.basis.y.normalized().y))
+		face.set("needle", shown)
+		face.queue_redraw()
+
+
+## The face of a dial: a needle sweeping 270° over twelve ticks with the
+## reading written below, or for an artificial horizon, sky over ground
+## moving with pitch and roll behind a fixed aircraft symbol.
+class DialFace:
+	extends Control
+	var kind := "Airspeed"
+	var label := ""
+	var text := ""
+	var needle := 0.0
+	var pitch := 0.0
+	var roll := 0.0
+
+	func _draw() -> void:
+		var middle := size * 0.5
+		var radius := size.x * 0.46
+		var font := get_theme_default_font()
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.05, 0.06))
+		if kind == "Artificial horizon":
+			var sky := Color(0.25, 0.55, 0.9)
+			var ground := Color(0.55, 0.36, 0.18)
+			draw_circle(middle, radius, sky)
+			# The horizon line moves down as the nose goes up, and tilts against the roll.
+			var drop := clampf(pitch / deg_to_rad(45.0), -1.2, 1.2) * radius
+			var across := Vector2(cos(-roll), sin(-roll))
+			var down := Vector2(-across.y, across.x)
+			var centre := middle + down * drop
+			var points := PackedVector2Array()
+			for step in 33:
+				var angle := TAU * step / 32.0
+				var point := middle + Vector2(cos(angle), sin(angle)) * radius
+				if (point - centre).dot(down) > 0.0:
+					points.append(point)
+			if points.size() > 2:
+				# Close the ground along the horizon line.
+				var ordered := Array(points)
+				ordered.sort_custom(func(a, b): return (a - centre).angle() < (b - centre).angle())
+				draw_colored_polygon(PackedVector2Array(ordered), ground)
+			draw_line(centre - across * radius * 1.2, centre + across * radius * 1.2, Color.WHITE, 2.0)
+			for mark in [-20, -10, 10, 20]:
+				var at := centre - down * radius * float(mark) / 45.0
+				draw_line(at - across * radius * 0.2, at + across * radius * 0.2, Color(1, 1, 1, 0.7), 1.0)
+			draw_line(middle + Vector2(-radius * 0.5, 0), middle + Vector2(-radius * 0.15, 0), Color(1.0, 0.8, 0.1), 4.0)
+			draw_line(middle + Vector2(radius * 0.15, 0), middle + Vector2(radius * 0.5, 0), Color(1.0, 0.8, 0.1), 4.0)
+			draw_circle(middle, 4.0, Color(1.0, 0.8, 0.1))
+		else:
+			draw_circle(middle, radius, Color(0.1, 0.1, 0.11))
+			draw_arc(middle, radius, 0.0, TAU, 48, Color(0.7, 0.7, 0.72), 2.0)
+			var start := deg_to_rad(135.0)
+			for tick in 13:
+				var angle := start + deg_to_rad(270.0) * tick / 12.0
+				var outer := middle + Vector2(cos(angle), sin(angle)) * radius * 0.92
+				var inner := middle + Vector2(cos(angle), sin(angle)) * radius * (0.78 if tick % 3 == 0 else 0.85)
+				draw_line(inner, outer, Color.WHITE, 2.0 if tick % 3 == 0 else 1.0)
+			if kind == "Fuel":
+				draw_arc(middle, radius * 0.88, start, start + deg_to_rad(270.0) * 0.15, 12, Color(0.9, 0.2, 0.1), 4.0)
+			var angle := start + deg_to_rad(270.0) * clampf(needle, 0.0, 1.0)
+			draw_line(middle, middle + Vector2(cos(angle), sin(angle)) * radius * 0.8, Color(1.0, 0.55, 0.1), 4.0)
+			draw_circle(middle, 6.0, Color(0.8, 0.8, 0.8))
+			draw_string(font, middle + Vector2(-radius, radius * 0.55), text, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, 22, Color.WHITE)
+		var title := label if label != "" else kind
+		draw_string(font, middle + Vector2(-radius, -radius * 0.35), title, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, 16, Color(0.8, 0.85, 0.9))
 
 
 func _run_graphs(delta: float) -> void:

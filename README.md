@@ -6,6 +6,14 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 29
+
+- **Merged drawing**: each spawned body's plain parts are drawn as one mesh per material (a 38-part build went from 38 draw calls to 1); parts that need their own look (scorch marks, the stress view) come back on their own
+- **Town buildings** have windows on every storey, a door, gabled roofs on houses and parapets on flat roofs
+- **Cottonwoods** along the lakeshore: broad leafy crowns that turn gold in autumn and go bare in winter
+- **Water**: clearer, greener shallows and foam lapping at the shore
+- **Instrument** part (Logic): a dashboard dial showing airspeed, altitude, an artificial horizon, fuel, or any linked value
+
 ### New in Build 28
 
 - **Collision follows each part's real shape**: triangle panels are solid only where the triangle is; rings, pipes, arches and curves keep their holes when spawned; parts weld only where their shapes really meet
