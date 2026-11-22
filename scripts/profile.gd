@@ -89,7 +89,8 @@ static func slot_summary(which: int) -> Dictionary:
 	var data := _read(which)
 	var photographed := 0
 	for key in data["birds"]:
-		if bool((data["birds"][key] as Dictionary).get("photo", false)):
+		# "photo" is the photo's file name, empty until there is one.
+		if str((data["birds"][key] as Dictionary).get("photo", "")) != "":
 			photographed += 1
 	return {"exists": slot_exists(which), "cash": int(data["cash"]), "won": (data["won"] as Dictionary).size(),
 			"photographed": photographed, "last_played": str(data.get("last_played", ""))}
