@@ -198,6 +198,12 @@ static func _build_table() -> void:
 		shown,
 	]
 	_table["distance_sensor"] = [_number("range", "Range", "m", 100.0, 0.0, 100000.0, 0.1)]
+	_table["instrument"] = [
+		_choice("kind", "Shows", ["Airspeed", "Altitude", "Artificial horizon", "Fuel", "Value"]),
+		_number("top", "Top of the dial (Airspeed m/s, Altitude m, Value)", "", 100.0, 0.000001, 1000000000.0, 0.001),
+		_number("bottom", "Bottom of the dial (Value)", "", 0.0, -1000000000.0, 1000000000.0, 0.001),
+		_text("label", "Name on the dial", ""),
+	]
 	_table["graph_display"] = [
 		_number("window", "Time shown", "s", 10.0, 1.0, 600.0, 0.5),
 		_number("low", "Bottom of the scale (same as top: automatic)", "", 0.0, -1000000000.0, 1000000000.0, 0.001),

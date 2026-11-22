@@ -25,7 +25,7 @@ const IDS := [
 	"seat", "anchor_block", "dynamic_offsetter",
 	"input_block", "mouse_click", "boolean_gate", "number_gate", "pid_controller", "pwm_generator",
 	"speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor",
-	"graph_display", "magnet", "winch", "coupler",
+	"graph_display", "instrument", "magnet", "winch", "coupler",
 ]
 
 
@@ -480,6 +480,11 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_cylinder(detail, Vector3(-0.1, -0.2, -0.3), Z, 0.16, 0.25)
 			Kit.add_cylinder(detail, Vector3(0.22, -0.2, -0.28), Z, 0.08, 0.2)
 			detail_look = Kit.tinted_material(Color(0.95, 0.8, 0.2))
+		"instrument":
+			# A round dial in a square bezel, the glass on both big faces.
+			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 1.0, 0.6))
+			Kit.add_cylinder(detail, Vector3.ZERO, Z, 0.46, 1.0, 24)
+			detail_look = Kit.lens_material()
 		"graph_display":
 			# A frame round a dark screen, the screen on both big faces.
 			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 1.0, 0.6))

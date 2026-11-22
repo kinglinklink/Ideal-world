@@ -109,6 +109,7 @@ func setup(player: Node3D, spawner: Node3D, noise: NoiseTexture2D) -> void:
 	_build_walls()
 
 	forest = Forest.new()
+	forest.terrain = self
 	forest.name = "Forest"
 	add_child(forest)
 	forest.setup(world)

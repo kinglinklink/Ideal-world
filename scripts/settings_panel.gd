@@ -148,7 +148,7 @@ func _build() -> void:
 	tree_row.add_child(_trees_label)
 
 	_shadows = CheckBox.new()
-	_shadows.text = "Shadows"
+	_shadows.text = "Shadows and ambient occlusion"
 	_shadows.focus_mode = Control.FOCUS_NONE
 	_shadows.toggled.connect(func(on: bool) -> void:
 		values["shadows"] = on

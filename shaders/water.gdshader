@@ -150,10 +150,16 @@ void fragment() {
 	float facing = clamp(dot(normalize(VIEW), NORMAL), 0.0, 1.0);
 	vec3 water = mix(deep, shallow, facing * 0.6 + a * 0.2);
 	water = mix(water, vec3(0.22, 0.26, 0.28), storm * 0.5);
-	// Foam on steep crests.
+	// Shallows: clearer and greener over the bed, so the shore shows through.
+	float depth = lake_y - ground_height(xz);
+	water = mix(water, vec3(0.2, 0.5, 0.5), (1.0 - smoothstep(0.0, 4.0, depth)) * 0.5);
+	// Foam on steep crests, and a line of it lapping at the shore.
 	float foam = smoothstep(0.35, 0.6, length(slope)) * (0.6 + 0.4 * b);
+	float lap = depth + 0.25 * sin(TIME * 1.3 + a * 6.0) + wave_height * 0.5;
+	float shore = (1.0 - smoothstep(0.0, 0.7, lap)) * step(-0.5, depth) * (0.5 + 0.5 * smoothstep(0.35, 0.65, b));
+	foam = max(foam, shore * (1.0 - storm * 0.3));
 	ALBEDO = mix(water, vec3(0.92, 0.95, 0.97), foam);
-	ALPHA = mix(mix(0.95, 0.72, facing), 1.0, foam);
+	ALPHA = mix(mix(0.95, 0.72, facing) * mix(0.6, 1.0, smoothstep(0.0, 3.0, depth)), 1.0, foam);
 	ROUGHNESS = 0.06 + storm * 0.2 + foam * 0.5;
 	METALLIC = 0.0;
 	SPECULAR = 0.6;
