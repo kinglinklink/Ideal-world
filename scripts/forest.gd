@@ -210,7 +210,7 @@ func _build_cell(cell: Array) -> void:
 		batch.transform_format = MultiMesh.TRANSFORM_3D
 		batch.use_colors = true
 		batch.mesh = _meshes[kind]
-		batch.instance_count = chosen.size() / 16
+		batch.instance_count = floori(chosen.size() / 16.0)
 		batch.buffer = chosen
 		var reach := MapInfo.CELL * 0.5 + 10.0
 		batch.custom_aabb = AABB(Vector3(-reach, -300.0, -reach), Vector3(reach * 2.0, 2600.0, reach * 2.0))

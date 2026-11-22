@@ -344,14 +344,14 @@ func start_tunnel(airspeed: float = -1.0, from_deg: float = NAN, to_deg: float =
 ## The build's own axes: [forward, up, right], in the world.
 func build_axes() -> Array:
 	var held: RigidBody3D = spawner.held_body
-	var basis: Basis = held.global_transform.basis if held != null else Basis.IDENTITY
-	var forward := -basis.z
+	var turn: Basis = held.global_transform.basis if held != null else Basis.IDENTITY
+	var forward := -turn.z
 	for key in spawner.all_records():
 		var record: Dictionary = spawner.record_of(key)
 		if not record.is_empty() and str(record["type"]) == "seat":
-			forward = basis * -((record["rot"] as Basis).z)
+			forward = turn * -((record["rot"] as Basis).z)
 			break
-	var up := basis.y
+	var up := turn.y
 	forward = (forward - up * forward.dot(up)).normalized()
 	return [forward, up, forward.cross(up).normalized()]
 

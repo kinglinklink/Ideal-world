@@ -350,7 +350,7 @@ func _windows(surface: SurfaceTool, outline: PackedVector2Array, base: float, to
 				break
 			for slot in count:
 				var middle := a + direction * ((slot + 0.5) * length / count)
-				if index == longest and storey == 0 and slot == count / 2:
+				if index == longest and storey == 0 and slot == floori(count / 2.0):
 					continue   # the door goes here
 				if big and (slot + shade) % 3 == 2:
 					continue   # warehouses have fewer windows
@@ -366,7 +366,7 @@ func _windows(surface: SurfaceTool, outline: PackedVector2Array, base: float, to
 		var out2 := Vector2(direction.y, -direction.x) * turn * 0.04
 		var out := Vector3(out2.x, 0.0, out2.y)
 		var count := maxi(int(longest_length / WINDOW_EVERY), 1)
-		var middle := a + direction * ((count / 2 + 0.5) * longest_length / count)
+		var middle := a + direction * ((floori(count / 2.0) + 0.5) * longest_length / count)
 		var wide := 1.0 if not big else 4.0
 		var tall := minf(2.1 if not big else 3.6, top - base - 0.2)
 		var left := middle - direction * wide * 0.5

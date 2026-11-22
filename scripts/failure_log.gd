@@ -142,7 +142,7 @@ func _refresh() -> void:
 	var lines: Array = []
 	for entry in _entries:
 		var seconds := int(float(entry["time"]))
-		lines.append("[color=#aaaaaa]%d:%02d[/color]  %s%s" % [seconds / 60, seconds % 60, entry["text"],
+		lines.append("[color=#aaaaaa]%d:%02d[/color]  %s%s" % [floori(seconds / 60.0), seconds % 60, entry["text"],
 				("  ×%d" % int(entry["count"])) if int(entry["count"]) > 1 else ""])
 	_list.text = "\n".join(lines) if not lines.is_empty() else "Nothing has broken yet."
 

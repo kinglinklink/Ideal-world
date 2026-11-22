@@ -696,9 +696,9 @@ class DialFace:
 			draw_arc(middle, radius, 0.0, TAU, 48, Color(0.7, 0.7, 0.72), 2.0)
 			var start := deg_to_rad(135.0)
 			for tick in 13:
-				var angle := start + deg_to_rad(270.0) * tick / 12.0
-				var outer := middle + Vector2(cos(angle), sin(angle)) * radius * 0.92
-				var inner := middle + Vector2(cos(angle), sin(angle)) * radius * (0.78 if tick % 3 == 0 else 0.85)
+				var tick_angle := start + deg_to_rad(270.0) * tick / 12.0
+				var outer := middle + Vector2(cos(tick_angle), sin(tick_angle)) * radius * 0.92
+				var inner := middle + Vector2(cos(tick_angle), sin(tick_angle)) * radius * (0.78 if tick % 3 == 0 else 0.85)
 				draw_line(inner, outer, Color.WHITE, 2.0 if tick % 3 == 0 else 1.0)
 			if kind == "Fuel":
 				draw_arc(middle, radius * 0.88, start, start + deg_to_rad(270.0) * 0.15, 12, Color(0.9, 0.2, 0.1), 4.0)

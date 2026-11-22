@@ -64,7 +64,6 @@ var _scare_check := 0.0
 var _materials: Dictionary = {}
 var _nests: Array = []           # {"kind", "species": [ids], "at": map Vector3, "node", "season"}
 var _nest_areas: Dictionary = {} # Vector2i area -> [species ids nesting there]
-var _season := ""
 var _frame := 0
 # The close-up on a bird.
 var _hover_bird: Dictionary = {}
@@ -564,9 +563,9 @@ func _move_float(bird: Dictionary, group: Dictionary, delta: float) -> void:
 	bird["timer"] = float(bird["timer"]) - delta
 	if float(bird["timer"]) <= 0.0:
 		bird["timer"] = _random.randf_range(4.0, 12.0)
-		var target := home + Vector3(_random.randf_range(-30.0, 30.0), 0.0, _random.randf_range(-30.0, 30.0))
-		if terrain.is_lake(target.x, target.z):
-			bird["target"] = target
+		var wander := home + Vector3(_random.randf_range(-30.0, 30.0), 0.0, _random.randf_range(-30.0, 30.0))
+		if terrain.is_lake(wander.x, wander.z):
+			bird["target"] = wander
 		if bird["species"] == "western_grebe" and _random.randf() < 0.3:
 			bird["hidden"] = _random.randf_range(4.0, 9.0)   # a dive after fish
 	var target: Vector3 = bird["target"]
