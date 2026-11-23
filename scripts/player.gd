@@ -407,17 +407,27 @@ func _physics_process(delta: float) -> void:
 
 
 ## On a ladder: pushing into it, or holding jump, climbs; standing still
-## hangs on; pushing away lets go. Past the top, the push into it carries the
-## character over onto whatever it leads to. Returns false once it lets go.
+## hangs on; pulling back climbs down, and steps off at the bottom; jump
+## while pulling back pushes off it. Sideways shuffles across, and off its
+## edge. Past the top, the push into it carries the character over onto
+## whatever it leads to. Returns false once it lets go.
 func _climb(direction: Vector3, delta: float) -> bool:
 	var out := _ladder
 	var into := -direction.dot(out)
-	if into < -0.3:
-		_ladder = Vector3.ZERO
-		return false   # stepping off backwards
 	var across := direction - out * direction.dot(out)
 	var rise := 0.0
-	if into > 0.3 or _jump_held():
+	if into < -0.3:
+		if _jump_held():
+			# Push off backwards, a little up.
+			_ladder = Vector3.ZERO
+			velocity = _ladder_velocity + out * WALK_SPEED * 0.5 + Vector3.UP * JUMP_SPEED * 0.5
+			return false
+		if is_on_floor():
+			_ladder = Vector3.ZERO
+			return false   # down at the bottom: step off backwards
+		rise = -CLIMB_SPEED
+		into = 0.0
+	elif into > 0.3 or _jump_held():
 		rise = CLIMB_SPEED
 	# Keep pressed to the ladder, and ride along with it if it is moving.
 	velocity = _ladder_velocity + across * WALK_SPEED * 0.5 - out * maxf(into, 0.2) * WALK_SPEED \
@@ -444,22 +454,36 @@ func _ladder_touch() -> Vector3:
 
 
 func _ladder_face(hit: KinematicCollision3D) -> Vector3:
-	var body := hit.get_collider() as RigidBody3D
-	if body == null:
-		return Vector3.ZERO
-	var owner_node := body.get_parent()
-	if owner_node == null or not owner_node.has_method("part_of_shape"):
-		return Vector3.ZERO
-	var uid: int = owner_node.part_of_shape(body, hit.get_collider_shape_index())
-	if uid == 0 or str((owner_node.record_of(uid) as Dictionary).get("type", "")) != "ladder":
+	if not _is_ladder(hit):
 		return Vector3.ZERO
 	var face := hit.get_normal()
 	face.y = 0.0
 	if face.length() < 0.5:
 		return Vector3.ZERO   # its top or bottom end, not its face
-	var centre: Vector3 = body.global_transform * body.center_of_mass
-	_ladder_velocity = body.linear_velocity + body.angular_velocity.cross(hit.get_position() - centre)
+	_ladder_velocity = Vector3.ZERO
+	var body := hit.get_collider() as RigidBody3D
+	if body != null:
+		var centre: Vector3 = body.global_transform * body.center_of_mass
+		_ladder_velocity = body.linear_velocity + body.angular_velocity.cross(hit.get_position() - centre)
 	return face.normalized()
+
+
+## True when what the character bumped into is a ladder: one on a spawned
+## build or a fleet vehicle (a shape on one of its bodies), or one still on
+## the build pad while building (a part of the grid of its own).
+func _is_ladder(hit: KinematicCollision3D) -> bool:
+	var collider := hit.get_collider()
+	if collider is RigidBody3D:
+		var owner_node := (collider as Node).get_parent()
+		if owner_node == null or not owner_node.has_method("part_of_shape"):
+			return false
+		var uid: int = owner_node.part_of_shape(collider, hit.get_collider_shape_index())
+		return uid != 0 and str((owner_node.record_of(uid) as Dictionary).get("type", "")) == "ladder"
+	if collider is StaticBody3D and (collider as Node).has_meta("uid"):
+		var grid := (collider as Node).get_parent()
+		return grid != null and grid.has_method("type_of") \
+				and grid.type_of(int((collider as Node).get_meta("uid"))) == "ladder"
+	return false
 
 
 ## True when the character is in the lake deep enough to float.

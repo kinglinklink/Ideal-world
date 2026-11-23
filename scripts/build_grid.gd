@@ -116,6 +116,13 @@ func set_active(active: bool) -> void:
 		body.collision_layer = 1 if active else 0
 
 
+## A part's type, or "" for none. Cheaper than get_part for a quick look.
+func type_of(uid: int) -> String:
+	if not _parts.has(uid):
+		return ""
+	return str((_parts[uid] as Dictionary)["type"])
+
+
 func get_node_for(uid: int) -> Node3D:
 	return _nodes.get(uid, null)
 
