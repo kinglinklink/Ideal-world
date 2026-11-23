@@ -265,6 +265,7 @@ static func _build_table() -> void:
 		_number("reload_time", "Reload time", "s", 3.0, 0.0, 3600.0, 0.1),
 		_number("reloads", "Reloads (0 for no limit)", "", 0.0, 0.0, 100000.0, 1.0),
 		_number("safe_time", "Explosives safe after letting go", "s", 0.5, 0.0, 60.0, 0.05),
+		_number("push_speed", "Pushes it off at", "m/s", 0.0, 0.0, 100.0, 0.1),
 	]
 	_table["large_cannon"] = [
 		projectile,

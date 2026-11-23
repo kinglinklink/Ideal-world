@@ -13,6 +13,7 @@ const SettingsPanel = preload("res://scripts/settings_panel.gd")
 const Profile = preload("res://scripts/profile.gd")
 
 signal respawn_requested
+signal runway_requested   # take the build to a runway
 signal slot_chosen(slot: int)   # a save slot was picked to play (main.gd restores its clock)
 
 var player: Node = null       # player.gd
@@ -145,6 +146,9 @@ func _build_pause() -> Control:
 	_menu_button(column, "Back to the build pad", func() -> void:
 		resume()
 		respawn_requested.emit())
+	_menu_button(column, "Take the build to a runway", func() -> void:
+		resume()
+		runway_requested.emit())
 	_menu_button(column, "Switch save slot", func() -> void:
 		Profile.save()
 		_pause.visible = false

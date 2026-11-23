@@ -218,6 +218,7 @@ func _ready() -> void:
 	menus.hud = hud
 	menus.version = "Ideal World  %s" % Hud.VERSION
 	menus.connect("respawn_requested", _respawn)
+	menus.connect("runway_requested", send_build_to_runway)
 	menus.connect("slot_chosen", _on_slot_chosen)
 	hud.menus = menus
 	hud.setup_settings(terrain.forest, _daylight, menus.settings_panel)
@@ -377,6 +378,7 @@ func _ready() -> void:
 	add_child(stand)
 	stand.setup(pad_size)
 	hud.test_stand_pressed.connect(func() -> void: stand.open_stand())
+	hud.runway_pressed.connect(send_build_to_runway)
 
 	# The mission board, and the markers on the full map.
 	var missions: Node = Missions.new()
@@ -431,6 +433,170 @@ func _keep_clock() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_keep_clock()
+
+
+# --- To runway ---------------------------------------------------------------
+
+const RUNWAY_MARGIN := 25.0   # metres from the runway's end to the back of the build
+
+## Takes the build (spawning it first if need be) to the start of a runway,
+## level, facing down it, standing on its wheels. The nearest asphalt runway
+## first; pressed again while still parked at the start, the next one along
+## (in order of distance from the hangar). The way the build faces is the
+## way its seat faces (or its thrusters push, with no seat).
+func send_build_to_runway() -> void:
+	if not bool(_controller.spawned):
+		_controller.toggle_spawn()
+		if not bool(_controller.spawned):
+			return
+	var main_body: RigidBody3D = _spawner.heaviest_body()
+	if main_body == null:
+		return
+	var runways: Array = []
+	for item in _terrain.world.get("runways", []):
+		var runway: Dictionary = item
+		if str(runway.get("surface", "")) == "asphalt":
+			runways.append(runway)
+	if runways.is_empty():
+		return
+	var home := Vector2(_start.x, _start.z)
+	runways.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return _runway_start(a).distance_to(home) < _runway_start(b).distance_to(home))
+	# Nearest to the build, unless it is already parked at one's start.
+	var here: Vector3 = Origin.to_map(main_body.global_position)
+	var flat_here := Vector2(here.x, here.z)
+	var pick := 0
+	var best := INF
+	for index in runways.size():
+		var gap: float = _runway_start(runways[index]).distance_to(flat_here)
+		if gap < RUNWAY_MARGIN + 60.0 and main_body.linear_velocity.length() < 5.0:
+			pick = (index + 1) % runways.size()
+			best = -1.0
+			break
+		var middle: Array = (runways[index] as Dictionary)["centre"]
+		var distance := Vector2(float(middle[0]), float(middle[1])).distance_to(flat_here)
+		if distance < best:
+			best = distance
+			pick = index
+	var chosen: Dictionary = runways[pick]
+	var heading := deg_to_rad(float(chosen["heading"]))
+	var along := Vector3(sin(heading), 0.0, -cos(heading))
+	var side := Vector3(-along.z, 0.0, along.x)
+	# Level the build as it was built and turn it to face down the runway.
+	var now := main_body.global_transform.basis.orthonormalized()
+	var built: Basis = _spawner.grid_basis().orthonormalized()
+	var forward := _build_forward(main_body)
+	var level_forward: Vector3 = built * (now.inverse() * forward)
+	level_forward.y = 0.0
+	if level_forward.length() < 0.01:
+		level_forward = built * Vector3.BACK
+	var turn := atan2(along.x, along.z) - atan2(level_forward.x, level_forward.z)
+	var rotate: Basis = Basis(Vector3.UP, turn) * built * now.inverse()
+	var pivot: Vector3 = main_body.global_position
+	# Where its corners end up, turned about the pivot: how far it reaches
+	# back, out to each side and down.
+	var rear := INF
+	var front := -INF
+	var left := INF
+	var right := -INF
+	var low := INF
+	for corner in _build_corners():
+		var turned: Vector3 = rotate * (corner - pivot)
+		rear = minf(rear, turned.dot(along))
+		front = maxf(front, turned.dot(along))
+		left = minf(left, turned.dot(side))
+		right = maxf(right, turned.dot(side))
+		low = minf(low, turned.y)
+	if low == INF:
+		return
+	var end := _runway_start(chosen)
+	var target := Vector3(end.x, 0.0, end.y) + along * (RUNWAY_MARGIN - rear) - side * ((left + right) * 0.5)
+	var ground := -INF
+	for share in [0.0, 0.25, 0.5, 0.75, 1.0]:
+		var point: Vector3 = target + along * lerpf(rear, front, share)
+		ground = maxf(ground, float(_terrain.height_at(point.x, point.z)))
+	target.y = ground + 0.3 - low
+	var place := Origin.to_world(target)
+	_spawner.teleport(Transform3D(rotate, place - rotate * pivot))
+	# The character comes too: in the seat it is carried along; on foot it
+	# is put on the runway in front of the build, facing it.
+	_player.forget_motion()
+	if int(_controller.seat_uid) == 0:
+		var stand := Vector3(target.x, 0.0, target.z) + along * (front + 6.0)
+		stand.y = float(_terrain.height_at(stand.x, stand.z)) + 0.1
+		_player.teleport(Origin.to_world(stand), atan2(along.x, along.z))
+	_terrain.make_solid_now()
+	_game_hud.announce("", "%s runway, %d m. Press To runway again for the next one." % [str(chosen.get("name", "")), int(float(chosen.get("length", 0.0)))], 4.0)
+
+
+## The map point (x, z) of a runway's start: the end its heading leads away from.
+static func _runway_start(runway: Dictionary) -> Vector2:
+	var middle: Array = runway["centre"]
+	var heading := deg_to_rad(float(runway["heading"]))
+	var along := Vector2(sin(heading), -cos(heading))
+	return Vector2(float(middle[0]), float(middle[1])) - along * (float(runway["length"]) * 0.5)
+
+
+## The way the build faces, in the world: its first seat's forward, or the
+## way its thrusters push, or failing both its body's own forward (-Z).
+func _build_forward(main_body: RigidBody3D) -> Vector3:
+	var records: Dictionary = _spawner.all_records()
+	var push := Vector3.ZERO
+	for key in records:
+		var uid: int = key
+		var type := str((records[uid] as Dictionary).get("type", ""))
+		if type == "seat":
+			var frame: Array = _spawner.seat_frame(uid)
+			if not frame.is_empty():
+				return -(frame[0] as Transform3D).basis.z.normalized()
+		elif type == "thruster":
+			var place: Array = _spawner.part_frame(uid)
+			if not place.is_empty():
+				push += -(place[0] as Transform3D).basis.z.normalized()
+	if push.length() > 0.01:
+		return push.normalized()
+	return -main_body.global_transform.basis.z.normalized()
+
+
+## Every corner of every solid shape in the spawned build, in the world:
+## a box's own corners, and the corners of the box round anything else.
+func _build_corners() -> PackedVector3Array:
+	var corners := PackedVector3Array()
+	for item in _spawner.all_bodies():
+		var body := item as RigidBody3D
+		if body == null or not is_instance_valid(body):
+			continue
+		for child in body.get_children():
+			var collider := child as CollisionShape3D
+			if collider == null or collider.disabled or collider.shape == null:
+				continue
+			var box := _shape_box(collider.shape)
+			var to_world: Transform3D = collider.global_transform
+			for index in 8:
+				corners.append(to_world * box.get_endpoint(index))
+	return corners
+
+
+static func _shape_box(shape: Shape3D) -> AABB:
+	if shape is BoxShape3D:
+		var size: Vector3 = (shape as BoxShape3D).size
+		return AABB(-size * 0.5, size)
+	if shape is ConvexPolygonShape3D:
+		var points: PackedVector3Array = (shape as ConvexPolygonShape3D).points
+		if not points.is_empty():
+			var box := AABB(points[0], Vector3.ZERO)
+			for point in points:
+				box = box.expand(point)
+			return box
+	if shape is CylinderShape3D:
+		var cylinder := shape as CylinderShape3D
+		return AABB(Vector3(-cylinder.radius, -cylinder.height * 0.5, -cylinder.radius),
+				Vector3(cylinder.radius * 2.0, cylinder.height, cylinder.radius * 2.0))
+	if shape is SphereShape3D:
+		var radius: float = (shape as SphereShape3D).radius
+		return AABB(-Vector3.ONE * radius, Vector3.ONE * radius * 2.0)
+	var mesh: ArrayMesh = shape.get_debug_mesh()
+	return mesh.get_aabb() if mesh != null else AABB()
 
 
 ## Sends the character back to the hangar, in front of its door. The world

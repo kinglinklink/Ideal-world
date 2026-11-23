@@ -183,6 +183,12 @@ func stand_up(exit_point: Vector3) -> void:
 
 ## Puts the character down at `at` (its feet, in world space), at rest,
 ## facing `heading`.
+## The next g reading starts afresh: the seat was just moved and stopped
+## (To runway), which isn't a jolt the character feels.
+func forget_motion() -> void:
+	_g_skip = true
+
+
 func teleport(at: Vector3, heading: float) -> void:
 	global_position = at
 	velocity = Vector3.ZERO

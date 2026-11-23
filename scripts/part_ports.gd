@@ -145,7 +145,7 @@ const PORTS := {
 	"hitscan_gun": {"inputs": GUN_IN, "outputs": [["firing", "Firing", "bool"], ["hit_distance", "Distance to aim point", "number"]]},
 	"large_cannon": {"inputs": GUN_IN, "outputs": []},
 	"reload_gate": {
-		"inputs": [["release", "Release", "bool"]],
+		"inputs": [["release", "Release", "bool"], ["reload_time", "Reload time (s)", "number"]],
 		"outputs": [["loaded", "Loaded", "bool"], ["reloads", "Reloads used", "number"]],
 	},
 	"ammo_generator": {

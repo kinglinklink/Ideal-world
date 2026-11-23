@@ -587,6 +587,12 @@ func _physics_process(delta: float) -> void:
 
 # --- Collision ---------------------------------------------------------------
 
+## Makes the ground solid at once wherever the character and the spawned
+## bodies are now: after the build is moved far in one go.
+func make_solid_now() -> void:
+	_build_all_needed()
+
+
 ## Builds every solid square needed right now, at once. Used at the start.
 func _build_all_needed() -> void:
 	_plan_tiles()

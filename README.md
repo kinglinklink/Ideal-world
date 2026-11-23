@@ -6,6 +6,38 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 33
+
+- **B-2 Spirit** in the saves folder: a full-size flying wing, 52 m across, in dark grey, with a hatch and ladder underneath, landing gear that goes up by itself above 50 m (and comes down below 35 m), and a centre body full of bomb bays:
+  - **43 small bombs** (about 750 kg each, 100 m blast) in a grid of bays, each a reload gate that hangs a fresh bomb 2 s after it drops one
+  - **One huge bomb** (6.5 t, 500 m blast) in the middle, reloading in 3 s
+  - **Four missiles** under the wings that fly straight ahead, reloading every half second
+  - Every controller button drops part of the array (see below). Bombs drop only high enough that their blast can't reach the plane: small ones from 160 m above the ground, the big one from 800 m
+- **To runway**: a new button beside Spawn (and in the pause menu) takes the whole build to the start of the nearest runway, level and facing down it; press again for the next runway. See [To runway](#to-runway)
+- **Reload gate**: a Reload time input to change how fast it reloads as you go, a push-off speed that throws the payload clear of the rail, and a dropped payload is no longer hurt by its own build's blasts (so a stream of bombs can't set itself off back up to the bomber)
+- **The stress model counted thrust and lift four times over** (they were added up over the four ticks between checks): fixed. Builds are now as strong against their own engines and wings as they should be
+- **Faster logic and bombs**: gates are worked out once at spawn and in the order signals flow, so logic takes about a third of the time it did; dropped bombs skip the stress model and have lighter drag, impact detectors and explosives, so hundreds can fall at once
+- Distance sensors with a long range no longer cost more to run
+
+#### B-2 controls
+
+| Controller | Keyboard | |
+| --- | --- | --- |
+| Left stick | W S A D | Pitch and roll (and nose-wheel steering, slowly, on the ground) |
+| | Z X | Yaw (the drag rudders) |
+| RT | K (full), M (cruise) | Throttle, 250 kN an engine |
+| | Q | Air brake |
+| A | 1 | Every small bay: the carpet |
+| Y | 2 | The 500 m bomb |
+| X | 3 | Middle row |
+| B | 4 | The three middle columns |
+| LB / RB | 5 / 6 | Left / right half |
+| D-pad up / down | 7 / 8 | Front / back row |
+| D-pad left / right | 9 / 0 | The two outermost columns on the left / right |
+| LT | R | Missiles |
+
+Hold a bomb button and those bays keep dropping as fast as they reload. Fly at least 160 m above the ground for the small bombs and 800 m for the big one. To take off, press To runway, run the throttle up, and pull back at about 80 m/s.
+
 ### New in Build 32
 
 - **Reload gate** part (Combat): whatever is built on its rail (its top face) rides along welded to it until Release lets it go, then an identical copy is rebuilt on the rail after the reload time (3 s by default), wired to the same controls. Set how many reloads it has (0 for no limit) and how long explosives on it stay safe after letting go, so a missile can't blow up the plane that fired it. Outputs Loaded and Reloads used
@@ -265,7 +297,7 @@ This is the basic version. What it does so far:
 - **Weight and grip.** A body you stand on carries your weight, and feels the reaction of your feet: speed up, slow down or push on something while standing on a loose body and it is pushed the other way. The character changes speed only as fast as its grip allows (grip × g), so it takes a moment to get going on the ground, is slippery on ice, and cannot change speed at all on a frictionless surface.
 - **Seats** work the same as on the pad: E to sit, Space to stand up.
 - **Ladders** can be climbed: walk into one (or hold Space against it) to go up at 2 m/s, stand still to hang on, walk away to let go. While its Stowed input is on it is hidden and not solid.
-- **Reload gate:** the parts built on its rail (its own +Y face, found the way an offsetter finds its load) are welded to it. Release lets them go as a body of their own, moving as they were; after the reload time an identical copy appears on the rail, linked to the same controls as the first, unless the rail is blocked (it waits) or the reloads are used up. Explosives on the rail can't go off, and stay safe for the set time after letting go.
+- **Reload gate:** the parts built on its rail (its own +Y face, found the way an offsetter finds its load) are welded to it. Release lets them go as a body of their own, moving as they were (plus the push-off speed, straight out from the rail, with the build pushed back by as much); after the reload time (or what its Reload time input says, while linked) an identical copy appears on the rail, linked to the same controls as the first, unless the last one hasn't cleared the rail yet (it waits) or the reloads are used up. Explosives on the rail can't go off, and stay safe for the set time after letting go. A payload once let go is passed by its own build's blasts, so dropped bombs don't set each other off.
 - **Hinges** work. A hinge splits across its middle into a base half and a top half, joined by the pin along its own X axis. Each side welds to whatever touches it, so what is attached to the top swings relative to what is attached to the base. Something that touches both sides, such as a block standing beside the hinge, welds to the side it shares more area with, and to the base if they are even. The hinge's settings apply: angle limits (off by default, so it turns freely) and friction torque. The two bodies a joint connects do not collide with each other, so use the angle limits to stop it where it should stop. If both sides of a joint end up welded to the same body through other parts, it cannot turn, and the spawn message says how many joints are locked that way.
 - **Motors and servos** work the same way: the housing is the base and the output on top is the side that turns. Whatever touches the top face turns with it. A **motor** turns about its own +Y at up to its max speed, with up to its max torque; link Clockwise or Counterclockwise to input blocks, or link Speed to a number from −1 to 1. A **servo** also turns about its own +Y, and a **door hinge servo** swings its upright leaf about the edge it shares with its base plate. Link Go to positive target and Go to negative target to input blocks, and the servo moves to those angles at its set speed and returns to its default angle, or holds, when neither is on; or link Angle to a number of degrees. Angles are zero as built, and positive is counterclockwise seen from the top looking back at the base. Each drive works through its joint: the physics engine holds the turning speed the drive asks for as part of solving the joint, with at most the drive's max torque, so a servo holds its angle rigidly however light or heavy the thing it turns, and the base feels the opposite torque.
 - **Thrusters** push along their own −Z with the thrust set in Config. With nothing linked a thruster runs flat out from the moment of spawning. Link its On input to an **input block** (Config tool, Signals) to run it from a key, or link Throttle to an input block set to "Number from two keys" to drive it forward and back. Key binds work only while you are sitting in a seat. A running thruster shows a glow.
@@ -290,6 +322,10 @@ This is the basic version. What it does so far:
 - A body that contains an **anchor block**, or any part made of the **Frictionless surface** material, is fixed in place. A **dynamic offsetter** moves and turns everything built on its top face (its own +Y), by its shift and turn settings along its own axes, at spawn, and holds it welded there; then it is invisible and has no collision.
 
 Not yet: engines, fluid parts and logic blocks are welded solid and do nothing. Belts are not drawn. A piston's Pressure output reads 0, and the crankshaft's throw and rod length settings are not used yet (build the linkage from linkage bars). There is no drag on anything but aero panels yet. Hollow shapes (arch, ring, pipe, torus, concave curve) collide as their filled-in outline while spawned.
+
+## To runway
+
+The blue **To runway** button beside Spawn (or **Take the build to a runway** in the pause menu, for the controller) takes the whole build to the start of the nearest asphalt runway, spawning it first if it isn't already. It is put down level, the way it was built, facing down the runway the way its first seat faces (or its thrusters push, with no seat), with its lowest point just above the ground and everything stopped: no crash damage, stress or impact detectors go off from the sudden stop. Press again while still parked at the start for the next runway, in order of distance from the hangar. Seated, you come along; on foot, you are put on the runway in front of the build.
 
 ## The map
 
@@ -412,9 +448,10 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `shaders/part.gdshader`, `part_tint.gdshader`, `part_shine.gdshader` | Building parts: textures laid on in metres, and see-through glass |
 | `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd`, `stand_test.gd`, ... | Headless tests: `godot --headless --path . -s tools/smoke_test.gd`; `tools/load_all.gd` loads every script to catch errors |
 | `tools/shot.gd`, `model_shot.gd`, `material_shot.gd`, `moon_shot.gd` | Screenshots with a real renderer, for checking looks |
-| `tools/build_kit.py`, `make_f14.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`) and the big delta plane |
+| `tools/build_kit.py`, `make_f14.py`, `make_b2.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`), the B-2 (`python3 tools/make_b2.py "saves/B-2 Spirit.json"`) and the big delta plane |
 | `tools/build_shot.gd` | Pictures of a build file from six sides (add `lit` for its lights on) |
-| `tools/f14_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 (ground, takeoff, air, missile, fast, reload, ladder) and the delta plane, and the controller test |
+| `tools/f14_test.gd`, `b2_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 (ground, takeoff, air, missile, fast, reload, ladder), the B-2 (ground, takeoff, air, bomb, low, ladder; prints tick times) and the delta plane, and the controller test |
+| `tools/runway_test.gd` | To runway: from build mode, seated, again for the next runway, and rolling down it |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |
 | `tools/find_caves.py` | Searches the heights for cave sites |
 | `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |

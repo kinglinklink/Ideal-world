@@ -58,6 +58,7 @@ var _generation := -1
 var _guns: Dictionary = {}         # gun uid -> {"cooldown": s}
 var _generators: Dictionary = {}   # generator uid -> {"stored", "rate", "storage", "kind", "base_mass", "unit_mass", "shown_mass", "refresh"}
 var _explosives: Array = []        # uids of explosive blocks
+var _detonate_source: Dictionary = {}   # explosive uid -> [source uid, output] its Detonate reads
 var _shells: Array = []            # {"node", "at", "speed", "mass", "life", "skip"}
 var _pending_blasts: Array = []    # [where, radius] to set off next tick
 var _tracers: Array = []           # [node, time left]
@@ -189,6 +190,7 @@ func _clear() -> void:
 	_guns.clear()
 	_generators.clear()
 	_explosives.clear()
+	_detonate_source.clear()
 	_pending_blasts.clear()
 	for shell in _shells:
 		var node: Node = shell["node"]
@@ -664,18 +666,32 @@ func _ground_hit(from: Vector3, to: Vector3) -> Array:
 ## An explosive block goes off when its Detonate input is on.
 func _run_explosives() -> void:
 	var detonate: Array = []
+	var gone := false
 	for item in _explosives:
 		var uid: int = item
-		var record: Dictionary = spawner.record_of(uid)
-		if record.is_empty():
+		var source: Array = _detonate_source.get(uid, [])
+		if source.is_empty():
+			var record: Dictionary = spawner.record_of(uid)
+			if record.is_empty():
+				gone = true
+				continue
+			var links: Dictionary = record.get("links", {})
+			if not links.has("detonate"):
+				continue   # goes off only when destroyed
+			var link: Dictionary = links["detonate"]
+			source = [int(link.get("uid", 0)), str(link.get("output", ""))]
+			_detonate_source[uid] = source
+		if spawner.is_dead(uid):
+			gone = true
 			continue
-		var links: Dictionary = record.get("links", {})
-		if links.has("detonate") and spawner.input_value(links, "detonate", 0.0) != 0.0 \
-				and not (spawner.has_method("is_payload_safe") and spawner.is_payload_safe(uid)):
+		if spawner.read_output(source[0], source[1], 0.0) != 0.0 and not spawner.is_payload_safe(uid):
 			detonate.append(uid)
 	for item in detonate:
 		var uid: int = item
 		spawner.destroy_part(uid)   # its blast follows from _on_part_destroyed
+	# Destroyed ones are dropped from the list now and then.
+	if gone and Engine.get_physics_frames() % 60 == 0:
+		_explosives = _explosives.filter(func(uid: int) -> bool: return not spawner.is_dead(uid))
 
 
 func _on_part_destroyed(_uid: int, type: String, at: Vector3, props: Dictionary) -> void:
@@ -696,6 +712,18 @@ func _set_off_blasts() -> void:
 	var blasts: Array = _pending_blasts
 	_pending_blasts = []
 	var damage: Dictionary = {}   # uid -> HP, all blasts this tick together
+	# Where every part is, found once for all of this tick's blasts. Bombs
+	# and missiles this build has let go are left out: a stream of bombs
+	# would otherwise go off one after another up through the stream, back
+	# to the bomber that dropped them.
+	var places: Array = []   # [uid, world point, body]
+	for key in spawner.live_parts():
+		var uid: int = key
+		if spawner.is_dropped_payload(uid):
+			continue
+		var place: Array = spawner.part_place(uid)
+		if not place.is_empty():
+			places.append([uid, place[0], place[1]])
 	for item in blasts:
 		var blast: Array = item
 		var centre: Vector3 = blast[0]
@@ -705,12 +733,9 @@ func _set_off_blasts() -> void:
 		Birds.startle_all(get_tree(), centre, maxf(radius * 30.0, 60.0))
 		Sound.play_at("explosion", centre, clampf(linear_to_db(maxf(radius / 2.0, 0.2)), -8.0, 10.0),
 				clampf(radius * 25.0, 40.0, 1500.0), clampf(1.15 - radius * 0.02, 0.6, 1.2))
-		for key in spawner.live_parts():
-			var uid: int = key
-			var place: Array = spawner.part_place(uid)
-			if place.is_empty():
-				continue
-			var point: Vector3 = place[0]
+		for entry in places:
+			var uid: int = entry[0]
+			var point: Vector3 = entry[1]
 			var distance: float = point.distance_to(centre)
 			if distance >= radius:
 				continue
@@ -718,7 +743,7 @@ func _set_off_blasts() -> void:
 			damage[uid] = float(damage.get(uid, 0.0)) + dealt
 			# The push goes on before the damage, so chunks that break off
 			# fly off with it.
-			var body: RigidBody3D = place[1]
+			var body: RigidBody3D = entry[2]
 			if body != null and not body.freeze:
 				var away: Vector3 = point - centre
 				if away.length_squared() < 0.000001:
