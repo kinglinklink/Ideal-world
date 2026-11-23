@@ -127,8 +127,22 @@ func _clear() -> void:
 	_rockets.clear()
 
 
+## Parts made while spawned (a reload gate's payload): solid rockets join
+## in. Tanks, pipes and engines in a payload aren't plumbed in.
+func _on_parts_added(uids: Array) -> void:
+	if _generation != int(spawner.generation):
+		return   # not started on this spawn yet; _start will find them
+	for item in uids:
+		var uid: int = item
+		var record: Dictionary = spawner.record_of(uid)
+		if str(record.get("type", "")) == "solid_rocket":
+			_start_rocket(uid, record, record.get("props", {}))
+
+
 func _start() -> void:
 	_generation = int(spawner.generation)
+	if not spawner.parts_added.is_connected(_on_parts_added):
+		spawner.parts_added.connect(_on_parts_added)
 	var records: Dictionary = spawner.all_records()
 	var ambient := _ambient_pressure(Vector3.ZERO)
 	for key in records:

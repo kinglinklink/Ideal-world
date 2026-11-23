@@ -6,6 +6,19 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 32
+
+- **Reload gate** part (Combat): whatever is built on its rail (its top face) rides along welded to it until Release lets it go, then an identical copy is rebuilt on the rail after the reload time (3 s by default), wired to the same controls. Set how many reloads it has (0 for no limit) and how long explosives on it stay safe after letting go, so a missile can't blow up the plane that fired it. Outputs Loaded and Reloads used
+- **Ladder** part (Structural): walk into it, or hold jump against it, to climb at 2 m/s; walk away to let go, and push on at the top to step off. Its Stowed input folds it away (hidden and not solid)
+- **Pulse** mode for key input blocks: on for one physics tick each press, for stepping through things
+- **F-14 Tomcat, faster and easier to board:**
+  - The wings now sweep back the right way.
+  - A boarding ladder on the left by the cockpit. It folds away once the engines run or the gear is up.
+  - **Right trigger** (or K for full power, M for cruise): 500 kN a side.
+  - **Left trigger** (or Shift): afterburners, only once the right trigger is fully in. Up to 5 MN a side. They spool over about 4 s and ease off at speed so the airframe isn't crushed, and it reaches the game's top speed of about 740 m/s (best high up).
+  - **D-pad up** (or G): gear up once airborne, and again to lower it.
+  - The four missiles sit on reload gates and the trigger fires the next loaded one. They are now heavier aluminium so they outrun the jet.
+
 ### New in Build 31
 
 - **Xbox and PlayStation controllers** (USB or Bluetooth): left stick walks, right stick looks, A jumps, Y sits, View stands up (or spawns), Menu pauses. See [Controller](#controller)
@@ -251,6 +264,8 @@ This is the basic version. What it does so far:
 - **Pushing.** The character has a mass of 70 kg. Walking into a body pushes it with a force equal to the character's momentum toward it (mass × closing speed) handed over across a quarter of a second, but never harder than the feet can grip: grip × weight, about 687 N on the ground and next to nothing on ice. Friction with the ground decides the rest. A light body slides away, a heavier one moves slowly and holds you back to its speed, and one whose friction is greater than the push does not move at all. Every push is a force in newtons from the game's own code; the physics engine itself never shoves a body out of the character's way.
 - **Weight and grip.** A body you stand on carries your weight, and feels the reaction of your feet: speed up, slow down or push on something while standing on a loose body and it is pushed the other way. The character changes speed only as fast as its grip allows (grip × g), so it takes a moment to get going on the ground, is slippery on ice, and cannot change speed at all on a frictionless surface.
 - **Seats** work the same as on the pad: E to sit, Space to stand up.
+- **Ladders** can be climbed: walk into one (or hold Space against it) to go up at 2 m/s, stand still to hang on, walk away to let go. While its Stowed input is on it is hidden and not solid.
+- **Reload gate:** the parts built on its rail (its own +Y face, found the way an offsetter finds its load) are welded to it. Release lets them go as a body of their own, moving as they were; after the reload time an identical copy appears on the rail, linked to the same controls as the first, unless the rail is blocked (it waits) or the reloads are used up. Explosives on the rail can't go off, and stay safe for the set time after letting go.
 - **Hinges** work. A hinge splits across its middle into a base half and a top half, joined by the pin along its own X axis. Each side welds to whatever touches it, so what is attached to the top swings relative to what is attached to the base. Something that touches both sides, such as a block standing beside the hinge, welds to the side it shares more area with, and to the base if they are even. The hinge's settings apply: angle limits (off by default, so it turns freely) and friction torque. The two bodies a joint connects do not collide with each other, so use the angle limits to stop it where it should stop. If both sides of a joint end up welded to the same body through other parts, it cannot turn, and the spawn message says how many joints are locked that way.
 - **Motors and servos** work the same way: the housing is the base and the output on top is the side that turns. Whatever touches the top face turns with it. A **motor** turns about its own +Y at up to its max speed, with up to its max torque; link Clockwise or Counterclockwise to input blocks, or link Speed to a number from −1 to 1. A **servo** also turns about its own +Y, and a **door hinge servo** swings its upright leaf about the edge it shares with its base plate. Link Go to positive target and Go to negative target to input blocks, and the servo moves to those angles at its set speed and returns to its default angle, or holds, when neither is on; or link Angle to a number of degrees. Angles are zero as built, and positive is counterclockwise seen from the top looking back at the base. Each drive works through its joint: the physics engine holds the turning speed the drive asks for as part of solving the joint, with at most the drive's max torque, so a servo holds its angle rigidly however light or heavy the thing it turns, and the base feels the opposite torque.
 - **Thrusters** push along their own −Z with the thrust set in Config. With nothing linked a thruster runs flat out from the moment of spawning. Link its On input to an **input block** (Config tool, Signals) to run it from a key, or link Throttle to an input block set to "Number from two keys" to drive it forward and back. Key binds work only while you are sitting in a seat. A running thruster shows a glow.
@@ -399,7 +414,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `tools/shot.gd`, `model_shot.gd`, `material_shot.gd`, `moon_shot.gd` | Screenshots with a real renderer, for checking looks |
 | `tools/build_kit.py`, `make_f14.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`) and the big delta plane |
 | `tools/build_shot.gd` | Pictures of a build file from six sides (add `lit` for its lights on) |
-| `tools/f14_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 (ground, takeoff, air, missile) and the delta plane, and the controller test |
+| `tools/f14_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 (ground, takeoff, air, missile, fast, reload, ladder) and the delta plane, and the controller test |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |
 | `tools/find_caves.py` | Searches the heights for cave sites |
 | `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |

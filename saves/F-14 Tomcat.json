@@ -2708,7 +2708,7 @@
    },
    "links": {
     "fire": {
-     "part": 437,
+     "part": 492,
      "output": "result"
     }
    }
@@ -2748,7 +2748,7 @@
    },
    "links": {
     "fire": {
-     "part": 437,
+     "part": 492,
      "output": "result"
     }
    }
@@ -2789,7 +2789,7 @@
    },
    "links": {
     "fire": {
-     "part": 434,
+     "part": 489,
      "output": "result"
     }
    }
@@ -2830,10 +2830,106 @@
    },
    "links": {
     "fire": {
-     "part": 434,
+     "part": 489,
      "output": "result"
     }
    }
+  },
+  {
+   "type": "ladder",
+   "material": "balsa",
+   "color": "#55585f",
+   "pos": [
+    134.125,
+    9.5,
+    150.0
+   ],
+   "size": [
+    2.0,
+    16.0,
+    0.25
+   ],
+   "x_axis": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "links": {
+    "stowed": {
+     "part": 510,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "block",
+   "material": "balsa",
+   "color": "#17171a",
+   "pos": [
+    133.5,
+    10.5,
+    150.0
+   ],
+   "size": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "balsa",
+   "color": "#17171a",
+   "pos": [
+    133.5,
+    16.0,
+    150.0
+   ],
+   "size": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
   },
   {
    "type": "aero_panel_triangle",
@@ -3046,7 +3142,7 @@
    ],
    "settings": {
     "default_angle": 0.0,
-    "positive_angle": 48.0,
+    "positive_angle": -48.0,
     "negative_angle": 0.0,
     "speed": 15.0,
     "easing": 30.0,
@@ -3055,7 +3151,7 @@
    },
    "links": {
     "go_positive": {
-     "part": 416,
+     "part": 462,
      "output": "result"
     }
    }
@@ -3271,7 +3367,7 @@
    ],
    "settings": {
     "default_angle": 0.0,
-    "positive_angle": -48.0,
+    "positive_angle": 48.0,
     "negative_angle": 0.0,
     "speed": 15.0,
     "easing": 30.0,
@@ -3280,7 +3376,7 @@
    },
    "links": {
     "go_positive": {
-     "part": 416,
+     "part": 462,
      "output": "result"
     }
    }
@@ -3505,7 +3601,7 @@
    },
    "links": {
     "angle": {
-     "part": 384,
+     "part": 415,
      "output": "result"
     }
    }
@@ -3550,7 +3646,7 @@
    },
    "links": {
     "angle": {
-     "part": 385,
+     "part": 416,
      "output": "result"
     }
    }
@@ -3655,7 +3751,7 @@
    },
    "links": {
     "angle": {
-     "part": 394,
+     "part": 429,
      "output": "result"
     }
    }
@@ -3700,7 +3796,7 @@
    },
    "links": {
     "angle": {
-     "part": 395,
+     "part": 430,
      "output": "result"
     }
    }
@@ -4019,7 +4115,7 @@
    },
    "links": {
     "angle": {
-     "part": 379,
+     "part": 408,
      "output": "result"
     }
    }
@@ -4064,7 +4160,7 @@
    },
    "links": {
     "angle": {
-     "part": 380,
+     "part": 409,
      "output": "result"
     }
    }
@@ -4169,7 +4265,7 @@
    },
    "links": {
     "angle": {
-     "part": 389,
+     "part": 422,
      "output": "result"
     }
    }
@@ -4214,7 +4310,7 @@
    },
    "links": {
     "angle": {
-     "part": 390,
+     "part": 423,
      "output": "result"
     }
    }
@@ -4443,7 +4539,7 @@
    },
    "links": {
     "angle": {
-     "part": 404,
+     "part": 443,
      "output": "result"
     }
    }
@@ -4488,7 +4584,7 @@
    },
    "links": {
     "angle": {
-     "part": 405,
+     "part": 444,
      "output": "result"
     }
    }
@@ -4713,7 +4809,7 @@
    },
    "links": {
     "angle": {
-     "part": 399,
+     "part": 436,
      "output": "result"
     }
    }
@@ -4758,7 +4854,7 @@
    },
    "links": {
     "angle": {
-     "part": 400,
+     "part": 437,
      "output": "result"
     }
    }
@@ -4953,7 +5049,7 @@
    },
    "links": {
     "angle": {
-     "part": 363,
+     "part": 386,
      "output": "result"
     }
    }
@@ -5118,7 +5214,7 @@
    },
    "links": {
     "angle": {
-     "part": 363,
+     "part": 386,
      "output": "result"
     }
    }
@@ -5253,7 +5349,7 @@
    },
    "links": {
     "angle": {
-     "part": 406,
+     "part": 448,
      "output": "result"
     }
    }
@@ -5565,12 +5661,42 @@
    "pos": [
     137.0,
     11.5,
-    78.7
+    78.9
    ],
    "size": [
     5.6,
     5.6,
-    2.4
+    2.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "steel",
+   "color": "#1a1110",
+   "pos": [
+    137.0,
+    11.5,
+    77.85
+   ],
+   "size": [
+    3.6,
+    5.6,
+    0.1
    ],
    "x_axis": [
     1.0,
@@ -5595,12 +5721,12 @@
    "pos": [
     137.0,
     11.5,
-    76.5
+    76.65
    ],
    "size": [
     2.0,
     2.0,
-    2.0
+    2.3
    ],
    "x_axis": [
     -1.0,
@@ -5618,16 +5744,60 @@
     -1.0
    ],
    "settings": {
-    "thrust": 300000.0,
+    "thrust": 500000.0,
     "ideal": true
    },
    "links": {
     "throttle": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     },
     "on": {
-     "part": 321,
+     "part": 324,
+     "output": "is_true"
+    }
+   }
+  },
+  {
+   "type": "thruster",
+   "material": "steel",
+   "color": "#0d0d0f",
+   "pos": [
+    137.0,
+    11.5,
+    75.0
+   ],
+   "size": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "x_axis": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "settings": {
+    "thrust": 5000000.0,
+    "ideal": true
+   },
+   "links": {
+    "throttle": {
+     "part": 335,
+     "output": "output"
+    },
+    "on": {
+     "part": 336,
      "output": "is_true"
     }
    }
@@ -5639,7 +5809,7 @@
    "pos": [
     137.0,
     11.5,
-    75.44
+    74.44
    ],
    "size": [
     2.0,
@@ -5667,19 +5837,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 411,
+     "part": 457,
      "output": "result"
     },
     "blue": {
-     "part": 412,
+     "part": 458,
      "output": "result"
     }
    }
@@ -5691,11 +5861,11 @@
    "pos": [
     135.125,
     11.5,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     2.0
    ],
    "x_axis": [
@@ -5719,19 +5889,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -5743,11 +5913,11 @@
    "pos": [
     138.875,
     11.5,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     2.0
    ],
    "x_axis": [
@@ -5771,19 +5941,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -5795,11 +5965,11 @@
    "pos": [
     137.0,
     13.375,
-    76.465
+    77.74
    ],
    "size": [
     2.0,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -5823,19 +5993,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -5847,11 +6017,11 @@
    "pos": [
     137.0,
     9.625,
-    76.465
+    77.74
    ],
    "size": [
     2.0,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -5875,19 +6045,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -5899,11 +6069,11 @@
    "pos": [
     138.875,
     13.375,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -5927,19 +6097,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -5951,11 +6121,11 @@
    "pos": [
     138.875,
     9.625,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -5979,19 +6149,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6003,11 +6173,11 @@
    "pos": [
     135.125,
     13.375,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -6031,19 +6201,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6055,11 +6225,11 @@
    "pos": [
     135.125,
     9.625,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -6083,142 +6253,22 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    135.125,
-    11.5,
-    77.215
-   ],
-   "size": [
-    1.75,
-    0.3,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    137.0,
-    9.625,
-    77.215
-   ],
-   "size": [
-    0.3,
-    1.75,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    138.875,
-    11.5,
-    77.215
-   ],
-   "size": [
-    1.75,
-    0.3,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    137.0,
-    13.375,
-    77.215
-   ],
-   "size": [
-    0.3,
-    1.75,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
   },
   {
    "type": "block",
@@ -6290,7 +6340,7 @@
    },
    "links": {
     "angle": {
-     "part": 406,
+     "part": 448,
      "output": "result"
     }
    }
@@ -6602,12 +6652,42 @@
    "pos": [
     119.0,
     11.5,
-    78.7
+    78.9
    ],
    "size": [
     5.6,
     5.6,
-    2.4
+    2.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "steel",
+   "color": "#1a1110",
+   "pos": [
+    119.0,
+    11.5,
+    77.85
+   ],
+   "size": [
+    3.6,
+    5.6,
+    0.1
    ],
    "x_axis": [
     1.0,
@@ -6632,12 +6712,12 @@
    "pos": [
     119.0,
     11.5,
-    76.5
+    76.65
    ],
    "size": [
     2.0,
     2.0,
-    2.0
+    2.3
    ],
    "x_axis": [
     -1.0,
@@ -6655,16 +6735,60 @@
     -1.0
    ],
    "settings": {
-    "thrust": 300000.0,
+    "thrust": 500000.0,
     "ideal": true
    },
    "links": {
     "throttle": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     },
     "on": {
-     "part": 321,
+     "part": 324,
+     "output": "is_true"
+    }
+   }
+  },
+  {
+   "type": "thruster",
+   "material": "steel",
+   "color": "#0d0d0f",
+   "pos": [
+    119.0,
+    11.5,
+    75.0
+   ],
+   "size": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "x_axis": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "settings": {
+    "thrust": 5000000.0,
+    "ideal": true
+   },
+   "links": {
+    "throttle": {
+     "part": 335,
+     "output": "output"
+    },
+    "on": {
+     "part": 336,
      "output": "is_true"
     }
    }
@@ -6676,7 +6800,7 @@
    "pos": [
     119.0,
     11.5,
-    75.44
+    74.44
    ],
    "size": [
     2.0,
@@ -6704,19 +6828,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 411,
+     "part": 457,
      "output": "result"
     },
     "blue": {
-     "part": 412,
+     "part": 458,
      "output": "result"
     }
    }
@@ -6728,11 +6852,11 @@
    "pos": [
     117.125,
     11.5,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     2.0
    ],
    "x_axis": [
@@ -6756,19 +6880,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6780,11 +6904,11 @@
    "pos": [
     120.875,
     11.5,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     2.0
    ],
    "x_axis": [
@@ -6808,19 +6932,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6832,11 +6956,11 @@
    "pos": [
     119.0,
     13.375,
-    76.465
+    77.74
    ],
    "size": [
     2.0,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -6860,19 +6984,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6884,11 +7008,11 @@
    "pos": [
     119.0,
     9.625,
-    76.465
+    77.74
    ],
    "size": [
     2.0,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -6912,19 +7036,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6936,11 +7060,11 @@
    "pos": [
     120.875,
     13.375,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -6964,19 +7088,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -6988,11 +7112,11 @@
    "pos": [
     120.875,
     9.625,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -7016,19 +7140,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -7040,11 +7164,11 @@
    "pos": [
     117.125,
     13.375,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -7068,19 +7192,19 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
@@ -7092,11 +7216,11 @@
    "pos": [
     117.125,
     9.625,
-    76.465
+    77.74
    ],
    "size": [
     1.75,
-    0.125,
+    0.12,
     1.75
    ],
    "x_axis": [
@@ -7120,142 +7244,22 @@
    },
    "links": {
     "on": {
-     "part": 321,
+     "part": 324,
      "output": "is_true"
     },
     "red": {
-     "part": 408,
+     "part": 450,
      "output": "result"
     },
     "green": {
-     "part": 409,
+     "part": 453,
      "output": "result"
     },
     "blue": {
-     "part": 410,
+     "part": 454,
      "output": "result"
     }
    }
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    117.125,
-    11.5,
-    77.215
-   ],
-   "size": [
-    1.75,
-    0.3,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    119.0,
-    9.625,
-    77.215
-   ],
-   "size": [
-    0.3,
-    1.75,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    120.875,
-    11.5,
-    77.215
-   ],
-   "size": [
-    1.75,
-    0.3,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
-  },
-  {
-   "type": "block",
-   "material": "balsa",
-   "color": "#1a1110",
-   "pos": [
-    119.0,
-    13.375,
-    77.215
-   ],
-   "size": [
-    0.3,
-    1.75,
-    1.375
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ]
   },
   {
    "type": "piston",
@@ -7297,7 +7301,7 @@
    },
    "links": {
     "extend": {
-     "part": 431,
+     "part": 486,
      "output": "result"
     }
    }
@@ -7342,7 +7346,7 @@
    },
    "links": {
     "angle": {
-     "part": 407,
+     "part": 449,
      "output": "result"
     }
    }
@@ -7480,12 +7484,12 @@
    "material": "aluminum",
    "color": "#24252a",
    "pos": [
-    129.65,
+    129.55,
     7.95,
     161.5
    ],
    "size": [
-    1.5,
+    1.3,
     1.1,
     1.8
    ],
@@ -7540,12 +7544,12 @@
    "material": "aluminum",
    "color": "#24252a",
    "pos": [
-    126.35,
+    126.45,
     7.95,
     161.5
    ],
    "size": [
-    1.5,
+    1.3,
     1.1,
     1.8
    ],
@@ -7665,7 +7669,7 @@
    },
    "links": {
     "extend": {
-     "part": 427,
+     "part": 482,
      "output": "result"
     }
    }
@@ -7740,7 +7744,7 @@
    },
    "links": {
     "extend": {
-     "part": 431,
+     "part": 486,
      "output": "result"
     }
    }
@@ -7939,7 +7943,7 @@
    },
    "links": {
     "extend": {
-     "part": 427,
+     "part": 482,
      "output": "result"
     }
    }
@@ -8014,7 +8018,7 @@
    },
    "links": {
     "extend": {
-     "part": 431,
+     "part": 486,
      "output": "result"
     }
    }
@@ -8213,7 +8217,7 @@
    },
    "links": {
     "extend": {
-     "part": 427,
+     "part": 482,
      "output": "result"
     }
    }
@@ -8250,11 +8254,11 @@
   },
   {
    "type": "solid_rocket",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     142.6,
-    11.95,
+    12.0,
     120.5
    ],
    "size": [
@@ -8278,24 +8282,24 @@
     -1.0
    ],
    "settings": {
-    "thrust": 9000.0,
+    "thrust": 85000.0,
     "burn_time": 5.0,
     "ideal": false
    },
    "links": {
     "ignite": {
-     "part": 442,
+     "part": 496,
      "output": "result"
     }
    }
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     142.6,
-    11.95,
+    12.0,
     126.5
    ],
    "size": [
@@ -8321,11 +8325,11 @@
   },
   {
    "type": "impact_detector",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     142.6,
-    11.95,
+    12.0,
     129.45
    ],
    "size": [
@@ -8355,16 +8359,16 @@
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     142.6,
-    11.95,
-    130.15
+    12.0,
+    129.7
    ],
    "size": [
     1.2,
-    0.5,
+    1.4,
     1.2
    ],
    "x_axis": [
@@ -8385,11 +8389,11 @@
   },
   {
    "type": "explosive_block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     142.6,
-    11.95,
+    12.0,
     131.7
    ],
    "size": [
@@ -8417,18 +8421,18 @@
    },
    "links": {
     "detonate": {
-     "part": 453,
-     "output": "result"
+     "part": 247,
+     "output": "triggered"
     }
    }
   },
   {
    "type": "cone",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     142.6,
-    11.95,
+    12.0,
     134.5
    ],
    "size": [
@@ -8454,11 +8458,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     143.55,
-    11.95,
+    12.0,
     118.1
    ],
    "size": [
@@ -8484,11 +8488,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     141.65,
-    11.95,
+    12.0,
     118.1
    ],
    "size": [
@@ -8514,11 +8518,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     142.6,
-    11.0,
+    11.05,
     118.1
    ],
    "size": [
@@ -8544,11 +8548,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     143.45,
-    11.95,
+    12.0,
     131.35
    ],
    "size": [
@@ -8574,11 +8578,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     141.75,
-    11.95,
+    12.0,
     131.35
    ],
    "size": [
@@ -8604,11 +8608,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     142.6,
-    11.1,
+    11.15,
     131.35
    ],
    "size": [
@@ -8633,8 +8637,8 @@
    ]
   },
   {
-   "type": "magnet",
-   "material": "balsa",
+   "type": "reload_gate",
+   "material": "aluminum",
    "color": "#3b3d44",
    "pos": [
     142.6,
@@ -8662,30 +8666,59 @@
     -1.0
    ],
    "settings": {
-    "strength": 2000000.0,
-    "on_unlinked": true,
-    "grabs_ground": false
+    "reload_time": 3.0,
+    "reloads": 0.0
    },
    "links": {
-    "on": {
-     "part": 449,
+    "release": {
+     "part": 496,
      "output": "result"
     }
    }
   },
   {
    "type": "block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#17171a",
    "pos": [
     142.6,
-    13.675,
+    13.55,
     126.0
    ],
    "size": [
     0.6,
-    1.65,
-    6.0
+    1.4,
+    8.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "aluminum",
+   "color": "#17171a",
+   "pos": [
+    142.6,
+    14.375,
+    126.0
+   ],
+   "size": [
+    2.0,
+    0.25,
+    12.0
    ],
    "x_axis": [
     1.0,
@@ -8705,11 +8738,11 @@
   },
   {
    "type": "solid_rocket",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     145.4,
-    11.95,
+    10.5,
     115.5
    ],
    "size": [
@@ -8733,24 +8766,24 @@
     -1.0
    ],
    "settings": {
-    "thrust": 9000.0,
+    "thrust": 85000.0,
     "burn_time": 5.0,
     "ideal": false
    },
    "links": {
     "ignite": {
-     "part": 446,
+     "part": 504,
      "output": "result"
     }
    }
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     145.4,
-    11.95,
+    10.5,
     121.5
    ],
    "size": [
@@ -8776,11 +8809,11 @@
   },
   {
    "type": "impact_detector",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     145.4,
-    11.95,
+    10.5,
     124.45
    ],
    "size": [
@@ -8810,16 +8843,16 @@
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     145.4,
-    11.95,
-    125.15
+    10.5,
+    124.7
    ],
    "size": [
     1.2,
-    0.5,
+    1.4,
     1.2
    ],
    "x_axis": [
@@ -8840,11 +8873,11 @@
   },
   {
    "type": "explosive_block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     145.4,
-    11.95,
+    10.5,
     126.7
    ],
    "size": [
@@ -8872,18 +8905,18 @@
    },
    "links": {
     "detonate": {
-     "part": 463,
-     "output": "result"
+     "part": 262,
+     "output": "triggered"
     }
    }
   },
   {
    "type": "cone",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     145.4,
-    11.95,
+    10.5,
     129.5
    ],
    "size": [
@@ -8909,11 +8942,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     146.35,
-    11.95,
+    10.5,
     113.1
    ],
    "size": [
@@ -8939,11 +8972,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     144.45,
-    11.95,
+    10.5,
     113.1
    ],
    "size": [
@@ -8969,11 +9002,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     145.4,
-    11.0,
+    9.55,
     113.1
    ],
    "size": [
@@ -8999,11 +9032,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     146.25,
-    11.95,
+    10.5,
     126.35
    ],
    "size": [
@@ -9029,11 +9062,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     144.55,
-    11.95,
+    10.5,
     126.35
    ],
    "size": [
@@ -9059,11 +9092,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     145.4,
-    11.1,
+    9.65,
     126.35
    ],
    "size": [
@@ -9088,12 +9121,12 @@
    ]
   },
   {
-   "type": "magnet",
-   "material": "balsa",
+   "type": "reload_gate",
+   "material": "aluminum",
    "color": "#3b3d44",
    "pos": [
     145.4,
-    12.725,
+    11.225,
     121.0
    ],
    "size": [
@@ -9117,30 +9150,59 @@
     -1.0
    ],
    "settings": {
-    "strength": 2000000.0,
-    "on_unlinked": true,
-    "grabs_ground": false
+    "reload_time": 3.0,
+    "reloads": 0.0
    },
    "links": {
-    "on": {
-     "part": 459,
+    "release": {
+     "part": 504,
      "output": "result"
     }
    }
   },
   {
    "type": "block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#17171a",
    "pos": [
     145.4,
-    13.675,
+    12.8,
     121.0
    ],
    "size": [
     0.6,
-    1.65,
-    6.0
+    2.9,
+    8.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "aluminum",
+   "color": "#17171a",
+   "pos": [
+    145.05,
+    14.375,
+    121.0
+   ],
+   "size": [
+    1.3,
+    0.25,
+    12.0
    ],
    "x_axis": [
     1.0,
@@ -9160,11 +9222,11 @@
   },
   {
    "type": "solid_rocket",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     113.4,
-    11.95,
+    12.0,
     120.5
    ],
    "size": [
@@ -9188,24 +9250,24 @@
     -1.0
    ],
    "settings": {
-    "thrust": 9000.0,
+    "thrust": 85000.0,
     "burn_time": 5.0,
     "ideal": false
    },
    "links": {
     "ignite": {
-     "part": 444,
+     "part": 500,
      "output": "result"
     }
    }
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     113.4,
-    11.95,
+    12.0,
     126.5
    ],
    "size": [
@@ -9231,11 +9293,11 @@
   },
   {
    "type": "impact_detector",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     113.4,
-    11.95,
+    12.0,
     129.45
    ],
    "size": [
@@ -9265,16 +9327,16 @@
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     113.4,
-    11.95,
-    130.15
+    12.0,
+    129.7
    ],
    "size": [
     1.2,
-    0.5,
+    1.4,
     1.2
    ],
    "x_axis": [
@@ -9295,11 +9357,11 @@
   },
   {
    "type": "explosive_block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     113.4,
-    11.95,
+    12.0,
     131.7
    ],
    "size": [
@@ -9327,18 +9389,18 @@
    },
    "links": {
     "detonate": {
-     "part": 458,
-     "output": "result"
+     "part": 277,
+     "output": "triggered"
     }
    }
   },
   {
    "type": "cone",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     113.4,
-    11.95,
+    12.0,
     134.5
    ],
    "size": [
@@ -9364,11 +9426,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     114.35,
-    11.95,
+    12.0,
     118.1
    ],
    "size": [
@@ -9394,11 +9456,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     112.45,
-    11.95,
+    12.0,
     118.1
    ],
    "size": [
@@ -9424,11 +9486,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     113.4,
-    11.0,
+    11.05,
     118.1
    ],
    "size": [
@@ -9454,11 +9516,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     114.25,
-    11.95,
+    12.0,
     131.35
    ],
    "size": [
@@ -9484,11 +9546,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     112.55,
-    11.95,
+    12.0,
     131.35
    ],
    "size": [
@@ -9514,11 +9576,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     113.4,
-    11.1,
+    11.15,
     131.35
    ],
    "size": [
@@ -9543,8 +9605,8 @@
    ]
   },
   {
-   "type": "magnet",
-   "material": "balsa",
+   "type": "reload_gate",
+   "material": "aluminum",
    "color": "#3b3d44",
    "pos": [
     113.4,
@@ -9572,30 +9634,59 @@
     -1.0
    ],
    "settings": {
-    "strength": 2000000.0,
-    "on_unlinked": true,
-    "grabs_ground": false
+    "reload_time": 3.0,
+    "reloads": 0.0
    },
    "links": {
-    "on": {
-     "part": 454,
+    "release": {
+     "part": 500,
      "output": "result"
     }
    }
   },
   {
    "type": "block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#17171a",
    "pos": [
     113.4,
-    13.675,
+    13.55,
     126.0
    ],
    "size": [
     0.6,
-    1.65,
-    6.0
+    1.4,
+    8.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "aluminum",
+   "color": "#17171a",
+   "pos": [
+    113.4,
+    14.375,
+    126.0
+   ],
+   "size": [
+    2.0,
+    0.25,
+    12.0
    ],
    "x_axis": [
     1.0,
@@ -9615,11 +9706,11 @@
   },
   {
    "type": "solid_rocket",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     110.6,
-    11.95,
+    10.5,
     115.5
    ],
    "size": [
@@ -9643,24 +9734,24 @@
     -1.0
    ],
    "settings": {
-    "thrust": 9000.0,
+    "thrust": 85000.0,
     "burn_time": 5.0,
     "ideal": false
    },
    "links": {
     "ignite": {
-     "part": 448,
+     "part": 508,
      "output": "result"
     }
    }
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     110.6,
-    11.95,
+    10.5,
     121.5
    ],
    "size": [
@@ -9686,11 +9777,11 @@
   },
   {
    "type": "impact_detector",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     110.6,
-    11.95,
+    10.5,
     124.45
    ],
    "size": [
@@ -9720,16 +9811,16 @@
   },
   {
    "type": "cylinder",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#a1111b",
    "pos": [
     110.6,
-    11.95,
-    125.15
+    10.5,
+    124.7
    ],
    "size": [
     1.2,
-    0.5,
+    1.4,
     1.2
    ],
    "x_axis": [
@@ -9750,11 +9841,11 @@
   },
   {
    "type": "explosive_block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     110.6,
-    11.95,
+    10.5,
     126.7
    ],
    "size": [
@@ -9782,18 +9873,18 @@
    },
    "links": {
     "detonate": {
-     "part": 468,
-     "output": "result"
+     "part": 292,
+     "output": "triggered"
     }
    }
   },
   {
    "type": "cone",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     110.6,
-    11.95,
+    10.5,
     129.5
    ],
    "size": [
@@ -9819,11 +9910,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     111.55,
-    11.95,
+    10.5,
     113.1
    ],
    "size": [
@@ -9849,11 +9940,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     109.65,
-    11.95,
+    10.5,
     113.1
    ],
    "size": [
@@ -9879,11 +9970,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     110.6,
-    11.0,
+    9.55,
     113.1
    ],
    "size": [
@@ -9909,11 +10000,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     111.45,
-    11.95,
+    10.5,
     126.35
    ],
    "size": [
@@ -9939,11 +10030,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     109.75,
-    11.95,
+    10.5,
     126.35
    ],
    "size": [
@@ -9969,11 +10060,11 @@
   },
   {
    "type": "aero_panel_triangle",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#e9e9e6",
    "pos": [
     110.6,
-    11.1,
+    9.65,
     126.35
    ],
    "size": [
@@ -9998,12 +10089,12 @@
    ]
   },
   {
-   "type": "magnet",
-   "material": "balsa",
+   "type": "reload_gate",
+   "material": "aluminum",
    "color": "#3b3d44",
    "pos": [
     110.6,
-    12.725,
+    11.225,
     121.0
    ],
    "size": [
@@ -10027,30 +10118,59 @@
     -1.0
    ],
    "settings": {
-    "strength": 2000000.0,
-    "on_unlinked": true,
-    "grabs_ground": false
+    "reload_time": 3.0,
+    "reloads": 0.0
    },
    "links": {
-    "on": {
-     "part": 464,
+    "release": {
+     "part": 508,
      "output": "result"
     }
    }
   },
   {
    "type": "block",
-   "material": "balsa",
+   "material": "aluminum",
    "color": "#17171a",
    "pos": [
     110.6,
-    13.675,
+    12.8,
     121.0
    ],
    "size": [
     0.6,
-    1.65,
-    6.0
+    2.9,
+    8.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "block",
+   "material": "aluminum",
+   "color": "#17171a",
+   "pos": [
+    110.95,
+    14.375,
+    121.0
+   ],
+   "size": [
+    1.3,
+    0.25,
+    12.0
    ],
    "x_axis": [
     1.0,
@@ -10196,7 +10316,7 @@
    },
    "links": {
     "on": {
-     "part": 413,
+     "part": 459,
      "output": "output"
     }
    }
@@ -10310,11 +10430,11 @@
    },
    "links": {
     "a": {
-     "part": 306,
+     "part": 309,
      "output": "value"
     },
     "b": {
-     "part": 307,
+     "part": 310,
      "output": "value"
     }
    }
@@ -10428,11 +10548,11 @@
    },
    "links": {
     "a": {
-     "part": 309,
+     "part": 312,
      "output": "value"
     },
     "b": {
-     "part": 310,
+     "part": 313,
      "output": "value"
     }
    }
@@ -10547,11 +10667,11 @@
    },
    "links": {
     "a": {
-     "part": 312,
+     "part": 315,
      "output": "value"
     },
     "b": {
-     "part": 313,
+     "part": 316,
      "output": "value"
     }
    }
@@ -10701,7 +10821,7 @@
    },
    "links": {
     "a": {
-     "part": 317,
+     "part": 320,
      "output": "value"
     }
    }
@@ -10741,11 +10861,11 @@
    },
    "links": {
     "a": {
-     "part": 315,
+     "part": 318,
      "output": "value"
     },
     "b": {
-     "part": 318,
+     "part": 321,
      "output": "result"
     }
    }
@@ -10785,11 +10905,11 @@
    },
    "links": {
     "a": {
-     "part": 319,
+     "part": 322,
      "output": "result"
     },
     "b": {
-     "part": 316,
+     "part": 319,
      "output": "value"
     }
    }
@@ -10829,7 +10949,7 @@
    },
    "links": {
     "a": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     }
    }
@@ -10865,17 +10985,17 @@
    ],
    "settings": {
     "operation": "Compare",
-    "value": 0.9
+    "value": 0.97
    },
    "links": {
     "a": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     }
    }
   },
   {
-   "type": "number_gate",
+   "type": "gamepad_input",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -10904,22 +11024,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 303,
-     "output": "speed"
-    },
-    "b": {
-     "part": 303,
-     "output": "speed"
-    }
+    "control": "LT / L2 trigger",
+    "mode": "Hold",
+    "curve": 1.0,
+    "deadzone": 0.05,
+    "scale": 1.0,
+    "output": "One control"
    }
   },
   {
-   "type": "number_gate",
+   "type": "input_block",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -10948,14 +11062,10 @@
     1.0
    ],
    "settings": {
-    "operation": "Max",
-    "value": 11077.0
-   },
-   "links": {
-    "a": {
-     "part": 323,
-     "output": "result"
-    }
+    "key": "Shift",
+    "mode": "Hold",
+    "output": "Boolean",
+    "second_key": ""
    }
   },
   {
@@ -10988,8 +11098,18 @@
     1.0
    ],
    "settings": {
-    "operation": "Constant",
-    "value": 14400.0
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 326,
+     "output": "value"
+    },
+    "b": {
+     "part": 327,
+     "output": "value"
+    }
    }
   },
   {
@@ -11022,17 +11142,17 @@
     1.0
    ],
    "settings": {
-    "operation": "Divide",
+    "operation": "Multiply",
     "value": 0.0
    },
    "links": {
     "a": {
-     "part": 325,
+     "part": 328,
      "output": "result"
     },
     "b": {
-     "part": 324,
-     "output": "result"
+     "part": 325,
+     "output": "is_true"
     }
    }
   },
@@ -11066,13 +11186,17 @@
     1.0
    ],
    "settings": {
-    "operation": "Max",
-    "value": 0.2
+    "operation": "Multiply",
+    "value": 0.0
    },
    "links": {
     "a": {
-     "part": 326,
-     "output": "result"
+     "part": 306,
+     "output": "speed"
+    },
+    "b": {
+     "part": 306,
+     "output": "speed"
     }
    }
   },
@@ -11106,13 +11230,13 @@
     1.0
    ],
    "settings": {
-    "operation": "Subtract",
-    "value": 25.0
+    "operation": "Multiply",
+    "value": 2.040816326530612e-06
    },
    "links": {
     "a": {
-     "part": 303,
-     "output": "speed"
+     "part": 330,
+     "output": "result"
     }
    }
   },
@@ -11146,12 +11270,12 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 0.03333333333333333
+    "operation": "Add",
+    "value": 0.12
    },
    "links": {
     "a": {
-     "part": 328,
+     "part": 331,
      "output": "result"
     }
    }
@@ -11186,12 +11310,12 @@
     1.0
    ],
    "settings": {
-    "operation": "Clamp",
+    "operation": "Min",
     "value": 1.0
    },
    "links": {
     "a": {
-     "part": 329,
+     "part": 332,
      "output": "result"
     }
    }
@@ -11226,12 +11350,22 @@
     1.0
    ],
    "settings": {
-    "operation": "Constant",
-    "value": 1.0
+    "operation": "Min",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 329,
+     "output": "result"
+    },
+    "b": {
+     "part": 333,
+     "output": "result"
+    }
    }
   },
   {
-   "type": "number_gate",
+   "type": "pid_controller",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -11260,17 +11394,20 @@
     1.0
    ],
    "settings": {
-    "operation": "Subtract",
-    "value": 0.0
+    "kp": 0.0,
+    "ki": 0.25,
+    "kd": 0.0,
+    "output_min": 0.0,
+    "output_max": 1.0
    },
    "links": {
-    "a": {
-     "part": 331,
+    "setpoint": {
+     "part": 334,
      "output": "result"
     },
-    "b": {
-     "part": 330,
-     "output": "result"
+    "measurement": {
+     "part": 335,
+     "output": "output"
     }
    }
   },
@@ -11304,13 +11441,13 @@
     1.0
    ],
    "settings": {
-    "operation": "Max",
-    "value": 60.0
+    "operation": "Compare",
+    "value": 0.01
    },
    "links": {
     "a": {
-     "part": 303,
-     "output": "speed"
+     "part": 335,
+     "output": "output"
     }
    }
   },
@@ -11322,6 +11459,568 @@
     4.5,
     0.25,
     7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 306,
+     "output": "speed"
+    },
+    "b": {
+     "part": 306,
+     "output": "speed"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 92.3
+   },
+   "links": {
+    "a": {
+     "part": 306,
+     "output": "speed"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Constant",
+    "value": 120.0
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Divide",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 339,
+     "output": "result"
+    },
+    "b": {
+     "part": 338,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 337,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Constant",
+    "value": 30000.0
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Divide",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 342,
+     "output": "result"
+    },
+    "b": {
+     "part": 341,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Min",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 340,
+     "output": "result"
+    },
+    "b": {
+     "part": 343,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Subtract",
+    "value": 25.0
+   },
+   "links": {
+    "a": {
+     "part": 306,
+     "output": "speed"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 0.03333333333333333
+   },
+   "links": {
+    "a": {
+     "part": 345,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Clamp",
+    "value": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 346,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Constant",
+    "value": 1.0
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Subtract",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 348,
+     "output": "result"
+    },
+    "b": {
+     "part": 347,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    7.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 60.0
+   },
+   "links": {
+    "a": {
+     "part": 306,
+     "output": "speed"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    9.0
    ],
    "size": [
     1.0,
@@ -11355,7 +12054,7 @@
    "pos": [
     6.0,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11383,11 +12082,11 @@
    },
    "links": {
     "a": {
-     "part": 334,
+     "part": 351,
      "output": "result"
     },
     "b": {
-     "part": 333,
+     "part": 350,
      "output": "result"
     }
    }
@@ -11399,7 +12098,7 @@
    "pos": [
     7.5,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11427,7 +12126,7 @@
    },
    "links": {
     "a": {
-     "part": 335,
+     "part": 352,
      "output": "result"
     }
    }
@@ -11439,7 +12138,7 @@
    "pos": [
     9.0,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11467,11 +12166,11 @@
    },
    "links": {
     "a": {
-     "part": 308,
+     "part": 311,
      "output": "result"
     },
     "b": {
-     "part": 336,
+     "part": 353,
      "output": "result"
     }
    }
@@ -11483,7 +12182,7 @@
    "pos": [
     10.5,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11511,11 +12210,11 @@
    },
    "links": {
     "a": {
-     "part": 337,
+     "part": 354,
      "output": "result"
     },
     "b": {
-     "part": 302,
+     "part": 305,
      "output": "pitch_rate"
     }
    }
@@ -11527,7 +12226,7 @@
    "pos": [
     12.0,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11555,11 +12254,11 @@
    },
    "links": {
     "a": {
-     "part": 338,
+     "part": 355,
      "output": "result"
     },
     "b": {
-     "part": 330,
+     "part": 347,
      "output": "result"
     }
    }
@@ -11571,7 +12270,7 @@
    "pos": [
     13.5,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11599,11 +12298,11 @@
    },
    "links": {
     "a": {
-     "part": 302,
+     "part": 305,
      "output": "pitch_rate"
     },
     "b": {
-     "part": 339,
+     "part": 356,
      "output": "result"
     }
    }
@@ -11615,7 +12314,7 @@
    "pos": [
     15.0,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11646,11 +12345,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 340,
+     "part": 357,
      "output": "result"
     },
     "measurement": {
-     "part": 302,
+     "part": 305,
      "output": "pitch_rate"
     }
    }
@@ -11662,7 +12361,7 @@
    "pos": [
     16.5,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11690,11 +12389,11 @@
    },
    "links": {
     "a": {
-     "part": 341,
+     "part": 358,
      "output": "output"
     },
     "b": {
-     "part": 327,
+     "part": 344,
      "output": "result"
     }
    }
@@ -11706,7 +12405,7 @@
    "pos": [
     18.0,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11734,7 +12433,7 @@
    },
    "links": {
     "a": {
-     "part": 308,
+     "part": 311,
      "output": "result"
     }
    }
@@ -11746,7 +12445,7 @@
    "pos": [
     19.5,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11774,11 +12473,11 @@
    },
    "links": {
     "a": {
-     "part": 343,
+     "part": 360,
      "output": "result"
     },
     "b": {
-     "part": 332,
+     "part": 349,
      "output": "result"
     }
    }
@@ -11790,7 +12489,7 @@
    "pos": [
     21.0,
     0.25,
-    7.5
+    9.0
    ],
    "size": [
     1.0,
@@ -11818,11 +12517,11 @@
    },
    "links": {
     "a": {
-     "part": 342,
+     "part": 359,
      "output": "result"
     },
     "b": {
-     "part": 344,
+     "part": 361,
      "output": "result"
     }
    }
@@ -11834,7 +12533,125 @@
    "pos": [
     22.5,
     0.25,
-    7.5
+    9.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Constant",
+    "value": 30000.0
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    9.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Divide",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 363,
+     "output": "result"
+    },
+    "b": {
+     "part": 350,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    10.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Min",
+    "value": 110.0
+   },
+   "links": {
+    "a": {
+     "part": 364,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    10.5
    ],
    "size": [
     1.0,
@@ -11858,11 +12675,15 @@
    ],
    "settings": {
     "operation": "Multiply",
-    "value": 110.0
+    "value": 0.0
    },
    "links": {
     "a": {
-     "part": 311,
+     "part": 314,
+     "output": "result"
+    },
+    "b": {
+     "part": 365,
      "output": "result"
     }
    }
@@ -11872,9 +12693,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    24.0,
+    7.5,
     0.25,
-    7.5
+    10.5
    ],
    "size": [
     1.0,
@@ -11902,11 +12723,11 @@
    },
    "links": {
     "a": {
-     "part": 346,
+     "part": 366,
      "output": "result"
     },
     "b": {
-     "part": 302,
+     "part": 305,
      "output": "roll_rate"
     }
    }
@@ -11916,9 +12737,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    4.5,
+    9.0,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -11946,11 +12767,11 @@
    },
    "links": {
     "a": {
-     "part": 347,
+     "part": 367,
      "output": "result"
     },
     "b": {
-     "part": 330,
+     "part": 347,
      "output": "result"
     }
    }
@@ -11960,9 +12781,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
+    10.5,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -11990,11 +12811,11 @@
    },
    "links": {
     "a": {
-     "part": 302,
+     "part": 305,
      "output": "roll_rate"
     },
     "b": {
-     "part": 348,
+     "part": 368,
      "output": "result"
     }
    }
@@ -12004,9 +12825,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    12.0,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -12037,11 +12858,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 349,
+     "part": 369,
      "output": "result"
     },
     "measurement": {
-     "part": 302,
+     "part": 305,
      "output": "roll_rate"
     }
    }
@@ -12051,9 +12872,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    9.0,
+    13.5,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -12081,11 +12902,11 @@
    },
    "links": {
     "a": {
-     "part": 350,
+     "part": 370,
      "output": "output"
     },
     "b": {
-     "part": 327,
+     "part": 344,
      "output": "result"
     }
    }
@@ -12095,9 +12916,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    10.5,
+    15.0,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -12125,7 +12946,7 @@
    },
    "links": {
     "a": {
-     "part": 311,
+     "part": 314,
      "output": "result"
     }
    }
@@ -12135,9 +12956,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    12.0,
+    16.5,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -12165,11 +12986,11 @@
    },
    "links": {
     "a": {
-     "part": 352,
+     "part": 372,
      "output": "result"
     },
     "b": {
-     "part": 332,
+     "part": 349,
      "output": "result"
     }
    }
@@ -12179,9 +13000,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    13.5,
+    18.0,
     0.25,
-    9.0
+    10.5
    ],
    "size": [
     1.0,
@@ -12209,11 +13030,11 @@
    },
    "links": {
     "a": {
-     "part": 351,
+     "part": 371,
      "output": "result"
     },
     "b": {
-     "part": 353,
+     "part": 373,
      "output": "result"
     }
    }
@@ -12223,9 +13044,127 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    15.0,
+    19.5,
     0.25,
-    9.0
+    10.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Constant",
+    "value": 1124.1435960000001
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    10.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Divide",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 375,
+     "output": "result"
+    },
+    "b": {
+     "part": 350,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    10.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Min",
+    "value": 14.0
+   },
+   "links": {
+    "a": {
+     "part": 376,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    10.5
    ],
    "size": [
     1.0,
@@ -12249,11 +13188,15 @@
    ],
    "settings": {
     "operation": "Multiply",
-    "value": 14.0
+    "value": 0.0
    },
    "links": {
     "a": {
-     "part": 314,
+     "part": 317,
+     "output": "result"
+    },
+    "b": {
+     "part": 377,
      "output": "result"
     }
    }
@@ -12263,9 +13206,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    16.5,
+    4.5,
     0.25,
-    9.0
+    12.0
    ],
    "size": [
     1.0,
@@ -12293,11 +13236,11 @@
    },
    "links": {
     "a": {
-     "part": 355,
+     "part": 378,
      "output": "result"
     },
     "b": {
-     "part": 302,
+     "part": 305,
      "output": "yaw_rate"
     }
    }
@@ -12307,9 +13250,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    18.0,
+    6.0,
     0.25,
-    9.0
+    12.0
    ],
    "size": [
     1.0,
@@ -12337,11 +13280,11 @@
    },
    "links": {
     "a": {
-     "part": 356,
+     "part": 379,
      "output": "result"
     },
     "b": {
-     "part": 330,
+     "part": 347,
      "output": "result"
     }
    }
@@ -12351,9 +13294,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    19.5,
+    7.5,
     0.25,
-    9.0
+    12.0
    ],
    "size": [
     1.0,
@@ -12381,11 +13324,11 @@
    },
    "links": {
     "a": {
-     "part": 302,
+     "part": 305,
      "output": "yaw_rate"
     },
     "b": {
-     "part": 357,
+     "part": 380,
      "output": "result"
     }
    }
@@ -12395,9 +13338,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    21.0,
+    9.0,
     0.25,
-    9.0
+    12.0
    ],
    "size": [
     1.0,
@@ -12428,11 +13371,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 358,
+     "part": 381,
      "output": "result"
     },
     "measurement": {
-     "part": 302,
+     "part": 305,
      "output": "yaw_rate"
     }
    }
@@ -12442,9 +13385,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    22.5,
+    10.5,
     0.25,
-    9.0
+    12.0
    ],
    "size": [
     1.0,
@@ -12472,11 +13415,11 @@
    },
    "links": {
     "a": {
-     "part": 359,
+     "part": 382,
      "output": "output"
     },
     "b": {
-     "part": 327,
+     "part": 344,
      "output": "result"
     }
    }
@@ -12486,9 +13429,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    24.0,
+    12.0,
     0.25,
-    9.0
+    12.0
    ],
    "size": [
     1.0,
@@ -12516,7 +13459,7 @@
    },
    "links": {
     "a": {
-     "part": 314,
+     "part": 317,
      "output": "result"
     }
    }
@@ -12526,9 +13469,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    4.5,
+    13.5,
     0.25,
-    10.5
+    12.0
    ],
    "size": [
     1.0,
@@ -12556,11 +13499,11 @@
    },
    "links": {
     "a": {
-     "part": 361,
+     "part": 384,
      "output": "result"
     },
     "b": {
-     "part": 332,
+     "part": 349,
      "output": "result"
     }
    }
@@ -12570,9 +13513,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
+    15.0,
     0.25,
-    10.5
+    12.0
    ],
    "size": [
     1.0,
@@ -12600,11 +13543,11 @@
    },
    "links": {
     "a": {
-     "part": 360,
+     "part": 383,
      "output": "result"
     },
     "b": {
-     "part": 362,
+     "part": 385,
      "output": "result"
     }
    }
@@ -12614,9 +13557,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    16.5,
     0.25,
-    10.5
+    12.0
    ],
    "size": [
     1.0,
@@ -12652,9 +13595,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    9.0,
+    18.0,
     0.25,
-    10.5
+    12.0
    ],
    "size": [
     1.0,
@@ -12688,9 +13631,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    10.5,
+    19.5,
     0.25,
-    10.5
+    12.0
    ],
    "size": [
     1.0,
@@ -12718,11 +13661,11 @@
    },
    "links": {
     "a": {
-     "part": 364,
+     "part": 387,
      "output": "pressed"
     },
     "b": {
-     "part": 365,
+     "part": 388,
      "output": "pressed"
     }
    }
@@ -12732,9 +13675,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    12.0,
+    21.0,
     0.25,
-    10.5
+    12.0
    ],
    "size": [
     1.0,
@@ -12762,7 +13705,7 @@
    },
    "links": {
     "a": {
-     "part": 366,
+     "part": 389,
      "output": "result"
     }
    }
@@ -12772,9 +13715,171 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    13.5,
+    22.5,
     0.25,
-    10.5
+    12.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 22500.0
+   },
+   "links": {
+    "a": {
+     "part": 337,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    12.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Constant",
+    "value": 22500.0
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Divide",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 392,
+     "output": "result"
+    },
+    "b": {
+     "part": 391,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 390,
+     "output": "result"
+    },
+    "b": {
+     "part": 393,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    13.5
    ],
    "size": [
     1.0,
@@ -12802,7 +13907,7 @@
    },
    "links": {
     "a": {
-     "part": 354,
+     "part": 374,
      "output": "result"
     }
    }
@@ -12812,9 +13917,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    15.0,
+    9.0,
     0.25,
-    10.5
+    13.5
    ],
    "size": [
     1.0,
@@ -12842,1023 +13947,7 @@
    },
    "links": {
     "a": {
-     "part": 345,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    10.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 345,
-     "output": "result"
-    },
-    "b": {
-     "part": 368,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    10.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Subtract",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 345,
-     "output": "result"
-    },
-    "b": {
-     "part": 368,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    10.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 369,
-     "output": "result"
-    },
-    "b": {
-     "part": 354,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    10.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Subtract",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 369,
-     "output": "result"
-    },
-    "b": {
-     "part": 354,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    10.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 345,
-     "output": "result"
-    },
-    "b": {
-     "part": 354,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    10.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Subtract",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 345,
-     "output": "result"
-    },
-    "b": {
-     "part": 354,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 370,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 370,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 376,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 377,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    10.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 378,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 371,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 371,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 381,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 382,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 383,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 372,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 372,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 386,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    12.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 387,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 388,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 373,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 373,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 391,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
+     "part": 362,
      "output": "result"
     }
    }
@@ -13893,12 +13982,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": -1.0
+    "operation": "Add",
+    "value": 0.0
    },
    "links": {
     "a": {
-     "part": 392,
+     "part": 362,
+     "output": "result"
+    },
+    "b": {
+     "part": 395,
      "output": "result"
     }
    }
@@ -13933,12 +14026,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": -1.0
+    "operation": "Subtract",
+    "value": 0.0
    },
    "links": {
     "a": {
-     "part": 393,
+     "part": 362,
+     "output": "result"
+    },
+    "b": {
+     "part": 395,
      "output": "result"
     }
    }
@@ -13973,91 +14070,7 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 374,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 374,
-     "output": "result"
-    },
-    "b": {
-     "part": 367,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
+    "operation": "Add",
     "value": 0.0
    },
    "links": {
@@ -14066,7 +14079,95 @@
      "output": "result"
     },
     "b": {
-     "part": 367,
+     "part": 374,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Subtract",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 396,
+     "output": "result"
+    },
+    "b": {
+     "part": 374,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 362,
+     "output": "result"
+    },
+    "b": {
+     "part": 374,
      "output": "result"
     }
    }
@@ -14077,6 +14178,50 @@
    "color": "#2a2c33",
    "pos": [
     18.0,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Subtract",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 362,
+     "output": "result"
+    },
+    "b": {
+     "part": 374,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
     0.25,
     13.5
    ],
@@ -14116,9 +14261,257 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    19.5,
+    21.0,
     0.25,
     13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 397,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 403,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 404,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 405,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 406,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 407,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    15.0
    ],
    "size": [
     1.0,
@@ -14156,49 +14549,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    21.0,
+    10.5,
     0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 375,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    13.5
+    15.0
    ],
    "size": [
     1.0,
@@ -14226,11 +14579,335 @@
    },
    "links": {
     "a": {
-     "part": 375,
+     "part": 398,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 410,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 411,
      "output": "result"
     },
     "b": {
-     "part": 367,
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 412,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 413,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 414,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 399,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 399,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 417,
      "output": "result"
     }
    }
@@ -14242,7 +14919,503 @@
    "pos": [
     24.0,
     0.25,
-    13.5
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 418,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 419,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 420,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 421,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 400,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 400,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 424,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 425,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 426,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 427,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 428,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 401,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    16.5
    ],
    "size": [
     1.0,
@@ -14272,9 +15445,89 @@
     "a": {
      "part": 401,
      "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 431,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 432,
+     "output": "result"
     },
     "b": {
-     "part": 367,
+     "part": 394,
      "output": "result"
     }
    }
@@ -14286,7 +15539,131 @@
    "pos": [
     4.5,
     0.25,
-    15.0
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 433,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 434,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 435,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    18.0
    ],
    "size": [
     1.0,
@@ -14324,9 +15701,177 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
+    10.5,
     0.25,
-    15.0
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 402,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 438,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 439,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 440,
+     "output": "result"
+    },
+    "b": {
+     "part": 394,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    18.0
    ],
    "size": [
     1.0,
@@ -14354,7 +15899,7 @@
    },
    "links": {
     "a": {
-     "part": 403,
+     "part": 441,
      "output": "result"
     }
    }
@@ -14364,9 +15909,129 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    18.0,
     0.25,
-    15.0
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 442,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 10.0
+   },
+   "links": {
+    "a": {
+     "part": 335,
+     "output": "output"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 445,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    18.0
    ],
    "size": [
     1.0,
@@ -14394,7 +16059,7 @@
    },
    "links": {
     "a": {
-     "part": 345,
+     "part": 362,
      "output": "result"
     }
    }
@@ -14404,9 +16069,53 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    9.0,
+    24.0,
     0.25,
-    15.0
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Divide",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 447,
+     "output": "result"
+    },
+    "b": {
+     "part": 446,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    19.5
    ],
    "size": [
     1.0,
@@ -14434,7 +16143,7 @@
    },
    "links": {
     "a": {
-     "part": 314,
+     "part": 317,
      "output": "result"
     }
    }
@@ -14444,9 +16153,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    10.5,
+    6.0,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14474,7 +16183,7 @@
    },
    "links": {
     "a": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     }
    }
@@ -14484,9 +16193,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    12.0,
+    7.5,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14514,7 +16223,7 @@
    },
    "links": {
     "a": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     }
    }
@@ -14524,9 +16233,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    13.5,
+    9.0,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14549,8 +16258,14 @@
     1.0
    ],
    "settings": {
-    "operation": "Constant",
-    "value": 0.0
+    "operation": "Multiply",
+    "value": 120.0
+   },
+   "links": {
+    "a": {
+     "part": 335,
+     "output": "output"
+    }
    }
   },
   {
@@ -14558,9 +16273,93 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    15.0,
+    10.5,
     0.25,
-    15.0
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 451,
+     "output": "result"
+    },
+    "b": {
+     "part": 452,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 40.0
+   },
+   "links": {
+    "a": {
+     "part": 335,
+     "output": "output"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    19.5
    ],
    "size": [
     1.0,
@@ -14588,7 +16387,7 @@
    },
    "links": {
     "a": {
-     "part": 320,
+     "part": 323,
      "output": "result"
     }
    }
@@ -14598,9 +16397,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    16.5,
+    15.0,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14624,12 +16423,96 @@
    ],
    "settings": {
     "operation": "Multiply",
-    "value": 170.0
+    "value": 55.0
    },
    "links": {
     "a": {
-     "part": 322,
-     "output": "is_true"
+     "part": 335,
+     "output": "output"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 455,
+     "output": "result"
+    },
+    "b": {
+     "part": 456,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 255.0
+   },
+   "links": {
+    "a": {
+     "part": 335,
+     "output": "output"
     }
    }
   },
@@ -14638,9 +16521,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    18.0,
+    19.5,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14672,9 +16555,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    19.5,
+    21.0,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14708,9 +16591,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    21.0,
+    22.5,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14746,9 +16629,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    22.5,
+    24.0,
     0.25,
-    15.0
+    19.5
    ],
    "size": [
     1.0,
@@ -14776,11 +16659,11 @@
    },
    "links": {
     "a": {
-     "part": 414,
+     "part": 460,
      "output": "pressed"
     },
     "b": {
-     "part": 415,
+     "part": 461,
      "output": "pressed"
     }
    }
@@ -14790,9 +16673,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    24.0,
+    4.5,
     0.25,
-    15.0
+    21.0
    ],
    "size": [
     1.0,
@@ -14816,7 +16699,7 @@
    ],
    "settings": {
     "control": "D-pad up",
-    "mode": "Toggle",
+    "mode": "Hold",
     "curve": 1.0,
     "deadzone": 0.12,
     "scale": 1.0,
@@ -14828,9 +16711,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    4.5,
+    6.0,
     0.25,
-    16.5
+    21.0
    ],
    "size": [
     1.0,
@@ -14854,7 +16737,7 @@
    ],
    "settings": {
     "key": "G",
-    "mode": "Toggle",
+    "mode": "Hold",
     "output": "Boolean",
     "second_key": ""
    }
@@ -14864,509 +16747,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "XOR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 417,
-     "output": "pressed"
-    },
-    "b": {
-     "part": 418,
-     "output": "pressed"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
     7.5,
     0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Compare",
-    "value": 5.0
-   },
-   "links": {
-    "a": {
-     "part": 304,
-     "output": "distance"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 419,
-     "output": "result"
-    },
-    "b": {
-     "part": 420,
-     "output": "is_true"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    10.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 419,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 421,
-     "output": "result"
-    },
-    "b": {
-     "part": 422,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 423,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 2.6
-   },
-   "links": {
-    "a": {
-     "part": 423,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 425,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 423,
-     "output": "result"
-    },
-    "b": {
-     "part": 426,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 423,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 2.2
-   },
-   "links": {
-    "a": {
-     "part": 428,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 429,
-     "output": "result"
-    },
-    "b": {
-     "part": 424,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    16.5
+    21.0
    ],
    "size": [
     1.0,
@@ -15394,11 +16777,887 @@
    },
    "links": {
     "a": {
-     "part": 423,
+     "part": 463,
+     "output": "pressed"
+    },
+    "b": {
+     "part": 464,
+     "output": "pressed"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 0.15
+   },
+   "links": {
+    "a": {
+     "part": 465,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Compare",
+    "value": 5.0
+   },
+   "links": {
+    "a": {
+     "part": 307,
+     "output": "distance"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Latch",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 475,
      "output": "result"
     },
     "b": {
-     "part": 430,
+     "part": 478,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 0.4
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 0.4
+   },
+   "links": {
+    "a": {
+     "part": 470,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 470,
+     "output": "result"
+    },
+    "b": {
+     "part": 467,
+     "output": "is_true"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 471,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 472,
+     "output": "result"
+    },
+    "b": {
+     "part": 473,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 466,
+     "output": "result"
+    },
+    "b": {
+     "part": 474,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 469,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    },
+    "b": {
+     "part": 476,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 466,
+     "output": "result"
+    },
+    "b": {
+     "part": 477,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Latch",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 2.6
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 480,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    },
+    "b": {
+     "part": 481,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 2.2
+   },
+   "links": {
+    "a": {
+     "part": 483,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 484,
+     "output": "result"
+    },
+    "b": {
+     "part": 479,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    },
+    "b": {
+     "part": 485,
      "output": "result"
     }
    }
@@ -15408,9 +17667,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    4.5,
+    19.5,
     0.25,
-    18.0
+    22.5
    ],
    "size": [
     1.0,
@@ -15446,9 +17705,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
+    21.0,
     0.25,
-    18.0
+    22.5
    ],
    "size": [
     1.0,
@@ -15480,9 +17739,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    22.5,
     0.25,
-    18.0
+    22.5
    ],
    "size": [
     1.0,
@@ -15510,11 +17769,11 @@
    },
    "links": {
     "a": {
-     "part": 432,
+     "part": 487,
      "output": "pressed"
     },
     "b": {
-     "part": 433,
+     "part": 488,
      "output": "pressed"
     }
    }
@@ -15524,9 +17783,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    9.0,
+    24.0,
     0.25,
-    18.0
+    22.5
    ],
    "size": [
     1.0,
@@ -15562,9 +17821,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    10.5,
+    4.5,
     0.25,
-    18.0
+    24.0
    ],
    "size": [
     1.0,
@@ -15598,9 +17857,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    12.0,
+    6.0,
     0.25,
-    18.0
+    24.0
    ],
    "size": [
     1.0,
@@ -15628,11 +17887,11 @@
    },
    "links": {
     "a": {
-     "part": 435,
+     "part": 490,
      "output": "pressed"
     },
     "b": {
-     "part": 436,
+     "part": 491,
      "output": "pressed"
     }
    }
@@ -15642,9 +17901,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    13.5,
+    7.5,
     0.25,
-    18.0
+    24.0
    ],
    "size": [
     1.0,
@@ -15668,7 +17927,7 @@
    ],
    "settings": {
     "control": "Y / Triangle",
-    "mode": "Toggle",
+    "mode": "Pulse",
     "curve": 1.0,
     "deadzone": 0.12,
     "scale": 1.0,
@@ -15680,9 +17939,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    15.0,
+    9.0,
     0.25,
-    18.0
+    24.0
    ],
    "size": [
     1.0,
@@ -15706,7 +17965,7 @@
    ],
    "settings": {
     "key": "R",
-    "mode": "Toggle",
+    "mode": "Pulse",
     "output": "Boolean",
     "second_key": ""
    }
@@ -15716,425 +17975,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    16.5,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "XOR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 438,
-     "output": "pressed"
-    },
-    "b": {
-     "part": 439,
-     "output": "pressed"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 440,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 440,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 441,
-     "output": "result"
-    },
-    "b": {
-     "part": 442,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 443,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 440,
-     "output": "result"
-    },
-    "b": {
-     "part": 444,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    19.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 445,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
-    0.25,
-    19.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 441,
-     "output": "result"
-    },
-    "b": {
-     "part": 446,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    19.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 447,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    19.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 442,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
     10.5,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16157,13 +18000,17 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 0.8
+    "operation": "OR",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 442,
-     "output": "result"
+     "part": 493,
+     "output": "pressed"
+    },
+    "b": {
+     "part": 494,
+     "output": "pressed"
     }
    }
   },
@@ -16174,7 +18021,7 @@
    "pos": [
     12.0,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16197,13 +18044,17 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 450,
+     "part": 495,
      "output": "result"
+    },
+    "b": {
+     "part": 257,
+     "output": "loaded"
     }
    }
   },
@@ -16214,7 +18065,7 @@
    "pos": [
     13.5,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16237,17 +18088,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 442,
-     "output": "result"
-    },
-    "b": {
-     "part": 451,
-     "output": "result"
+     "part": 257,
+     "output": "loaded"
     }
    }
   },
@@ -16258,7 +18105,7 @@
    "pos": [
     15.0,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16286,12 +18133,12 @@
    },
    "links": {
     "a": {
-     "part": 452,
+     "part": 495,
      "output": "result"
     },
     "b": {
-     "part": 248,
-     "output": "triggered"
+     "part": 287,
+     "output": "loaded"
     }
    }
   },
@@ -16302,7 +18149,7 @@
    "pos": [
     16.5,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16330,7 +18177,7 @@
    },
    "links": {
     "a": {
-     "part": 444,
+     "part": 497,
      "output": "result"
     }
    }
@@ -16342,7 +18189,7 @@
    "pos": [
     18.0,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16365,12 +18212,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 0.8
+    "operation": "AND",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 444,
+     "part": 498,
+     "output": "result"
+    },
+    "b": {
+     "part": 499,
      "output": "result"
     }
    }
@@ -16382,7 +18233,7 @@
    "pos": [
     19.5,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16405,13 +18256,17 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 455,
+     "part": 497,
      "output": "result"
+    },
+    "b": {
+     "part": 287,
+     "output": "loaded"
     }
    }
   },
@@ -16422,7 +18277,7 @@
    "pos": [
     21.0,
     0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16450,12 +18305,12 @@
    },
    "links": {
     "a": {
-     "part": 444,
+     "part": 495,
      "output": "result"
     },
     "b": {
-     "part": 456,
-     "output": "result"
+     "part": 272,
+     "output": "loaded"
     }
    }
   },
@@ -16466,51 +18321,7 @@
    "pos": [
     22.5,
     0.25,
-    19.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 457,
-     "output": "result"
-    },
-    "b": {
-     "part": 276,
-     "output": "triggered"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    19.5
+    24.0
    ],
    "size": [
     1.0,
@@ -16538,7 +18349,51 @@
    },
    "links": {
     "a": {
-     "part": 446,
+     "part": 501,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 502,
+     "output": "result"
+    },
+    "b": {
+     "part": 503,
      "output": "result"
     }
    }
@@ -16550,7 +18405,7 @@
    "pos": [
     4.5,
     0.25,
-    21.0
+    25.5
    ],
    "size": [
     1.0,
@@ -16573,13 +18428,17 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 0.8
+    "operation": "OR",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 446,
+     "part": 501,
      "output": "result"
+    },
+    "b": {
+     "part": 272,
+     "output": "loaded"
     }
    }
   },
@@ -16590,47 +18449,7 @@
    "pos": [
     6.0,
     0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 460,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    21.0
+    25.5
    ],
    "size": [
     1.0,
@@ -16658,11 +18477,51 @@
    },
    "links": {
     "a": {
-     "part": 446,
+     "part": 495,
      "output": "result"
     },
     "b": {
-     "part": 461,
+     "part": 302,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 505,
      "output": "result"
     }
    }
@@ -16674,7 +18533,7 @@
    "pos": [
     9.0,
     0.25,
-    21.0
+    25.5
    ],
    "size": [
     1.0,
@@ -16702,12 +18561,12 @@
    },
    "links": {
     "a": {
-     "part": 462,
+     "part": 506,
      "output": "result"
     },
     "b": {
-     "part": 262,
-     "output": "triggered"
+     "part": 507,
+     "output": "result"
     }
    }
   },
@@ -16718,7 +18577,7 @@
    "pos": [
     10.5,
     0.25,
-    21.0
+    25.5
    ],
    "size": [
     1.0,
@@ -16741,13 +18600,17 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 448,
+     "part": 505,
      "output": "result"
+    },
+    "b": {
+     "part": 302,
+     "output": "loaded"
     }
    }
   },
@@ -16758,7 +18621,7 @@
    "pos": [
     12.0,
     0.25,
-    21.0
+    25.5
    ],
    "size": [
     1.0,
@@ -16781,141 +18644,17 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 0.8
-   },
-   "links": {
-    "a": {
-     "part": 448,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 465,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 448,
-     "output": "result"
+     "part": 324,
+     "output": "is_true"
     },
     "b": {
-     "part": 466,
+     "part": 486,
      "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 467,
-     "output": "result"
-    },
-    "b": {
-     "part": 290,
-     "output": "triggered"
     }
    }
   }

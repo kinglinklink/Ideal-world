@@ -85,40 +85,56 @@ func _physics_tick(delta: float) -> void:
 
 func _start() -> void:
 	_generation = int(spawner.generation)
+	if not spawner.parts_added.is_connected(_on_parts_added):
+		spawner.parts_added.connect(_on_parts_added)
 	var records: Dictionary = spawner.all_records()
 	for key in records:
-		var uid: int = key
-		var record: Dictionary = records[uid]
-		var type: String = record["type"]
-		var props: Dictionary = record.get("props", {})
-		var size_m: Vector3 = Units.to_metres(record["size"])
-		if GATES.has(type):
-			_gates.append(uid)
-			_state[uid] = {"latched": false, "was_on": false, "timer": 0.0, "integral": 0.0,
-					"last": 0.0, "primed": false}
-		elif SENSORS.has(type):
-			_sensors.append(uid)
-			_state[uid] = {"velocity": Vector3.ZERO, "primed": false, "pulse": 0.0}
-		elif type == "light_panel":
-			_lights.append(_new_light(uid, props, size_m))
-		elif type == "vanish_block":
-			_vanish.append({"uid": uid, "gone": false, "returns": bool(props.get("returns", false))})
-		elif type == "propeller":
-			var radius := 0.5 * maxf(size_m.x, size_m.z)
-			var pitch := deg_to_rad(clampf(float(props.get("pitch", 20.0)), 0.0, 89.0))
-			var blades := clampf(float(props.get("blades", 4.0)), 2.0, 12.0)
-			# Metres the propeller would screw forward per radian it turns, at
-			# three-quarters of its radius.
-			var advance := 0.75 * radius * tan(pitch)
-			_props.append({"uid": uid, "radius": radius, "advance": advance,
-					"factor": PROP_BLADE_FACTOR * blades})
-		elif type == "graph_display":
-			_graphs.append(_new_graph(uid, props, size_m))
-		elif type == "instrument":
-			_instruments.append(_new_instrument(uid, props))
-		elif type == "lift_gas_tank":
-			var cells := size_m.x * size_m.y * size_m.z / pow(Units.CELL, 3)
-			_tanks.append({"uid": uid, "lift": maxf(float(props.get("lift_per_block", 1.0)), 0.0) * cells})
+		_add_part(int(key), records[key])
+
+
+## Parts made while spawned (a reload gate's payload) join in.
+func _on_parts_added(uids: Array) -> void:
+	if _generation != int(spawner.generation):
+		return   # not started on this spawn yet; _start will find them
+	for item in uids:
+		var record: Dictionary = spawner.record_of(int(item))
+		if not record.is_empty():
+			_add_part(int(item), record)
+
+
+func _add_part(uid: int, record: Dictionary) -> void:
+	var type: String = record["type"]
+	var props: Dictionary = record.get("props", {})
+	var size_m: Vector3 = Units.to_metres(record["size"])
+	if GATES.has(type):
+		_gates.append(uid)
+		_state[uid] = {"latched": false, "was_on": false, "timer": 0.0, "integral": 0.0,
+				"last": 0.0, "primed": false}
+	elif SENSORS.has(type):
+		_sensors.append(uid)
+		_state[uid] = {"velocity": Vector3.ZERO, "primed": false, "pulse": 0.0}
+	elif type == "light_panel":
+		_lights.append(_new_light(uid, props, size_m))
+	elif type == "vanish_block":
+		_vanish.append({"uid": uid, "gone": false, "returns": bool(props.get("returns", false)), "input": "vanish"})
+	elif type == "ladder":
+		_vanish.append({"uid": uid, "gone": false, "returns": true, "input": "stowed"})
+	elif type == "propeller":
+		var radius := 0.5 * maxf(size_m.x, size_m.z)
+		var pitch := deg_to_rad(clampf(float(props.get("pitch", 20.0)), 0.0, 89.0))
+		var blades := clampf(float(props.get("blades", 4.0)), 2.0, 12.0)
+		# Metres the propeller would screw forward per radian it turns, at
+		# three-quarters of its radius.
+		var advance := 0.75 * radius * tan(pitch)
+		_props.append({"uid": uid, "radius": radius, "advance": advance,
+				"factor": PROP_BLADE_FACTOR * blades})
+	elif type == "graph_display":
+		_graphs.append(_new_graph(uid, props, size_m))
+	elif type == "instrument":
+		_instruments.append(_new_instrument(uid, props))
+	elif type == "lift_gas_tank":
+		var cells := size_m.x * size_m.y * size_m.z / pow(Units.CELL, 3)
+		_tanks.append({"uid": uid, "lift": maxf(float(props.get("lift_per_block", 1.0)), 0.0) * cells})
 
 
 func _clear() -> void:
@@ -425,7 +441,7 @@ func _run_vanish() -> void:
 		var record: Dictionary = spawner.record_of(uid)
 		if record.is_empty():
 			continue
-		var wanted: bool = spawner.input_value(record.get("links", {}), "vanish", 0.0) != 0.0
+		var wanted: bool = spawner.input_value(record.get("links", {}), str(block.get("input", "vanish")), 0.0) != 0.0
 		if not wanted and not bool(block["returns"]) and bool(block["gone"]):
 			wanted = true   # set to stay gone
 		if wanted == bool(block["gone"]):

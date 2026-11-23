@@ -1,10 +1,12 @@
 extends SceneTree
 ## Systems and flight test for the F-14 build (tools/make_f14.py):
-##     godot --headless --path . -s tools/f14_test.gd -- <f14.json> [ground|takeoff|air|missile] [nofail]
+##     godot --headless --path . -s tools/f14_test.gd -- <f14.json> [ground|takeoff|air|missile|fast|reload|ladder] [nofail]
 ## Loads it, spawns it, sits in it and works its controls through a fake
 ## controller, printing what every system does and every part that breaks.
 ## ground: on the pad; takeoff: from the start of Wild Horse Island's runway;
 ## air and missile: from 400 m at 120 m/s with a test pilot holding height.
+## ladder: on foot by the boarding ladder, walks into it, climbs, and checks
+## the seat is in reach from the top.
 ## nofail turns structural failure off. Environment switches for more detail:
 ## F14_STRESS=1 the most loaded joints, F14_PEAK=<ratio> every joint past that
 ## share of its strength, F14_CONTACT=1 the main body's contacts, F14_GEAR=1
@@ -48,24 +50,58 @@ const GROUND := [
 	[4.0, {}, "sweeping"],
 	[0.2, {"LB / L1": 1.0}, "wings forward"],
 	[4.0, {}, "sweeping"],
-	[1.0, {"RT / R2 trigger": 0.5}, "half throttle"],
-	[1.0, {"RT / R2 trigger": 1.0}, "full throttle"],
-	[0.5, {}, "throttle off"],
+	[0.5, {"RT / R2 trigger": 0.5}, "half throttle"],
+	[0.3, {"RT / R2 trigger": 1.0}, "full throttle"],
+	[1.5, {}, "throttle off"],
 	[0.5, {"A / Cross": 1.0}, "cannons"],
 	[0.5, {"B / Circle": 1.0}, "guns"],
 	[1.0, {}, "done"],
 ]
 const TAKEOFF := [
 	[3.0, {}, "idle on the runway"],
-	[0.2, {"D-pad up": 1.0}, "gear up asked early (should wait for the air)"],
-	[4.5, {"RT / R2 trigger": 1.0}, "full throttle roll"],
+	[0.2, {"D-pad up": 1.0}, "gear up pressed on the ground (should do nothing)"],
+	[3.5, {"RT / R2 trigger": 1.0}, "full throttle roll"],
 	[3.0, {"RT / R2 trigger": 1.0, "Left stick Y (up +)": 0.6}, "rotate"],
-	[8.0, {"RT / R2 trigger": 0.8}, "climb out"],
+	[2.0, {"RT / R2 trigger": 0.8}, "climb out"],
+	[0.2, {"RT / R2 trigger": 0.8, "D-pad up": 1.0}, "gear up"],
+	[7.0, {"RT / R2 trigger": 0.8}, "gear going up"],
 	[1.0, {"RT / R2 trigger": 0.5}, "done"],
+]
+# Flat out at low level, with the afterburners: how fast does it get?
+const FAST := [
+	[2.0, {}, "level", true],
+	[0.2, {"D-pad up": 1.0}, "gear up", true],
+	[10.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0}, "full afterburner", true],
+	[2.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0, "Left stick Y (up +)": 0.5}, "pull at speed", false],
+	[3.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0}, "let go", true],
+	[2.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0, "Left stick X (right +)": 1.0}, "roll at speed", false],
+	[3.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0}, "let go", true],
+	[1.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0, "D-pad right": 1.0}, "yaw at speed", false],
+	[3.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0}, "let go", true],
+	[0.2, {"Y / Triangle": 1.0}, "missile at speed", true],
+	[8.0, {}, "throttle off", true],
+	[4.0, {"D-pad down": 1.0}, "air brake", true],
+	[1.0, {}, "done", true],
 ]
 const MISSILE := [
 	[2.0, {}, "level", true],
 	[0.2, {"Y / Triangle": 1.0}, "missile 1", true],
+	[3.0, {}, "away", true],
+]
+# Missiles: fire all four, then the first again once it has reloaded.
+const RELOAD := [
+	[2.0, {}, "level", true],
+	[0.2, {"Y / Triangle": 1.0}, "missile", true],
+	[0.4, {}, "-", true],
+	[0.2, {"Y / Triangle": 1.0}, "missile", true],
+	[0.4, {}, "-", true],
+	[0.2, {"Y / Triangle": 1.0}, "missile", true],
+	[0.4, {}, "-", true],
+	[0.2, {"Y / Triangle": 1.0}, "missile", true],
+	[0.4, {}, "-", true],
+	[0.2, {"Y / Triangle": 1.0}, "nothing loaded: nothing fires", true],
+	[3.5, {}, "reloading", true],
+	[0.2, {"Y / Triangle": 1.0}, "first reloaded missile", true],
 	[3.0, {}, "away", true],
 ]
 const AIR := [
@@ -107,7 +143,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	file = args[0]
 	for arg in args:
-		if arg == "air" or arg == "ground" or arg == "missile" or arg == "takeoff":
+		if arg in ["air", "ground", "missile", "takeoff", "fast", "reload", "ladder"]:
 			mode = arg
 	no_fail = args.has("nofail")
 	names = JSON.parse_string(FileAccess.get_file_as_string(file + ".names.json"))
@@ -150,7 +186,19 @@ func _systems() -> String:
 		_angle("rudder_L"), _angle("nozzle_L"), _angle("steer"), _angle("pivot_L"), _angle("pivot_R"),
 		_length("gear_0"), _length("gear_1"), _length("gear_2"), _length("door_0"), _length("door_1"), _length("door_2")]
 	var thrust: Dictionary = spawner._outputs.get(int(uids.get("thrust_L", 0)), {})
-	line += " | thrust %.0fk" % (float(thrust.get("thrust", 0.0)) / 1000.0)
+	var burner: Dictionary = spawner._outputs.get(int(uids.get("burner_L", 0)), {})
+	line += " | thrust %.0fk + %.0fk" % [float(thrust.get("thrust", 0.0)) / 1000.0, float(burner.get("thrust", 0.0)) / 1000.0]
+	var racks := ""
+	for i in 4:
+		racks += "%d" % int(float(spawner.outputs_of(int(uids.get("rack_%d" % i, 0))).get("loaded", 0.0)))
+	line += " | racks %s" % racks
+	var ladder: Dictionary = spawner.record_of(int(uids.get("ladder", 0)))
+	if not ladder.is_empty():
+		line += " ladder %s" % ("away" if spawner.input_value(ladder.get("links", {}), "stowed", 0.0) != 0.0 else "out")
+	var tip: Array = spawner.part_frame(int(uids.get("tip_L", 0)))
+	if not tip.is_empty():
+		var local: Vector3 = main_body.global_transform.affine_inverse() * (tip[0] as Transform3D).origin
+		line += " | left tip z %.1f" % (local.z / 0.25)
 	return line
 
 
@@ -219,12 +267,13 @@ func _process(delta: float) -> bool:
 		main_body = spawner.heaviest_body()
 		_report_bodies()
 		var controller: Node = main.get_node("BuildController")
-		print("F14: seated ", controller.sit_in(spawner))
+		if mode != "ladder":
+			print("F14: seated ", controller.sit_in(spawner))
 		main.get_node("Player").damage_enabled = false
 	if frame == 12 and mode == "takeoff":
 		_to_runway()
-	if frame == 12 and (mode == "air" or mode == "missile"):
-		var lift := Vector3(0, 400, 0)
+	if frame == 12 and _flying():
+		var lift := Vector3(0, _cruise_height(), 0)
 		var forward: Vector3 = main_body.global_transform.basis.z
 		for body in spawner.all_bodies():
 			var rb := body as RigidBody3D
@@ -247,6 +296,8 @@ func _process(delta: float) -> bool:
 		_jumpers()
 	if frame <= 12:
 		return false
+	if mode == "ladder":
+		return _ladder_test(delta)
 	var script: Array = GROUND
 	if mode == "air":
 		script = AIR
@@ -254,6 +305,10 @@ func _process(delta: float) -> bool:
 		script = MISSILE
 	elif mode == "takeoff":
 		script = TAKEOFF
+	elif mode == "fast":
+		script = FAST
+	elif mode == "reload":
+		script = RELOAD
 	if not is_instance_valid(main_body):
 		print("F14: the main body is gone")
 		return true
@@ -269,16 +324,16 @@ func _process(delta: float) -> bool:
 	# In the air a simple test pilot holds the speed with the trigger, and,
 	# when the phase leaves the stick alone, holds the height and levels the
 	# wings.
-	if (mode == "air" or mode == "missile") and not held.has("RT / R2 trigger"):
+	if _flying() and not held.has("RT / R2 trigger"):
 		var fwd := main_body.linear_velocity.dot(main_body.global_transform.basis.z)
 		held["RT / R2 trigger"] = clampf((cruise - fwd) * 0.08 + 0.45, 0.0, 1.0)
-	if (mode == "air" or mode == "missile") and bool(script[step].size() > 3 and script[step][3]):
+	if _flying() and bool(script[step].size() > 3 and script[step][3]):
 		var b := main_body.global_transform.basis
 		var right := -b.x
 		var roll := rad_to_deg(atan2(-right.y, b.y.y))
 		var climb := main_body.linear_velocity.y
 		var alt: float = Origin.to_map(main_body.global_position).y
-		var want_climb := clampf((400.0 - alt) * 0.1, -10.0, 10.0)
+		var want_climb := clampf((_cruise_height() - alt) * 0.1, -10.0, 10.0)
 		if not held.has("Left stick Y (up +)"):
 			held["Left stick Y (up +)"] = clampf((want_climb - climb) * 0.04, -0.6, 0.6)
 		if not held.has("Left stick X (right +)"):
@@ -294,9 +349,11 @@ func _process(delta: float) -> bool:
 			print("F14: missile rel %s v %.1f rel-v %s" % [str((rel / 0.25).snapped(Vector3.ONE * 0.1)), mb.linear_velocity.length(), str((main_body.global_transform.basis.inverse() * (mb.linear_velocity - main_body.linear_velocity)).snapped(Vector3.ONE * 0.1))])
 	if OS.get_environment("F14_CONTACT") != "" and frame % 6 == 0:
 		_contacts()
+	if OS.get_environment("F14_JOLT") != "":
+		_jolts()
 	if OS.get_environment("F14_PEAK") != "":
 		_peaks(float(OS.get_environment("F14_PEAK")))
-	if fmod(clock, 0.5) < delta:
+	if fmod(clock, 0.1 if OS.get_environment("F14_FINE") != "" else 0.5) < delta:
 		if OS.get_environment("F14_STRESS") != "":
 			_stress_report()
 		print("F14: %4.1fs %s" % [clock, _attitude()])
@@ -438,3 +495,81 @@ func _key_check() -> void:
 		Input.parse_input_event(key)
 	Input.flush_buffered_events()
 	print("F14: M pressed while seated: world map open ", main._hud.world_map_open())
+
+
+func _flying() -> bool:
+	return mode in ["air", "missile", "fast", "reload"]
+
+
+## Bodies whose speed is changing faster than 10 g over the crash window.
+var _jolt_history: Dictionary = {}
+func _jolts() -> void:
+	for item in spawner.all_bodies():
+		var body := item as RigidBody3D
+		var history: Array = _jolt_history.get(body, [])
+		history.append(body.linear_velocity)
+		if history.size() > 13:
+			history.pop_front()
+		_jolt_history[body] = history
+		if history.size() < 13:
+			continue
+		var g: float = ((history[12] as Vector3) - (history[0] as Vector3)).length() / (12.0 / 240.0) / 9.81
+		if g > 10.0:
+			print("F14:   jolt %.0f g body of %d pieces, %.0f kg" % [g, spawner._body_pieces.get(body, []).size(), body.mass])
+
+
+## How high the test pilot flies: 400 m, or what F14_HEIGHT says.
+func _cruise_height() -> float:
+	var asked := OS.get_environment("F14_HEIGHT")
+	return float(asked) if asked != "" else 400.0
+
+
+var _ladder_out := Vector3.ZERO
+var _ladder_top := 0.0
+var _ladder_best := 0.0
+var _ladder_climbed := false
+
+
+## On foot: stands the character on the ground in front of the boarding
+## ladder, facing it, pushes the stick forward and watches it climb. At the
+## top it asks for the seat, the way pressing E does.
+func _ladder_test(delta: float) -> bool:
+	var player: Node = main.get_node("Player")
+	var controller: Node = main.get_node("BuildController")
+	if step == -1:
+		var ladder: Array = spawner.part_frame(int(uids.get("ladder", 0)))
+		var seat: Array = spawner.seat_frame(int(uids.get("seat", 0)))
+		var at: Vector3 = (ladder[0] as Transform3D).origin
+		var side := (main_body.global_transform.affine_inverse() * at).x - (main_body.global_transform.affine_inverse() * (seat[0] as Transform3D).origin).x
+		_ladder_out = main_body.global_transform.basis.x.normalized() * signf(side)
+		_ladder_out.y = 0.0
+		_ladder_out = _ladder_out.normalized()
+		_ladder_top = at.y + 2.0
+		var feet := at + _ladder_out * 0.9 - Vector3(0, 2.0, 0)
+		player.teleport(feet, atan2(_ladder_out.x, _ladder_out.z))
+		_ladder_best = feet.y
+		print("F14: --- on foot by the ladder, feet y %.2f, ladder top y %.2f" % [feet.y, _ladder_top])
+		step = 0
+		clock = 0.0
+		return false
+	clock += delta
+	var y: float = player.global_position.y
+	_ladder_best = maxf(_ladder_best, y)
+	if step == 0:
+		# Settle, then push the stick forward, into the ladder.
+		Gamepad.fake = {} if clock < 1.0 else {"Left stick Y (up +)": 1.0}
+		if fmod(clock, 0.25) < delta:
+			print("F14:  %.2fs feet y %.2f on ladder %s" % [clock, y, str(player._ladder != Vector3.ZERO)])
+		if player._ladder != Vector3.ZERO:
+			_ladder_climbed = true
+		if clock >= 5.0:
+			Gamepad.fake = {}
+			print("F14: --- climbed: %s, highest feet y %.2f (ladder top %.2f)" % [str(_ladder_climbed), _ladder_best, _ladder_top])
+			controller._seat_request = true
+			step = 1
+			clock = 0.0
+		return false
+	if clock >= 0.2:
+		print("F14: --- asked for the seat: seated %s" % str(player.seated))
+		return true
+	return false

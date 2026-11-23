@@ -36,6 +36,9 @@ const Profiler = preload("res://scripts/profiler.gd")
 
 ## Emitted when a part's health runs out and it is removed.
 signal part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary)
+## Parts made while spawned (a reload gate's new payload), for the scripts
+## that look after parts of each kind to take them on.
+signal parts_added(uids: Array)
 
 const TOUCH := 0.0004   # metres; faces this close together count as touching
 const BUCKET := 1.0     # metres; size of the sorting boxes used to find neighbours
@@ -218,6 +221,9 @@ var _gears: Dictionary = {}    # gear or pulley uid -> where it is and what it t
 var _meshes: Array = []        # pairs of gears or pulleys that turn together; see _find_meshes
 var _racks: Array = []         # racks, each with the gears that drive it
 var _flame_mesh: Mesh = null
+var _reload_gates: Dictionary = {}  # reload gate uid -> see _find_reload_payloads
+var _payload_safe: Dictionary = {}  # payload part uid -> time alive until which its explosives can't be set off
+var _next_uid := 1             # the uid the next part made while spawned gets
 
 # The physics engine's joint motors may count a positive speed either way
 # round. Jolt's are known (a hinge motor turns its second body backwards
@@ -346,6 +352,12 @@ func spawn(grid: Node3D) -> Dictionary:
 		_records[uid] = grid.get_part(uid)
 	var forced := _apply_offsetters()
 	_count_overlaps_once()
+	_reload_gates.clear()
+	_payload_safe.clear()
+	_next_uid = 1
+	for uid in _records:
+		_next_uid = maxi(_next_uid, int(uid) + 1)
+	_find_reload_payloads()
 	_alive_time = 0.0
 	_parked.clear()
 	parked = false
@@ -443,6 +455,7 @@ func spawn(grid: Node3D) -> Dictionary:
 			_make_joint(machine_uid, machine_record, str(machine["role"]), spec, a, b)
 			free_joints += 1
 
+	_check_reload_payloads()
 	_find_gears()
 	_find_meshes()
 	gear_conflicts = _check_gear_trains()
@@ -647,6 +660,8 @@ func despawn() -> void:
 	_gears.clear()
 	_meshes.clear()
 	_racks.clear()
+	_reload_gates.clear()
+	_payload_safe.clear()
 	_floats.clear()
 	_air.clear()
 	_drag.clear()
@@ -1344,6 +1359,8 @@ static func mergeable(record: Dictionary) -> bool:
 	var type: String = record["type"]
 	if not machine_of(record).is_empty() or MaterialLibrary.is_clear(str(record["material"])):
 		return false
+	if type == "ladder":
+		return false   # it can be stowed out of sight, so it keeps its own mesh
 	var group := PartLibrary.category(type)
 	return group == "Basic" or group == "Structural" or group == "Advanced" or PartLibrary.is_aero_panel(type)
 
@@ -2665,6 +2682,7 @@ func _new_input_state(props: Dictionary) -> Dictionary:
 		"key": _keycode(str(props.get("key", "W"))),
 		"second_key": _keycode(str(props.get("second_key", "S"))),
 		"toggle": str(props.get("mode", "Hold")) == "Toggle",
+		"pulse": str(props.get("mode", "Hold")) == "Pulse",
 		"two_keys": str(props.get("output", "Boolean")) != "Boolean",
 		"was_down": false, "latched": false,
 		"pressed": 0.0, "value": 0.0,
@@ -2774,6 +2792,8 @@ func _update_inputs() -> void:
 			if down and not state["was_down"]:
 				state["latched"] = not state["latched"]
 			pressed = state["latched"]
+		elif state["pulse"]:
+			pressed = down and not state["was_down"]   # on for the one tick the key goes down
 		state["was_down"] = down
 		state["pressed"] = 1.0 if pressed else 0.0
 		if state["two_keys"]:
@@ -3053,6 +3073,7 @@ func _physics_process(delta: float) -> void:
 	Profiler.add("drivetrain", started)
 	started = Profiler.start()
 	_run_thrusters()
+	_run_reload_gates(delta)
 	Profiler.add("fluids and engines", started)
 	started = Profiler.start()
 	if held_body != null:
@@ -3570,3 +3591,198 @@ func _run_aero(delta: float) -> void:
 		note_force(panel[0], force)
 		_note_air(body, force, arm)
 	_panels = alive
+
+
+# --- Reload gates -------------------------------------------------------------
+
+## Each reload gate's payload: what is built on its rail (its own +Y face)
+## and everything joined on beyond that, found the way the offsetters find
+## what they move. If it reaches round to another face of the gate it can't
+## be told apart from the rest of the build, and the gate has no payload.
+## A copy of every payload record is kept to make it again from.
+func _find_reload_payloads() -> void:
+	for key in _records.keys():
+		var uid: int = key
+		var record: Dictionary = _records[uid]
+		if str(record["type"]) != "reload_gate":
+			continue
+		var payload: Array = _parts_on_rail(uid, record)
+		var snapshot: Dictionary = {}
+		for item in payload:
+			snapshot[item] = (_records[item] as Dictionary).duplicate(true)
+		_reload_gates[uid] = {"payload": payload, "snapshot": snapshot, "current": payload.duplicate(),
+				"released": [], "timer": 0.0, "waiting": false, "used": 0}
+		for item in payload:
+			_payload_safe[item] = INF
+
+
+## A payload has to be welded to its gate to be held and let go. One that
+## isn't (it only touches the rail at a corner, say) is not reloaded.
+func _check_reload_payloads() -> void:
+	for key in _reload_gates:
+		var uid: int = key
+		var gate: Dictionary = _reload_gates[uid]
+		var gate_body: RigidBody3D = _piece_body(uid * PIECES)
+		var welded := gate_body != null
+		for item in gate["payload"]:
+			var piece: int = int(item) * PIECES
+			if welded and _pieces.has(piece) and _piece_body(piece) != gate_body:
+				welded = false
+		if not welded and not (gate["payload"] as Array).is_empty():
+			FailureLog.note("Reload gate (part %d): what is on its rail isn't welded to it, so it can't be let go and made again" % uid)
+			gate["payload"] = []
+			gate["current"] = []
+
+
+func _parts_on_rail(uid: int, record: Dictionary) -> Array:
+	var rot: Basis = record["rot"]
+	var own_box: AABB = BuildGrid.bounds_of(record)
+	var up: Vector3 = rot.y.normalized()
+	var size_m: Vector3 = Units.to_metres(record["size"] as Vector3i)
+	var top_middle: Vector3 = Vector3(record["pos"] as Vector3i) * Units.UNIT + up * size_m.y * 0.5
+	var boxes: Dictionary = {}
+	for other_key in _records:
+		if other_key != uid and not is_hidden_control(_records[other_key]):
+			boxes[other_key] = BuildGrid.bounds_of(_records[other_key])
+	var on_rail: Dictionary = {}
+	var queue: Array = []
+	for other_key in boxes:
+		var box: AABB = boxes[other_key]
+		if _touching(box, own_box) and (box.get_center() - top_middle).dot(up) > -0.001:
+			on_rail[other_key] = true
+			queue.append(other_key)
+	while not queue.is_empty():
+		var current: int = queue.pop_back()
+		var current_box: AABB = boxes[current]
+		for other_key in boxes:
+			if on_rail.has(other_key):
+				continue
+			var other_box: AABB = boxes[other_key]
+			if not _touching(other_box, current_box):
+				continue
+			if _touching(other_box, own_box) and (other_box.get_center() - top_middle).dot(up) <= -0.001:
+				return []   # it wraps round to the gate's other side
+			on_rail[other_key] = true
+			queue.append(other_key)
+	return on_rail.keys()
+
+
+## Lets go of each loaded gate's payload while its Release is on, and makes
+## the payload again once it has been gone for the reload time.
+func _run_reload_gates(delta: float) -> void:
+	for key in _reload_gates:
+		var uid: int = key
+		var gate: Dictionary = _reload_gates[uid]
+		if _dead.has(uid) or (gate["payload"] as Array).is_empty():
+			continue
+		var gate_body: RigidBody3D = _piece_body(uid * PIECES)
+		if gate_body == null:
+			continue
+		var record: Dictionary = _records[uid]
+		var props: Dictionary = record.get("props", {})
+		# What of the payload is still on the rail: alive, and still part of
+		# the gate's body.
+		var held: Array = []
+		for item in gate["current"]:
+			var part: int = item
+			if _dead.has(part):
+				continue
+			for index in PIECES:
+				var piece: int = part * PIECES + index
+				if _pieces.has(piece) and (_pieces[piece] as Dictionary)["body"] == gate_body:
+					held.append(piece)
+		var loaded := not held.is_empty()
+		if loaded and _input_value(record.get("links", {}), "release", 0.0) != 0.0:
+			_move_to_new_body(gate_body, held)
+			_refresh_body(gate_body)
+			gate_body.sleeping = false
+			gate["released"] = held
+			loaded = false
+			var armed_at: float = _alive_time + maxf(float(props.get("safe_time", 0.5)), 0.0)
+			for item in gate["current"]:
+				_payload_safe[item] = armed_at
+		if loaded:
+			gate["waiting"] = false
+		else:
+			if not bool(gate["waiting"]):
+				gate["waiting"] = true
+				gate["timer"] = maxf(float(props.get("reload_time", 3.0)), 0.0)
+			gate["timer"] = float(gate["timer"]) - delta
+			var limit := int(float(props.get("reloads", 0.0)))
+			if float(gate["timer"]) <= 0.0 and (limit <= 0 or int(gate["used"]) < limit) \
+					and not _rail_blocked(gate, gate_body):
+				gate["current"] = _remake_payload(gate, gate_body)
+				gate["used"] = int(gate["used"]) + 1
+				gate["waiting"] = false
+				loaded = true
+		_outputs[uid] = {"loaded": 1.0 if loaded else 0.0, "reloads": float(gate["used"])}
+
+
+## True for an explosive (or any part) of a reload gate's payload that is
+## still on the rail, or was let go less than the gate's safe time ago: its
+## Detonate signal is ignored, so a bump on the rail or a brush with the
+## next missile on the way out doesn't set it off. Destroyed, it still goes.
+func is_payload_safe(uid: int) -> bool:
+	return _alive_time < float(_payload_safe.get(uid, -1.0))
+
+
+## True while the last payload let go is still sitting where the new one
+## would go (a rocket that didn't light, say).
+func _rail_blocked(gate: Dictionary, gate_body: RigidBody3D) -> bool:
+	var origin: Vector3 = body_origin_in_grid(gate_body)
+	for item in gate["released"]:
+		var piece: int = item
+		if not _pieces.has(piece):
+			continue
+		var entry: Dictionary = _pieces[piece]
+		var body: RigidBody3D = entry["body"]
+		if body == gate_body:
+			continue
+		var now: Vector3 = body.global_transform * (entry["centre"] as Vector3)
+		var home: Vector3 = gate_body.global_transform * (_piece_centre(piece, _records[_uid_of(piece)]) - origin)
+		if now.distance_to(home) < 0.5:
+			return true
+	return false
+
+
+## Makes a gate's payload again, welded on its rail, from the copy kept at
+## spawn. Every part gets a new uid; links between the payload's own parts
+## are pointed at the new parts, and links in from the rest of the build
+## stay as they were. Returns the new uids.
+func _remake_payload(gate: Dictionary, gate_body: RigidBody3D) -> Array:
+	var renamed: Dictionary = {}
+	for item in gate["payload"]:
+		renamed[int(item)] = _next_uid
+		_next_uid += 1
+	var origin: Vector3 = body_origin_in_grid(gate_body)
+	_shaped = _own_shaped
+	var made: Array = []
+	var new_pieces: Array = []
+	for old_uid in renamed:
+		var record: Dictionary = (gate["snapshot"][old_uid] as Dictionary).duplicate(true)
+		var links: Dictionary = record.get("links", {})
+		for port in links:
+			var link: Dictionary = links[port]
+			var source := int(link.get("uid", 0))
+			if renamed.has(source):
+				link["uid"] = renamed[source]
+		var new_uid: int = renamed[old_uid]
+		_records[new_uid] = record
+		var material: String = record["material"]
+		if MaterialLibrary.is_immovable(material):
+			_health[new_uid] = INF
+		else:
+			_health[new_uid] = BuildGrid.mass_of(record) * float(MaterialLibrary.info(material)["strength"])
+		for index in piece_count(record):
+			var piece: int = new_uid * PIECES + index
+			_boxes[piece] = _piece_box(piece, record)
+			_note_shape(piece, record)
+			_build_piece(gate_body, piece, origin)
+			new_pieces.append(piece)
+		made.append(new_uid)
+		_payload_safe[new_uid] = INF
+	(_body_pieces[gate_body] as Array).append_array(new_pieces)
+	_refresh_body(gate_body)
+	gate_body.sleeping = false
+	parts_added.emit(made)
+	return made

@@ -18,6 +18,7 @@ const IDS := [
 	"piston", "solenoid", "spring", "gear", "bevel_gear", "rack", "pulley",
 	"crankshaft", "wheel", "linkage_bar", "clutch", "brake",
 	"light_panel", "impact_detector", "explosive_block", "machine_gun", "hitscan_gun", "large_cannon", "ammo_generator",
+	"reload_gate", "ladder",
 	"fluid_cylinder", "pump", "valve", "fluid_pipe", "fuel_tank", "pressure_tank",
 	"combustion_cylinder", "compressor", "combustor", "turbine", "nozzle", "thruster", "solid_rocket",
 	"aero_panel", "aero_panel_triangle", "aero_panel_dragless", "aero_panel_triangle_dragless",
@@ -502,6 +503,21 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_box(body, Vector3.ZERO, Vector3(1.0, 1.0, 0.6))
 			Kit.add_box(detail, Vector3.ZERO, Vector3(0.92, 0.88, 1.0))
 			detail_look = Kit.lens_material()
+		"reload_gate":
+			# A mount with a yellow rail on its payload side (+Y): whatever is
+			# built on the rail is let go, then made again.
+			Kit.add_box(body, Vector3(0.0, -0.15, 0.0), Vector3(1.0, 0.7, 1.0))
+			Kit.add_box(detail, Vector3(0.0, 0.35, 0.0), Vector3(0.5, 0.3, 0.96))
+			detail_look = Kit.tinted_material(Color(0.95, 0.75, 0.15))
+		"ladder":
+			# Two rails up its Y and a rung about every 30 cm, standing off
+			# the wall it hangs on (its -Z face).
+			var rungs: int = int(options.get("rungs", 12))
+			Kit.add_box(body, Vector3(-0.42, 0.0, 0.0), Vector3(0.16, 1.0, 1.0))
+			Kit.add_box(body, Vector3(0.42, 0.0, 0.0), Vector3(0.16, 1.0, 1.0))
+			for rung in rungs:
+				var height := -0.5 + (float(rung) + 0.5) / float(rungs)
+				Kit.add_box(detail, Vector3(0.0, height, 0.1), Vector3(0.7, 0.3 / float(rungs), 0.6))
 		"magnet":
 			# A red housing with a steel pole face on top (+Y), which grabs.
 			Kit.add_box(body, Vector3(0.0, -0.15, 0.0), Vector3(1.0, 0.7, 1.0))
