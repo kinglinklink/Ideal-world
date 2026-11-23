@@ -6,6 +6,16 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 31
+
+- **Xbox and PlayStation controllers** (USB or Bluetooth): left stick walks, right stick looks, A jumps, Y sits, View stands up (or spawns), Menu pauses. See [Controller](#controller)
+- **Controller input** part (Logic): binds any button, stick, trigger or D-pad direction to a build. Sticks and triggers give smooth numbers with a dead zone, a response curve and a scale, and two controls can make one number (D-pad left and right, say); buttons can hold, toggle or pulse
+- **F-14 Tomcat** in the saves folder: black balsa with red trim, swing wings, split door-hinge flaperons, elevators and rudders under one PID stability system, twin vectoring nozzles with hidden thrusters and engine glow, retracting gear with sliding doors, depleted-uranium cannons, nose guns and four missiles
+- **Depleted uranium**: a new material, 19,050 kg/m³, for dense cannon shells
+- **Stronger load paths in the stress model**: each part now hangs on the widest weld it has to the rest of the body, from the heaviest part near the centre of mass, so a wall welded along its whole edge no longer hangs from a corner it happens to touch
+- **Seated, a build's keys are its own**: if one of its input blocks uses M, M no longer opens the map as well (Space and Esc keep their jobs)
+- Fixed a spawned build sometimes flying apart when it landed on its pistons, and an error when a damaged part's smoke was cleared
+
 ### New in Build 30
 
 - **The real trees of Flathead Lake**, fifteen kinds placed by where they grow: black cottonwood, quaking aspen, paper birch, Douglas hawthorn and serviceberry on the shore; ponderosa pine, Douglas-fir and Rocky Mountain juniper on low, dry, south-facing slopes; Douglas-fir, western redcedar, western larch and Rocky Mountain maple where it's low and shaded; lodgepole pine and larch higher up; Engelmann spruce and subalpine fir, then mountain hemlock near the tree line. Larches and the broadleaf trees turn their own autumn colours and stand bare in winter
@@ -94,7 +104,7 @@ The last 30 seconds of every spawned body and of you are always being recorded, 
 
 ### The stress view and structural failure
 
-Key 9 while spawned colours every part by its load: blue easy, through green and yellow, to red at its breaking point; the left of the screen shows the most loaded part. Each part carries its weight and its share of the body's acceleration and turning, plus the thrust, lift and contact forces put straight on it; the parts form a tree out from the one nearest the centre of mass, and each passes its load through the face it shares with the next, as stress = force ÷ area + bending moment ÷ section modulus. Strengths are real: balsa 10 MPa, wood 40, aluminium 270, steel 400, titanium 880, carbon fibre 600, Kevlar 1,500. With structural failure on (Settings → World), a part past its strength for two checks in a row breaks off.
+Key 9 while spawned colours every part by its load: blue easy, through green and yellow, to red at its breaking point; the left of the screen shows the most loaded part. Each part carries its weight and its share of the body's acceleration and turning, plus the thrust, lift and contact forces put straight on it; the parts form a tree out from the heaviest part near the centre of mass, each joining by the widest weld it has to the tree so far, and each passes its load through the face it shares with the next, as stress = force ÷ area + bending moment ÷ section modulus. Strengths are real: balsa 10 MPa, wood 40, aluminium 270, steel 400, titanium 880, carbon fibre 600, Kevlar 1,500. With structural failure on (Settings → World), a part past its strength for two checks in a row breaks off.
 
 ### Weather and disasters
 
@@ -190,6 +200,24 @@ Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any num
 | Ctrl+Z / Ctrl+Y | Undo / redo (also the Undo and Redo buttons, bottom right) |
 | Left click | Use the current tool |
 | R / T / Y | Turn 90° about X / Y / Z: the part you are about to place, or the Transform selection. The red, green and blue buttons at the bottom left do the same. |
+
+### Controller
+
+An Xbox or PlayStation controller works alongside the keyboard and mouse.
+
+| Controller | Action |
+| --- | --- |
+| Left stick | Walk |
+| Right stick | Look around |
+| L3 (press the left stick) | Run |
+| R3 (press the right stick) | First or third person |
+| A / Cross | Jump |
+| Y / Triangle | Sit in the nearest seat |
+| View / Create | Stand up from a seat; on foot, spawn the build or go back to building |
+| Menu / Options | Pause; the D-pad and A move through the menus, B goes back |
+| D-pad up / down | Zoom, on foot |
+
+Seated, every other button, stick and trigger is free for the build's **Controller input** blocks (Logic): pick the control, then Hold, Toggle or Pulse for buttons; sticks and triggers give a number from −1 to 1 (0 to 1 for triggers) times "Value at full push", after the dead zone and the response curve.
 
 ### Tools
 
@@ -310,6 +338,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `scripts/player.gd` | Character movement, step-up, pushing and camera |
 | `scripts/build_grid.gd` | Stores every part; overlap rules, mass and center of mass |
 | `scripts/build_controller.gd` | The five build tools, sitting, and switching between building and spawned |
+| `scripts/gamepad.gd` | Reading Xbox and PlayStation controllers: names of every control, dead zones and curves |
 | `scripts/spawner.gd` | Spawn: welds the build into rigid bodies, runs the machines, and handles part health |
 | `scripts/combat.gd` | Guns, cannon shells, ammo generators and explosives |
 | `scripts/part_library.gd` | Part shapes: meshes, collision, volume |
@@ -368,6 +397,9 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `shaders/part.gdshader`, `part_tint.gdshader`, `part_shine.gdshader` | Building parts: textures laid on in metres, and see-through glass |
 | `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd`, `stand_test.gd`, ... | Headless tests: `godot --headless --path . -s tools/smoke_test.gd`; `tools/load_all.gd` loads every script to catch errors |
 | `tools/shot.gd`, `model_shot.gd`, `material_shot.gd`, `moon_shot.gd` | Screenshots with a real renderer, for checking looks |
+| `tools/build_kit.py`, `make_f14.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`) and the big delta plane |
+| `tools/build_shot.gd` | Pictures of a build file from six sides (add `lit` for its lights on) |
+| `tools/f14_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 (ground, takeoff, air, missile) and the delta plane, and the controller test |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |
 | `tools/find_caves.py` | Searches the heights for cave sites |
 | `shaders/terrain.gdshader` | Lifts the ground to the baked heights and colours it |

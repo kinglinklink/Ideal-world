@@ -88,6 +88,10 @@ const PORTS := {
 		"inputs": [],
 		"outputs": [["pressed", "Pressed", "bool"], ["x", "Cursor X (-1 to 1)", "number"], ["y", "Cursor Y (-1 to 1)", "number"]],
 	},
+	"gamepad_input": {
+		"inputs": [],
+		"outputs": [["pressed", "Pressed", "bool"], ["value", "Value", "number"]],
+	},
 	"boolean_gate": {
 		"inputs": [["a", "A", "bool"], ["b", "B", "bool"]],
 		"outputs": [["result", "Result", "bool"]],

@@ -69,7 +69,7 @@ func _centred(window: Control) -> CenterContainer:
 func _menu_button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
+	button.focus_mode = Control.FOCUS_ALL
 	button.custom_minimum_size = Vector2(280, 46)
 	button.add_theme_font_size_override("font_size", 19)
 	button.pressed.connect(func() -> void:
@@ -186,7 +186,7 @@ func _build_slots() -> Control:
 	column.add_child(_slot_cards)
 	var back := Button.new()
 	back.text = "Back"
-	back.focus_mode = Control.FOCUS_NONE
+	back.focus_mode = Control.FOCUS_ALL
 	back.pressed.connect(func() -> void:
 		_slots.visible = false
 		if playing:
@@ -248,7 +248,7 @@ func _fill_slots() -> void:
 func _slot_button(parent: Control, text: String, action: Callable) -> void:
 	var button := Button.new()
 	button.text = text
-	button.focus_mode = Control.FOCUS_NONE
+	button.focus_mode = Control.FOCUS_ALL
 	button.custom_minimum_size = Vector2(104, 40)
 	button.pressed.connect(func() -> void:
 		Sound.play_ui("click")
@@ -288,6 +288,7 @@ func start_game() -> void:
 	_title.visible = false
 	_slots.visible = false
 	_set_paused(false)
+	get_viewport().gui_release_focus()
 
 
 func pause() -> void:
@@ -298,6 +299,7 @@ func pause() -> void:
 func resume() -> void:
 	_pause.visible = false
 	_set_paused(false)
+	get_viewport().gui_release_focus()
 
 
 func is_open() -> bool:
@@ -334,7 +336,56 @@ func toggle_guide() -> void:
 	guide.visible = not guide.visible
 
 
+## A controller works the menus: Menu (Options) opens the pause menu or
+## takes the first button of an open one, the D-pad moves between buttons,
+## A (Cross) presses and B (Circle) goes back, like Esc.
+func _on_pad(button: InputEventJoypadButton) -> void:
+	if not button.pressed:
+		return
+	var open_menu: Control = null
+	for menu in [_slots, _pause, _title]:
+		if (menu as Control).visible:
+			open_menu = menu
+			break
+	if button.button_index == JOY_BUTTON_START:
+		if open_menu == _pause:
+			resume()
+		elif open_menu == null and not settings_panel.visible and not guide.visible:
+			pause()
+			_focus_first(_pause)
+		elif open_menu != null:
+			_focus_first(open_menu)
+		get_viewport().set_input_as_handled()
+	elif button.button_index == JOY_BUTTON_B and (open_menu != null or settings_panel.visible or guide.visible):
+		if guide.visible:
+			guide.visible = false
+		elif settings_panel.visible:
+			settings_panel.visible = false
+		elif open_menu == _pause:
+			resume()
+		elif open_menu == _slots:
+			_slots.visible = false
+			(_pause if playing else _title).visible = true
+			_focus_first(_pause if playing else _title)
+		get_viewport().set_input_as_handled()
+	elif open_menu != null and get_viewport().gui_get_focus_owner() == null:
+		_focus_first(open_menu)
+
+
+## Gives the first button in a menu the controller's focus.
+func _focus_first(menu: Control) -> void:
+	var buttons := menu.find_children("*", "Button", true, false)
+	for item in buttons:
+		var found := item as Button
+		if found.is_visible_in_tree() and found.focus_mode != Control.FOCUS_NONE:
+			found.grab_focus()
+			return
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton:
+		_on_pad(event as InputEventJoypadButton)
+		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo:
 		return

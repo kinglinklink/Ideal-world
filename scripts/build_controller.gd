@@ -16,6 +16,7 @@ const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const PartSettings = preload("res://scripts/part_settings.gd")
+const Gamepad = preload("res://scripts/gamepad.gd")
 const PartPorts = preload("res://scripts/part_ports.gd")
 const Player = preload("res://scripts/player.gd")
 const SaveManager = preload("res://scripts/save_manager.gd")
@@ -71,6 +72,7 @@ var _near_owner: Node = null   # likewise for the seat in reach
 var _clipboard: Array = []     # records whose "pos" is relative to an anchor cell centre
 var _tick := 0
 var _seat_request := false     # E was pressed to sit; acted on in the next physics tick
+var _pad_stand := false        # View (Create) was pressed on a controller to stand up
 var _clipboard_anchor := Vector3i.ZERO   # where the copy was taken from, for Paste in place
 var _clipboard_low := Vector3.ZERO       # the copy's bounding box, in units from its anchor
 var _clipboard_high := Vector3.ZERO
@@ -283,6 +285,20 @@ func _on_parts_changed() -> void:
 
 # --- Input -------------------------------------------------------------------
 
+## Seated, a key the build's input blocks use belongs to the build: the
+## game's shortcuts on the same key (M opens the map, P respawns, J ...) don't
+## also go off. Space and Escape keep their jobs.
+func _input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or seat_uid == 0 or get_viewport().gui_get_focus_owner() != null:
+		return
+	if key.keycode == KEY_SPACE or key.keycode == KEY_ESCAPE:
+		return
+	var owner_node: Node = _seat_owner if _seat_owner != null and is_instance_valid(_seat_owner) else spawner
+	if owner_node != null and owner_node.has_method("binds_key") and bool(owner_node.binds_key(key.keycode)):
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key := event as InputEventKey
@@ -297,8 +313,29 @@ func _unhandled_input(event: InputEvent) -> void:
 			_use_tool()
 		elif button.button_index == MOUSE_BUTTON_LEFT and not button.pressed and not _drag.is_empty():
 			_end_scale_drag()
+	elif event is InputEventJoypadButton:
+		_on_pad_button(event as InputEventJoypadButton)
 	elif event is InputEventMouseMotion and not _drag.is_empty():
 		_update_scale_drag()
+
+
+## A controller's own buttons for getting about: Y (Triangle) sits down or
+## talks, like E; View (Create) stands up from a seat, like Space, and on foot
+## spawns or puts away the build, like Enter. Seated, every other button is
+## free for the build's Controller input blocks.
+func _on_pad_button(button: InputEventJoypadButton) -> void:
+	if not button.pressed:
+		return
+	if button.button_index == JOY_BUTTON_Y and seat_uid == 0:
+		if talk_handler.is_valid() and bool(talk_handler.call()):
+			return
+		if spawned:
+			_seat_request = true
+	elif button.button_index == JOY_BUTTON_BACK:
+		if seat_uid != 0:
+			_pad_stand = true
+		else:
+			toggle_spawn()
 
 
 func _on_key(key: InputEventKey) -> void:
@@ -1320,9 +1357,9 @@ func seat_spin() -> float:
 ## The line the interface shows about sitting, or "" for nothing to say.
 func seat_prompt() -> String:
 	if seat_uid != 0:
-		return "Space to stand up"
+		return "Space (View on a controller) to stand up" if Gamepad.connected() else "Space to stand up"
 	if near_seat_uid != 0:
-		return "E to sit"
+		return "E (Y on a controller) to sit" if Gamepad.connected() else "E to sit"
 	return ""
 
 
@@ -1340,7 +1377,9 @@ func _update_seat() -> void:
 	if seat_uid != 0:
 		_seat_request = false   # E does nothing while seated; only Space stands up
 		var typing: bool = get_viewport().gui_get_focus_owner() != null
-		if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
+		var stand := _pad_stand
+		_pad_stand = false
+		if (Input.is_physical_key_pressed(KEY_SPACE) or stand) and not typing:
 			_leave_seat()
 		elif _seat_owner != null:
 			# A spawned seat moves, so the sitter is carried along every tick.

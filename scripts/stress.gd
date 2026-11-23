@@ -13,7 +13,8 @@ extends Node
 ##   ground, the water, joints) is shared out over the parts by mass, as if
 ##   the body were supported evenly.
 ## - Load paths. The parts form a tree, welded face to face, grown outward
-##   from the part nearest the centre of mass. Each part hands its load, and
+##   from the part at the centre of mass, each part joining by the
+##   widest weld it has to the tree so far. Each part hands its load, and
 ##   that of everything beyond it, to the part it hangs from, through the
 ##   face they share.
 ## - Stress. At each face: σ = |F| / A + |M| / Z, the direct stress plus the
@@ -33,6 +34,7 @@ const EVERY := 4                 # physics ticks between checks (60 per second)
 const BREAK_CHECKS := 2          # checks in a row past the limit before a part breaks
 const MAX_BREAKS := 3            # parts broken per check at most
 const GRACE := 2.0               # seconds after spawning before anything breaks
+const ROOT_REACH := 1.0          # metres from the centre of mass the load tree's root may be
 const GRAVITY := Vector3(0.0, -9.81, 0.0)
 const BANDS := 10                # colours in the stress view
 
@@ -43,7 +45,7 @@ const STRENGTH_MPA := {
 	"carbon_fiber": 600.0, "magnesium": 200.0, "fiberglass": 300.0, "brick": 3.0, "concrete": 4.0,
 	"glass": 40.0, "aluminum": 270.0, "granite": 15.0, "diamond": 1500.0, "titanium": 880.0,
 	"cast_iron": 150.0, "steel": 400.0, "brass": 200.0, "copper": 70.0, "silver": 50.0,
-	"lead": 12.0, "tungsten": 750.0, "gold": 120.0,
+	"lead": 12.0, "depleted_uranium": 850.0, "tungsten": 750.0, "gold": 120.0,
 }
 
 ## Colour the parts by stress. Key 9 or the settings switch it.
@@ -201,41 +203,97 @@ func _tree_for(body: RigidBody3D, pieces: Array) -> Dictionary:
 							(near[piece] as Array).append(other_piece)
 							(near[other_piece] as Array).append(piece)
 					(buckets[key] as Array).append(piece)
-	# The root: the part nearest the centre of mass.
+	# The root: the heaviest part within a metre of the centre of mass (a
+	# little sensor sitting right on it makes a poor hub), or if there is
+	# none, the nearest. Parts with no weight (logic) can't be it while there
+	# is anything else.
 	var root: int = pieces[0]
-	var best := INF
+	var best_key := INF
+	var at: Vector3 = centre + origin
 	for item in pieces:
 		var piece: int = item
-		var distance: float = (spawner.centre_of_piece(piece) - centre).length_squared()
-		if distance < best:
-			best = distance
+		if not boxes.has(piece):
+			continue
+		var box: AABB = boxes[piece]
+		var inside := Vector3(clampf(at.x, box.position.x, box.end.x), clampf(at.y, box.position.y, box.end.y),
+				clampf(at.z, box.position.z, box.end.z))
+		var distance: float = (inside - at).length()
+		var mass: float = spawner.mass_of_piece(piece)
+		var key: float = distance if distance > ROOT_REACH else -1.0e6 - mass
+		if mass <= 0.0:
+			key += 1.0e9
+		if key < best_key:
+			best_key = key
 			root = piece
+	# Grown from the root by always taking next the part with the widest
+	# joint to what is already in the tree (a maximum spanning tree), so each
+	# part's load goes in by the path whose narrowest joint is the widest:
+	# a wall welded along its whole edge hangs from that edge, not from a
+	# corner it happens to touch nearer the root.
 	var order: Array = [root]
 	var parent: Dictionary = {root: -1}
 	var point: Dictionary = {}
 	var area: Dictionary = {}
-	var head := 0
-	while head < order.size():
-		var piece: int = order[head]
-		head += 1
-		for other in near[piece]:
-			var child: int = other
-			if parent.has(child):
-				continue
-			parent[child] = piece
-			order.append(child)
-			var a: AABB = boxes[piece]
-			var b: AABB = boxes[child]
-			var shared := a.intersection(b)
-			if shared.size == Vector3.ZERO:
-				# Touching faces have no volume in common; take the box between their middles.
-				shared = AABB((a.get_center() + b.get_center()) * 0.5, Vector3.ZERO)
-			point[child] = shared.get_center() - origin
-			area[child] = maxf(spawner.contact_area(piece, child), 0.0001)
+	var heap: Array = []    # [joint area, part, the tree part it would hang from]
+	for other in near[root]:
+		_heap_push(heap, [spawner.contact_area(root, other), other, root])
+	while not heap.is_empty():
+		var best_joint: Array = _heap_pop(heap)
+		var child: int = best_joint[1]
+		if parent.has(child):
+			continue
+		var piece: int = best_joint[2]
+		parent[child] = piece
+		order.append(child)
+		var a: AABB = boxes[piece]
+		var b: AABB = boxes[child]
+		var shared := a.intersection(b)
+		if shared.size == Vector3.ZERO:
+			# Touching faces have no volume in common; take the box between their middles.
+			shared = AABB((a.get_center() + b.get_center()) * 0.5, Vector3.ZERO)
+		point[child] = shared.get_center() - origin
+		area[child] = maxf(float(best_joint[0]), 0.0001)
+		for other in near[child]:
+			if not parent.has(other):
+				_heap_push(heap, [spawner.contact_area(child, other), other, child])
 	# Parts the tree could not reach (welded only through a machine) count alone.
 	var tree := {"count": pieces.size(), "order": order, "parent": parent, "point": point, "area": area}
 	_trees[body] = tree
 	return tree
+
+
+## A binary heap of [key, ...] arrays with the largest key on top.
+static func _heap_push(heap: Array, item: Array) -> void:
+	heap.append(item)
+	var i := heap.size() - 1
+	while i > 0:
+		var up := (i - 1) >> 1
+		if float(heap[up][0]) >= float(item[0]):
+			break
+		heap[i] = heap[up]
+		i = up
+	heap[i] = item
+
+
+static func _heap_pop(heap: Array) -> Array:
+	var top: Array = heap[0]
+	var last: Array = heap.pop_back()
+	if heap.is_empty():
+		return top
+	var i := 0
+	var count := heap.size()
+	while true:
+		var child := i * 2 + 1
+		if child >= count:
+			break
+		if child + 1 < count and float(heap[child + 1][0]) > float(heap[child][0]):
+			child += 1
+		if float(heap[child][0]) <= float(last[0]):
+			break
+		heap[i] = heap[child]
+		i = child
+	heap[i] = last
+	return top
 
 
 func _check_body(body: RigidBody3D, tree: Dictionary, acceleration: Vector3, spin_rate: Vector3,

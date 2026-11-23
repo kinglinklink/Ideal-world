@@ -50,7 +50,7 @@ const CRATER_HEADROOM := 300.0      # metres above the rim the heat reaches
 ## low-melting stuff goes fastest, refractory metals slowest.
 const HEAT_SHARE := {"foam": 0.3, "balsa": 0.2, "cork": 0.2, "wood": 0.12, "oak": 0.12, "plastic": 0.2,
 		"rubber": 0.2, "nylon": 0.2, "acrylic": 0.2, "ice": 1.0, "lead": 0.15, "magnesium": 0.12,
-		"steel": 0.025, "titanium": 0.02, "tungsten": 0.01, "cast_iron": 0.03, "diamond": 0.02, "granite": 0.02,
+		"steel": 0.025, "titanium": 0.02, "tungsten": 0.01, "depleted_uranium": 0.02, "cast_iron": 0.03, "diamond": 0.02, "granite": 0.02,
 		"concrete": 0.03, "brick": 0.03}
 
 ## Disasters strike on their own now and then. The settings switch it.

@@ -377,7 +377,7 @@ func _fire_at(uid: int, record: Dictionary, aim: Vector3) -> void:
 
 
 const METALS := ["steel", "aluminum", "titanium", "cast_iron", "brass", "copper", "tungsten", "magnesium",
-		"lead", "silver", "gold"]
+		"lead", "silver", "gold", "depleted_uranium"]
 
 
 ## Sparks and a ping where a round hits metal.

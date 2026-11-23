@@ -9,6 +9,7 @@ extends RefCounted
 ##   "flag", "color" and "text" need nothing more.
 
 const MaterialLibrary = preload("res://scripts/material_library.gd")
+const Gamepad = preload("res://scripts/gamepad.gd")
 
 static var _table: Dictionary = {}
 
@@ -169,6 +170,22 @@ static func _build_table() -> void:
 	_table["mouse_click"] = [
 		_choice("button", "Mouse button", ["Left", "Right", "Middle"]),
 		_choice("mode", "Mode", ["Hold", "Toggle", "Pulse"]),
+		shown,
+	]
+	var pad_controls: Array = Gamepad.control_names()
+	var second_control := _choice("second_control", "Second control (takes away)", pad_controls)
+	second_control["default"] = "D-pad left"
+	var first_control := _choice("control", "Control", pad_controls)
+	first_control["default"] = "Left stick Y (up +)"
+	_table["gamepad_input"] = [
+		first_control,
+		_choice("output", "Output", ["One control", "Number from two controls"]),
+		second_control,
+		_choice("mode", "Mode", ["Hold", "Toggle", "Pulse"]),
+		_number("deadzone", "Dead zone (sticks and triggers)", "", 0.12, 0.0, 0.9, 0.01),
+		_number("curve", "Response curve (1 straight, 2 soft middle)", "", 1.0, 0.2, 5.0, 0.05),
+		_number("scale", "Value at full push", "", 1.0, -1000000.0, 1000000.0, 0.001),
+		_flag("invert", "Invert", false),
 		shown,
 	]
 	_table["boolean_gate"] = [
