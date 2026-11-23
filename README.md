@@ -6,6 +6,29 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 34
+
+- **F-14 Tomcat Mark 2** in the saves folder: the F-14 armed to the teeth.
+  - **Ten missiles**, five a side: the two under each glove and three more under each nacelle. Each reloads every half second, as fast as the B-2's. A tap of Y (or R) fires one; hold it and they keep coming, eight a second, the sides taking turns
+  - **Two bombs** in tandem under the tunnel between the engines, about a tonne each, dropping with normal physics. X (or B) drops one, the back one first; hold it to keep dropping as they reload (every 2 s). They drop only 160 m or more above the ground
+  - **Four nose guns** (twice the F-14's), on B or the left mouse button. The cannons are as before, on A
+  - **Every warhead a 100 m blast**, missiles and bombs alike. A missile's warhead arms 2 s after launch, by when it is about 200 m ahead (a 100 m blast reaches the pilot out to 151 m). Anything it hits before that, it hits as a dud
+  - About 59 t to the F-14's 48 t: pull back from about 80 m/s on the runway and it lifts off at about 100 m/s; flat out it reaches about 685 m/s
+- **Missiles and bombs are duds until armed**: a payload a reload gate has let go is not armed until its safe time is up, so one that smashes into something close by no longer explodes when it breaks up. Ordnance still on the rail goes off as before if the plane is wrecked
+
+#### F-14 Mark 2 controls
+
+As the F-14, plus:
+
+| Controller | Keyboard / mouse | |
+| --- | --- | --- |
+| Y | R | Missiles: tap for one, hold for eight a second |
+| X | B | Bombs: tap for one, hold to keep dropping (160 m up or more) |
+| B | Left mouse | The four nose guns |
+| A | F | The cannons |
+
+Don't fire at anything much closer than 200 m: it will be a dud.
+
 ### New in Build 33
 
 - **B-2 Spirit** in the saves folder: a full-size flying wing, 52 m across, in dark grey, with a hatch and ladder underneath, landing gear that goes up by itself above 50 m (and comes down below 35 m), and a centre body full of bomb bays:
@@ -449,10 +472,10 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `shaders/part.gdshader`, `part_tint.gdshader`, `part_shine.gdshader` | Building parts: textures laid on in metres, and see-through glass |
 | `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd`, `stand_test.gd`, ... | Headless tests: `godot --headless --path . -s tools/smoke_test.gd`; `tools/load_all.gd` loads every script to catch errors |
 | `tools/shot.gd`, `model_shot.gd`, `material_shot.gd`, `moon_shot.gd` | Screenshots with a real renderer, for checking looks |
-| `tools/build_kit.py`, `make_f14.py`, `make_b2.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`), the B-2 (`python3 tools/make_b2.py "saves/B-2 Spirit.json"`) and the big delta plane |
+| `tools/build_kit.py`, `make_f14.py`, `make_b2.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`), its Mark 2 (`python3 tools/make_f14.py "saves/F-14 Tomcat Mark 2.json" --mk2`), the B-2 (`python3 tools/make_b2.py "saves/B-2 Spirit.json"`) and the big delta plane |
 | `tools/build_shot.gd` | Pictures of a build file from six sides (add `lit` for its lights on) |
 | `tools/ladder_test.gd` | Climbs ladders on the pad, spawned and on a fleet vehicle: up with the stick and with A, hanging, climbing down and pushing off |
-| `tools/f14_test.gd`, `b2_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 (ground, takeoff, air, missile, fast, reload, ladder), the B-2 (ground, takeoff, air, bomb, low, ladder; prints tick times) and the delta plane, and the controller test |
+| `tools/f14_test.gd`, `b2_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 and its Mark 2 (ground, takeoff, air, missile, fast, reload, ladder; barrage and dud for the Mark 2's weapons and arming), the B-2 (ground, takeoff, air, bomb, low, ladder; prints tick times) and the delta plane, and the controller test |
 | `tools/runway_test.gd` | To runway: from build mode, seated, again for the next runway, and rolling down it |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |
 | `tools/find_caves.py` | Searches the heights for cave sites |
