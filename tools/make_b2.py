@@ -29,6 +29,15 @@ MISSILE_RELOAD = 0.5
 SMALL_FLOOR = 160.0        # m above the ground: no small bombs below this (the blast hurts out to 150 m)
 BIG_FLOOR = 800.0          # m: nor the big one below this (its blast reaches 500 m)
 MISSILE_FLOOR = 30.0
+# Stability system: yaw from the sideslip, and the thrusters' share.
+SLIP_GAIN = 2.0            # degrees a second of turn into the airflow, for each degree of slip
+YAW_KP, YAW_KI = 4.0, 1.0
+DIFF_THRUST = 0.5          # the most each side's throttle moves for yaw
+VEC_PITCH = 0.8            # engine swivel, degrees per degree of pitch command
+VEC_ROLL = 0.5             # and of roll command, each side opposite
+PITCH_KP, PITCH_KI = 4.0, 3.0
+INNER_ROLL = 1.0           # the inner elevons' share of the roll command
+ROLL_KI = 1.5
 GEAR_UP_AT = 50.0          # m above the ground: the gear goes up
 GEAR_DOWN_AT = 35.0        # and comes down again below this
 
@@ -144,6 +153,12 @@ def bgate(op, a=None, b_=None, seconds=1.0):
     return logic("boolean_gate", {"operation": op, "seconds": seconds}, links)
 
 
+def sym_clamp(src, limit):
+    """Between -limit and limit (the Clamp gate keeps between 0 and its value)."""
+    low = gate("Max", R(src), value=-limit)
+    return gate("Min", R(low), value=limit)
+
+
 def V(i):
     return (i, "value")
 
@@ -222,7 +237,7 @@ def split_surface(s, dx0, dx1, y0, y1, hinge_z, chord, name):
     a thin panel behind it."""
     mid = (y0 + y1) / 2
     settings = {"default_angle": 0.0, "positive_angle": 60.0, "negative_angle": -60.0,
-                "speed": 90.0, "easing": 700.0, "max_torque": 400000.0,
+                "speed": 250.0, "easing": 1500.0, "max_torque": 400000.0,
                 "when_idle": "Return to default angle"}
     top = b.add("door_hinge_servo", side_box(s, dx0, dx1, mid, y1, hinge_z - 1.0, hinge_z), TOP_AXES, DARK,
                 settings=dict(settings))
@@ -271,8 +286,9 @@ b.box((X0 - 2.75, X0 + 2.75, DECK, DECK + 0.5, BIG_END + 0.5, BOX_Z1 - 0.5), BAY
 # here, ahead of the thin outer wings, keeps the wing's lift balanced on
 # the heavy middle).
 b.box((bx0, bx1, BOX_TOP - 1.0, BOX_TOP, BOX_Z0 + 0.5, BOX_Z1 - 0.5), SKIN, ptype="aero_panel")
-# Ballast in the tail: a tungsten slab that brings the weight back over the lift.
-BALLAST = b.box((X0 - 2.0, X0 + 2.0, SLAB, SLAB + 1.0, 95.0, 99.0), DARK, material="tungsten")
+# Ballast in the tail: a tungsten slab that brings the weight back over the
+# lift. (Half what it was before the engines moved back onto their swivels.)
+BALLAST = b.box((X0 - 2.0, X0 + 2.0, SLAB, SLAB + 1.0, 96.0, 98.0), DARK, material="tungsten")
 # Slopes down to the wing all round (the cockpit hump fills the front middle).
 for s in SIDES:
     b.wedge(side_box(s, BOX_DX, BOX_DX + 4.0, ROOF, BOX_TOP, BOX_Z0, BOX_Z1), (-s, 0, 0), (0, -1, 0), SKIN)
@@ -339,7 +355,10 @@ BIG = bomb(X0, ROWS[0], BIG_DECK, 4.0, 6.0, 15.0, 4.0, BIG_RADIUS, BIG_RELOAD, 1
 
 # ---------------------------------------------------------------------------
 # Humps over the engines and main gear.
-THRUSTERS, EXHAUST = [], []
+THRUSTERS = {1: [], -1: []}       # by side: each side's pair gets its own throttle
+VECTOR_SERVOS = {1: [], -1: []}
+VECTOR_MAX = 20.0                 # degrees each way the engines swivel
+EXHAUST = []
 for s in SIDES:
     hx0, hx1 = sorted((X0 + s * HUMP_DX0, X0 + s * HUMP_DX1))
     for wx in ((hx0, hx0 + 0.5), (hx1 - 0.5, hx1)):
@@ -350,17 +369,29 @@ for s in SIDES:
     b.wedge((hx0, hx1, ROOF, HUMP_TOP, HUMP_Z0, HUMP_Z0 + 2.0), (0, 0, 1), (0, -1, 0), SKIN)     # exhaust deck
     # Engines: a hidden thruster each, pushing on an aluminium bulkhead
     # that spreads the push into the hump and the wing.
-    # Engines: low, at the back of the wing's deep root, pushing on its back
-    # face, so the push goes through the middle of the plane (high up, it
-    # would hold the nose down on the runway). Steel: their weight, back
-    # here, balances the bombs. The glow is on their backs, at the trailing
-    # edge.
+    # Engines: low, just behind the wing's deep root, so the push goes
+    # through the middle of the plane (high up, it would hold the nose down
+    # on the runway). Steel: their weight, back here, balances the bombs.
+    # Each swivels up and down on a servo for thrust vectoring: a mount on
+    # the root's back face holds the servo's base half; its top (+X) carries
+    # a hub, and the engine hangs off the hub behind the servo, its push
+    # passing through the servo's axis. The glow is on its back.
     for ex in (33.0, 37.0):
-        THRUSTERS.append(b.add("thruster", side_box(s, ex - 1.0, ex + 1.0, SLAB, ROOF, NOTCH_TE - 2.0, NOTCH_TE),
-                               ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), "#0d0d0f", material="steel",
-                               settings={"thrust": THRUST, "ideal": True}))
-        EXHAUST.append(b.add("light_panel", side_box(s, ex - 1.0, ex + 1.0, SLAB + 0.2, ROOF - 0.2,
-                                                     NOTCH_TE - 2.12, NOTCH_TE - 2.0),
+        cx = X0 + s * ex
+        y0, y1 = SLAB + 0.25, ROOF + 0.25            # clear of the wing's top
+        b.box((cx - 2.0, cx - 0.1, y0, y1, NOTCH_TE - 0.5, NOTCH_TE), METAL, material="aluminum")
+        servo = b.add("servo", (cx - 1.0, cx + 1.0, y0, y1, NOTCH_TE - 2.5, NOTCH_TE - 0.5),
+                      ([0, 0, 1], [1, 0, 0], [0, 1, 0]), DARK,
+                      settings={"default_angle": 0.0, "positive_angle": VECTOR_MAX, "negative_angle": -VECTOR_MAX,
+                                "speed": 120.0, "easing": 600.0, "max_torque": 5000000.0,
+                                "when_idle": "Return to default angle"})
+        VECTOR_SERVOS[s].append(servo)
+        b.box((cx + 1.0, cx + 1.5, y0, y1, NOTCH_TE - 5.5, NOTCH_TE - 0.5), METAL, material="aluminum")
+        THRUSTERS[s].append(b.add("thruster", (cx - 1.0, cx + 1.0, y0, y1, NOTCH_TE - 5.5, NOTCH_TE - 2.75),
+                                  ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), "#0d0d0f", material="steel",
+                                  settings={"thrust": THRUST, "ideal": True}))
+        EXHAUST.append(b.add("light_panel", (cx - 1.0, cx + 1.0, y0 + 0.2, y1 - 0.2,
+                                             NOTCH_TE - 5.62, NOTCH_TE - 5.5),
                              ([1, 0, 0], [0, 0, -1], [0, 1, 0]), "#ff6a1a",
                              settings={"color": "#ff6a1a", "brightness": 3.0}))
 
@@ -476,7 +507,9 @@ for s in SIDES:
 # wing, where nothing the plane drops falls past it.
 ATT = b.add("attitude_sensor", (X0 + 3.5, X0 + 4.5, SLAB, SLAB + 1.0, 155.0, 156.0),
             ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), DARK)
-SPEED = b.add("speed_sensor", (X0 - 4.5, X0 - 3.5, SLAB, SLAB + 1.0, 155.0, 156.0), IDENT, DARK)
+# (Facing forward, as the attitude sensor: its sideways speed is the slip.)
+SPEED = b.add("speed_sensor", (X0 - 4.5, X0 - 3.5, SLAB, SLAB + 1.0, 155.0, 156.0),
+              ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), DARK)
 DIST = b.add("distance_sensor", side_box(1, 70.0, 71.0, OUT_BOT - 0.5, OUT_BOT, 110.0, 111.0),
              ([1, 0, 0], [0, 0, -1], [0, 1, 0]), DARK, settings={"range": 3000.0})
 BEACON = b.add("light_panel", (X0 - 0.5, X0 + 0.5, HUMP_TOP, HUMP_TOP + 0.125, 152.0, 153.0), IDENT, "#ff1010",
@@ -528,13 +561,16 @@ one = gate("Constant", value=1.0)
 unfade = gate("Subtract", R(one), R(fade))
 
 
-def stability_axis(stick, rate_per_unit, measured, pid_settings, direct_gain):
+def stability_axis(stick, rate_per_unit, measured, pid_settings, direct_gain, extra=None):
     """Rate command, attitude hold for one axis; the stick moves the
-    surfaces straight at low speed. Returns the command in degrees."""
+    surfaces straight at low speed. `extra` adds to the rate asked for.
+    Returns the command in degrees."""
     if isinstance(rate_per_unit, int):
         cmd = gate("Multiply", R(stick), R(rate_per_unit))
     else:
         cmd = gate("Multiply", R(stick), value=rate_per_unit)
+    if extra is not None:
+        cmd = gate("Add", R(cmd), R(extra))
     err = gate("Subtract", R(cmd), measured)
     err_f = gate("Multiply", R(err), R(fade))
     setpoint = gate("Add", measured, R(err_f))
@@ -552,18 +588,42 @@ v_floor = gate("Max", (SPEED, "speed"), value=60.0)
 g_cap = gate("Constant", value=1.5 * 9.81 * 57.2958)     # 1.5 g on top of the 1 g of level flight
 g_rate = gate("Divide", R(g_cap), R(v_floor))
 pitch_rate = gate("Min", R(g_rate), value=10.0)
+# In a level turn the nose has to come round as well as across: banked, the
+# pitch rate a turn takes (the yaw rate times the tangent of the bank) is
+# added to what the stick asks, so let go in a bank it holds its height.
+# (No tangent gate: x(1 + x^2/3), within 5% to 45 degrees, and no more than
+# 60 degrees' worth.)
+bank = gate("Multiply", (ATT, "roll"), value=1.0 / 57.2958)
+bank_sq = gate("Multiply", R(bank), R(bank))
+bank_f = gate("Multiply", R(bank_sq), value=1.0 / 3.0)
+bank_f1 = gate("Add", R(bank_f), value=1.0)
+bank_tan = gate("Multiply", R(bank), R(bank_f1))
+bank_tan = sym_clamp(bank_tan, 1.73)
+turn_pitch = gate("Multiply", R(bank_tan), (ATT, "yaw_rate"))
 P_ = stability_axis(pitch_in, pitch_rate, (ATT, "pitch_rate"),
-                    {"kp": 1.4, "ki": 1.0, "kd": 0.0, "output_min": -30.0, "output_max": 30.0}, 35.0)
+                    {"kp": PITCH_KP, "ki": PITCH_KI, "kd": 0.0, "output_min": -30.0, "output_max": 30.0}, 35.0,
+                    extra=turn_pitch)
 roll_cap = gate("Constant", value=12000.0)
 roll_fast = gate("Divide", R(roll_cap), R(v_floor))
 roll_rate = gate("Min", R(roll_fast), value=45.0)
 R_ = stability_axis(roll_in, roll_rate, (ATT, "roll_rate"),
-                    {"kp": 2.0, "ki": 0.6, "kd": 0.0, "output_min": -50.0, "output_max": 50.0}, 30.0)
+                    {"kp": 2.0, "ki": ROLL_KI, "kd": 0.0, "output_min": -60.0, "output_max": 60.0}, 30.0)
 side_cap = gate("Constant", value=1.5 * 9.81 * 57.2958)
 side_rate = gate("Divide", R(side_cap), R(v_floor))
 yaw_rate = gate("Min", R(side_rate), value=6.0)
+# A flying wing has no fin to swing its nose into the airflow, so the
+# stability system does it: the sideslip (sideways over forward speed, in
+# degrees) asks for a turn toward it, SLIP_GAIN degrees a second for each
+# degree. That also coordinates turns: banked, the plane slips toward the low
+# wing, and the nose follows. Yaw itself is mostly differential thrust (see
+# the engines), with the drag rudders helping.
+fwd_floor = gate("Max", (SPEED, "forward"), value=30.0)
+slip = gate("Divide", (SPEED, "sideways"), R(fwd_floor))
+slip_deg = gate("Multiply", R(slip), value=57.2958 * SLIP_GAIN)
+slip_cmd = sym_clamp(slip_deg, 12.0)
 Y_ = stability_axis(yaw_in, yaw_rate, (ATT, "yaw_rate"),
-                    {"kp": 3.0, "ki": 0.0, "kd": 0.0, "output_min": -40.0, "output_max": 40.0}, 30.0)
+                    {"kp": YAW_KP, "ki": YAW_KI, "kd": 0.0, "output_min": -40.0, "output_max": 40.0}, 30.0,
+                    extra=slip_cmd)
 
 # Air brake: Q opens both outer surfaces both ways (less when fast).
 key_brake = key("Q")
@@ -582,7 +642,7 @@ drag = {-1: gate("Add", R(yaw_right), R(brake)), 1: gate("Add", R(yaw_left), R(b
 # Mixing. A positive deflection lifts the trailing edge (the top panel
 # opens); a negative one drops it. Stick back lifts every trailing edge;
 # stick right lifts the right side and drops the left.
-r07 = gate("Multiply", R(R_), value=0.7)
+r07 = gate("Multiply", R(R_), value=INNER_ROLL)
 deflection = {
     # (The surfaces' travel is shared: pitch first, roll on top, so a full
     # roll still rolls while the stability system is trimming.)
@@ -612,10 +672,35 @@ steer_share = gate("Clamp", R(v_left_neg), value=1.0)
 steer_scaled = gate("Multiply", R(steer_in), R(steer_share))
 steer = gate("Multiply", R(steer_scaled), value=-30.0)
 b.link(NOSE_STEER, "angle", steer, "result")
-# Engines and their glow.
-for t in THRUSTERS:
-    b.link(t, "throttle", throttle, "result")
-    b.link(t, "on", engines_on, "is_true")
+# Engines: each side's pair has its own throttle, for yaw. A turn to the
+# right opens the left pair up and the right pair down, by up to half the
+# throttle's travel (the yaw command's 40 degrees), within 0 and full.
+diff = gate("Multiply", R(Y_), value=DIFF_THRUST / 40.0)
+for s in SIDES:
+    side_thr = gate("Add" if s > 0 else "Subtract", R(throttle), R(diff))
+    side_thr = gate("Clamp", R(side_thr), value=1.0)
+    side_on = gate("Compare", R(side_thr), value=0.02)
+    for t in THRUSTERS[s]:
+        b.link(t, "throttle", side_thr, "result")
+        b.link(t, "on", side_on, "is_true")
+# Thrust vectoring: the engines swivel with the stability system's pitch
+# command (all four the same way) and roll command (each side opposite),
+# within 20 degrees.
+# A positive angle pushes the tail down: nose up.
+# (Flying only: on the runway the sticks move the elevons straight, and
+# swivelled engines on top of them snatch the nose up on rotation, far
+# enough to drag the missiles on the runway.)
+vec_pf = gate("Multiply", R(P_), R(fade))
+vec_p = gate("Multiply", R(vec_pf), value=VEC_PITCH)
+vec_rf = gate("Multiply", R(R_), R(fade))
+vec_r = gate("Multiply", R(vec_rf), value=VEC_ROLL)
+for s in SIDES:
+    # Rolling right lifts the left side: its engines swing to push up.
+    side_vec = gate("Subtract" if s > 0 else "Add", R(vec_p), R(vec_r))
+    side_vec = sym_clamp(side_vec, VECTOR_MAX)
+    for v in VECTOR_SERVOS[s]:
+        b.link(v, "angle", side_vec, "result")
+# Their glow.
 glow_r = gate("Multiply", R(throttle), value=255.0)
 glow_g = gate("Multiply", R(throttle), value=110.0)
 for l in EXHAUST:
@@ -710,8 +795,10 @@ for (s_, name, half), idx in SURFACES.items():
     names["%s_%s_%s" % (name, "L" if s_ > 0 else "R", half)] = idx
 for i, p_ in enumerate(GEAR_PISTONS):
     names["gear_%d" % i] = p_
-for i, t_ in enumerate(THRUSTERS):
+for i, t_ in enumerate(THRUSTERS[1] + THRUSTERS[-1]):
     names["thrust_%d" % i] = t_
+for i, v_ in enumerate(VECTOR_SERVOS[1] + VECTOR_SERVOS[-1]):
+    names["vector_%d" % i] = v_
 for i, (rack, exp, det, r_i, c) in enumerate(BAYS):
     names["bay_%d_%d" % (r_i, c)] = rack
 for i, (rack, rocket, det, exp) in enumerate(MISSILES):

@@ -98,6 +98,22 @@ const BOMB := [
 	[14.0, {}, "falling", true],
 	[1.0, {}, "done", true],
 ]
+# Handling, with nobody flying it between the inputs: does it hold its
+# attitude, and how does it answer the sticks?
+const HANDLING := [
+	[3.0, {}, "trimmed by the test pilot", true],
+	[6.0, {}, "hands off", false],
+	[2.0, {"Left stick Y (up +)": 0.5}, "half pull", false],
+	[5.0, {}, "hands off", false],
+	[2.0, {"Left stick Y (up +)": -0.5}, "half push", false],
+	[5.0, {}, "hands off", false],
+	[2.0, {"Left stick X (right +)": 1.0}, "full roll right", false],
+	[5.0, {}, "hands off: holds the bank, turning", false],
+	[2.0, {"Left stick X (right +)": -1.0}, "full roll left", false],
+	[5.0, {}, "hands off", false],
+	[8.0, {"RT / R2 trigger": 1.0}, "full throttle, hands off", false],
+	[1.0, {}, "done", false],
+]
 const LOW := [
 	[3.0, {}, "level, low", true],
 	[0.5, {"A / Cross": 1.0}, "carpet asked, too low: nothing", true],
@@ -112,7 +128,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	file = args[0]
 	for arg in args:
-		if arg in ["air", "ground", "takeoff", "bomb", "low", "ladder"]:
+		if arg in ["air", "ground", "takeoff", "bomb", "low", "ladder", "handling"]:
 			mode = arg
 	no_fail = args.has("nofail")
 	names = JSON.parse_string(FileAccess.get_file_as_string(file + ".names.json"))
@@ -121,7 +137,7 @@ func _initialize() -> void:
 
 
 func _flying() -> bool:
-	return mode in ["air", "bomb", "low"]
+	return mode in ["air", "bomb", "low", "handling"]
 
 
 func _height() -> float:
@@ -159,8 +175,12 @@ func _attitude() -> String:
 	var heading := rad_to_deg(atan2(nose.x, -nose.z))
 	var v := main_body.linear_velocity
 	var dist: float = float(spawner.outputs_of(int(uids.get("dist", 0))).get("distance", 0.0))
-	return "pitch %6.1f roll %6.1f hdg %6.1f | v %5.1f fwd %5.1f climb %5.1f | above ground %6.0f" % [
-		pitch, roll, heading, v.length(), v.dot(nose), v.y, dist]
+	var sensed: Dictionary = spawner.outputs_of(int(uids.get("speed", 0)))
+	var slip := rad_to_deg(atan2(float(sensed.get("sideways", 0.0)), maxf(float(sensed.get("forward", 0.0)), 1.0)))
+	var spin: Dictionary = spawner.outputs_of(int(uids.get("att", 0)))
+	return "pitch %6.1f roll %6.1f hdg %6.1f | v %5.1f fwd %5.1f climb %5.1f | above ground %6.0f | slip %5.1f rates p %5.1f r %5.1f y %5.1f" % [
+		pitch, roll, heading, v.length(), v.dot(nose), v.y, dist, slip,
+		float(spin.get("pitch_rate", 0.0)), float(spin.get("roll_rate", 0.0)), float(spin.get("yaw_rate", 0.0))]
 
 
 func _systems() -> String:
@@ -172,7 +192,10 @@ func _systems() -> String:
 		gear += " %.1f" % float(spawner.outputs_of(int(uids.get("gear_%d" % i, 0))).get("length", 0.0))
 	line += " | gear%s" % gear
 	var thrust: Dictionary = spawner._outputs.get(int(uids.get("thrust_0", 0)), {})
-	line += " | thrust %.0fk" % (float(thrust.get("thrust", 0.0)) / 1000.0)
+	var thrust_r: Dictionary = spawner._outputs.get(int(uids.get("thrust_2", 0)), {})
+	line += " | thrust L %.0fk R %.0fk" % [float(thrust.get("thrust", 0.0)) / 1000.0, float(thrust_r.get("thrust", 0.0)) / 1000.0]
+	if uids.has("vector_0"):
+		line += " vector L %s R %s" % [_angle("vector_0"), _angle("vector_2")]
 	var loaded := 0
 	var bays := 0
 	for name in uids:
@@ -270,8 +293,14 @@ func _process(delta: float) -> bool:
 	if mode == "ladder":
 		return _ladder_test(delta)
 	if not is_instance_valid(main_body):
-		print("B2: the main body is gone")
-		return true
+		# Something broke and the plane's bodies were rebuilt: say what, and
+		# follow the biggest piece.
+		_breaks()
+		main_body = spawner.heaviest_body()
+		if main_body == null:
+			print("B2: the main body is gone")
+			return true
+		print("B2: the main body changed (%.0f kg now)" % main_body.mass)
 	alive += delta
 	var script: Array = GROUND
 	match mode:
@@ -283,6 +312,8 @@ func _process(delta: float) -> bool:
 			script = BOMB
 		"low":
 			script = LOW
+		"handling":
+			script = HANDLING
 	if step == -1 or clock >= float(script[step][0]):
 		step += 1
 		clock = 0.0

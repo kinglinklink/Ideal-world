@@ -1,6 +1,6 @@
 extends SceneTree
 ## Systems and flight test for the F-14 build (tools/make_f14.py):
-##     godot --headless --path . -s tools/f14_test.gd -- <f14.json> [ground|takeoff|air|missile|fast|reload|ladder|barrage|dud] [nofail]
+##     godot --headless --path . -s tools/f14_test.gd -- <f14.json> [ground|takeoff|air|missile|fast|reload|ladder|barrage|dud|gear] [nofail]
 ## Loads it, spawns it, sits in it and works its controls through a fake
 ## controller, printing what every system does and every part that breaks.
 ## ground: on the pad; takeoff: from the start of Wild Horse Island's runway;
@@ -11,6 +11,8 @@ extends SceneTree
 ## the bombs one at a time and then holds X as they reload; reports every
 ## shot and blast, the nearest blast to the jet and anything the jet lost.
 ## dud: on the pad, fires missiles at a wall put 40 m ahead.
+## gear: out over the lake, the gear going up and down by itself with the
+## height, and by hand.
 ## nofail turns structural failure off. Environment switches for more detail:
 ## F14_STRESS=1 the most loaded joints, F14_PEAK=<ratio> every joint past that
 ## share of its strength, F14_CONTACT=1 the main body's contacts, F14_GEAR=1
@@ -18,6 +20,7 @@ extends SceneTree
 
 const SaveManager = preload("res://scripts/save_manager.gd")
 const Origin = preload("res://scripts/origin.gd")
+const MapInfo = preload("res://scripts/map_info.gd")
 const FailureLog = preload("res://scripts/failure_log.gd")
 const Gamepad = preload("res://scripts/gamepad.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
@@ -73,14 +76,12 @@ const TAKEOFF := [
 	[3.5, {"RT / R2 trigger": 1.0}, "full throttle roll"],
 	[3.0, {"RT / R2 trigger": 1.0, "Left stick Y (up +)": 0.6}, "rotate"],
 	[2.0, {"RT / R2 trigger": 0.8}, "climb out"],
-	[0.2, {"RT / R2 trigger": 0.8, "D-pad up": 1.0}, "gear up"],
-	[7.0, {"RT / R2 trigger": 0.8}, "gear going up"],
+	[9.0, {"RT / R2 trigger": 0.8}, "climbing: the gear goes up by itself past 50 m"],
 	[1.0, {"RT / R2 trigger": 0.5}, "done"],
 ]
 # Flat out at low level, with the afterburners: how fast does it get?
 const FAST := [
-	[2.0, {}, "level", true],
-	[0.2, {"D-pad up": 1.0}, "gear up", true],
+	[2.2, {}, "level (the gear went up by itself)", true],
 	[10.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0}, "full afterburner", true],
 	[2.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0, "Left stick Y (up +)": 0.5}, "pull at speed", false],
 	[3.0, {"RT / R2 trigger": 1.0, "LT / L2 trigger": 1.0}, "let go", true],
@@ -114,6 +115,18 @@ const RELOAD := [
 	[0.2, {"Y / Triangle": 1.0}, "first reloaded missile", true],
 	[3.0, {}, "away", true],
 ]
+# The gear by itself and by hand, out over the lake. The fifth element is a
+# height above the ground for the test pilot to hold.
+const GEAR := [
+	[4.0, {}, "at 80 m: the gear went up by itself", true, 80.0],
+	[14.0, {}, "down to 25 m: the gear comes down by itself below 35 m", true, 25.0],
+	[14.0, {}, "back up to 80 m: the gear goes up by itself past 50 m", true, 80.0],
+	[0.2, {"D-pad up": 1.0}, "D-pad up at 80 m: gear down by hand", true, 80.0],
+	[7.0, {}, "stays down", true, 80.0],
+	[0.2, {"D-pad up": 1.0}, "D-pad up again: gear up by hand", true, 80.0],
+	[7.0, {}, "up", true, 80.0],
+	[1.0, {}, "done", true, 80.0],
+]
 # A missile fired on the pad at a wall 40 m ahead: within its safe time it
 # should hit as a dud, not blow up the jet.
 const DUD := [
@@ -139,8 +152,7 @@ const BARRAGE := [
 ]
 const AIR := [
 	[3.0, {}, "level", true],
-	[0.2, {"D-pad up": 1.0}, "gear up", true],
-	[7.0, {}, "gear going up", true],
+	[7.2, {}, "the gear went up by itself", true],
 	[1.0, {"Left stick Y (up +)": 1.0}, "pull", false],
 	[3.0, {}, "let go", true],
 	[1.0, {"Left stick Y (up +)": -1.0}, "push", false],
@@ -176,7 +188,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	file = args[0]
 	for arg in args:
-		if arg in ["air", "ground", "missile", "takeoff", "fast", "reload", "ladder", "barrage", "dud"]:
+		if arg in ["air", "ground", "missile", "takeoff", "fast", "reload", "ladder", "barrage", "dud", "gear"]:
 			mode = arg
 	no_fail = args.has("nofail")
 	names = JSON.parse_string(FileAccess.get_file_as_string(file + ".names.json"))
@@ -323,6 +335,9 @@ func _process(delta: float) -> bool:
 	if frame == 12 and _flying():
 		var lift := Vector3(0, _cruise_height(), 0)
 		var forward: Vector3 = main_body.global_transform.basis.z
+		if mode == "gear":
+			forward = _over_the_lake()
+			lift = Vector3.ZERO
 		for body in spawner.all_bodies():
 			var rb := body as RigidBody3D
 			rb.global_position += lift
@@ -361,6 +376,8 @@ func _process(delta: float) -> bool:
 		script = BARRAGE
 	elif mode == "dud":
 		script = DUD
+	elif mode == "gear":
+		script = GEAR
 	if not is_instance_valid(main_body):
 		print("F14: the main body is gone")
 		return true
@@ -372,6 +389,8 @@ func _process(delta: float) -> bool:
 			_report_weapons()
 			_key_check()
 			return true
+		if mode in ["gear", "takeoff"]:
+			print("F14: (gear %s)" % ("down" if float(_length("gear_0")) > 4.0 else "up"))
 		print("F14: --- ", script[step][2])
 	var held: Dictionary = (script[step][1] as Dictionary).duplicate()
 	# In the air a simple test pilot holds the speed with the trigger, and,
@@ -387,8 +406,13 @@ func _process(delta: float) -> bool:
 		var climb := main_body.linear_velocity.y
 		var alt: float = Origin.to_map(main_body.global_position).y
 		var want_climb := clampf((_cruise_height() - alt) * 0.1, -10.0, 10.0)
+		if script[step].size() > 4:
+			# Hold a height above the ground, from the jet's height sensor.
+			var agl: float = float(spawner.outputs_of(int(uids.get("dist", 0))).get("distance", 0.0))
+			want_climb = clampf((float(script[step][4]) - agl) * 0.25, -4.0, 6.0)
 		if not held.has("Left stick Y (up +)"):
-			held["Left stick Y (up +)"] = clampf((want_climb - climb) * 0.04, -0.6, 0.6)
+			var firm := 0.1 if script[step].size() > 4 else 0.04
+			held["Left stick Y (up +)"] = clampf((want_climb - climb) * firm, -0.6, 0.6)
 		if not held.has("Left stick X (right +)"):
 			held["Left stick X (right +)"] = clampf(-roll * 0.02, -0.6, 0.6)
 	Gamepad.fake = held
@@ -603,8 +627,43 @@ func _report_weapons() -> void:
 	print("F14: === the jet's own parts destroyed: %d %s" % [jet_lost.size(), str(lost)])
 
 
+## For the gear test: finds the longest straight run of open water within
+## 5 km of the pad, and turns the jet and puts it 80 m over the start of it,
+## heading along it. Returns its new forward.
+func _over_the_lake() -> Vector3:
+	var terrain: Node = spawner.terrain
+	var forward0: Vector3 = main_body.global_transform.basis.z
+	forward0.y = 0.0
+	forward0 = forward0.normalized()
+	var pivot: Vector3 = main_body.global_position
+	var centre := Origin.to_map(pivot)
+	var best_start := centre
+	var best_dir := forward0
+	var best_run := -1.0
+	for gx in range(-10, 11):
+		for gz in range(-10, 11):
+			var x0 := centre.x + gx * 500.0
+			var z0 := centre.z + gz * 500.0
+			if float(terrain.height_at(x0, z0)) >= MapInfo.LAKE_Y - 0.5:
+				continue
+			for i in 12:
+				var dir := Vector3(sin(TAU * i / 12.0), 0.0, cos(TAU * i / 12.0))
+				var run := 0.0
+				while run < 7000.0 and float(terrain.height_at(x0 + dir.x * run, z0 + dir.z * run)) < MapInfo.LAKE_Y - 0.5:
+					run += 100.0
+				if run > best_run:
+					best_run = run
+					best_dir = dir
+					best_start = Vector3(x0, 0.0, z0)
+	print("F14: over the lake: %.0f m of open water ahead" % best_run)
+	var target := Origin.to_world(Vector3(best_start.x, MapInfo.LAKE_Y + 82.0, best_start.z))
+	var turn := Basis(Vector3.UP, forward0.signed_angle_to(best_dir, Vector3.UP))
+	spawner.teleport(Transform3D(turn, target) * Transform3D(Basis.IDENTITY, -pivot))
+	return best_dir
+
+
 func _flying() -> bool:
-	return mode in ["air", "missile", "fast", "reload", "barrage"]
+	return mode in ["air", "missile", "fast", "reload", "barrage", "gear"]
 
 
 ## Bodies whose speed is changing faster than 10 g over the crash window.

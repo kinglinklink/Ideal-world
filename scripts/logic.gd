@@ -535,7 +535,16 @@ func _run_sensor(uid: int, delta: float) -> void:
 	var velocity := _velocity_at(body, frame.origin)
 	match str(record["type"]):
 		"speed_sensor":
-			spawner.set_outputs(uid, {"speed": velocity.length()})
+			# Also through the air (the wind taken off), along its own axes
+			# (its front is -Z, as the attitude sensor's): sideways over
+			# forward is the sideslip, upward over forward the angle of
+			# attack (negative).
+			var axes := frame.basis.orthonormalized()
+			var air := velocity - Weather.wind_at(frame.origin)
+			spawner.set_outputs(uid, {
+				"speed": velocity.length(), "forward": air.dot(-axes.z),
+				"sideways": air.dot(axes.x), "upward": air.dot(axes.y),
+			})
 		"altitude_sensor":
 			spawner.set_outputs(uid, {"altitude": Origin.to_map(frame.origin).y + MapInfo.BASE_ELEVATION})
 		"attitude_sensor":

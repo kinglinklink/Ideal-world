@@ -31,6 +31,8 @@ MISSILE_RELOAD = 0.5 if MK2 else 3.0   # s, as fast as the B-2's
 MISSILE_SAFE = 2.0
 BOMB_RELOAD = 2.0                      # s, like the B-2's small bombs
 BOMB_FLOOR = 160.0                     # m above the ground: no bombs below this (the blast hurts out to 150 m)
+GEAR_UP_AT = 50.0                      # m above the ground: the gear goes up by itself
+GEAR_DOWN_AT = 35.0                    # and comes down by itself below this
 
 BLACK = "#17171a"
 DARK = "#24252a"
@@ -658,11 +660,11 @@ if MK2:
 ATT = b.add("attitude_sensor", (X0 - 0.5, X0 + 0.5, 10.5, 11.5, 118.0, 119.0),
             ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), DARK)
 SPEED = b.add("speed_sensor", (X0 - 0.5, X0 + 0.5, 10.5, 11.5, 120.0, 121.0), IDENT, DARK)
-# The Mark 2's looks further down (for the bombs' height floor), from ahead
-# of the gun pack, where its bombs don't hang in the way.
+# It reaches 3 km down, for the gear and the Mark 2's bomb floor. The Mark
+# 2's is ahead of the gun pack, where its bombs don't hang in the way.
 DIST = b.add("distance_sensor", (X0 - 0.5, X0 + 0.5, 9.5, 10.0, 138.5, 139.5) if MK2 else
              (X0 - 0.5, X0 + 0.5, 9.5, 10.0, 100.0, 101.0),
-             ([1, 0, 0], [0, 0, -1], [0, 1, 0]), DARK, settings={"range": 3000.0 if MK2 else 60.0})
+             ([1, 0, 0], [0, 0, -1], [0, 1, 0]), DARK, settings={"range": 3000.0})
 # Anti-collision beacon on the spine.
 BEACON = b.add("light_panel", (X0 - 0.5, X0 + 0.5, 17.0, 17.125, 110.0, 111.0), IDENT, "#ff1010",
                settings={"color": "#ff1010", "brightness": 3.0})
@@ -874,14 +876,22 @@ sweep = bgate("XOR", P(key_v), P(pad_lb))
 for s in SIDES:
     b.link(PIVOTS[s], "go_positive", sweep, "result")
 
-# Landing gear: D-pad up (or G) asks for gear up. The gear only goes up once
-# off the ground; the doors close after it is in, and open before it comes
-# down.
+# Landing gear: it goes up by itself on climbing past GEAR_UP_AT m above the
+# ground, and comes down by itself on sinking below GEAR_DOWN_AT. D-pad up
+# (or G) also raises or lowers it, any time off the ground (on the ground a
+# press does nothing), and that holds until the next time the jet climbs or
+# sinks past those heights. The doors close after it is in, and open before
+# it comes down.
 pad_gear = pad("D-pad up")
 key_gear = key("G")
 gear_press = bgate("OR", P(pad_gear), P(key_gear))
 tap = bgate("Timer", (gear_press, "result"), seconds=0.15)
 airborne = gate("Compare", (DIST, "distance"), value=5.0)
+high = gate("Compare", (DIST, "distance"), value=GEAR_UP_AT)
+not_low = gate("Compare", (DIST, "distance"), value=GEAR_DOWN_AT)
+low = bgate("NOT", T(not_low))
+climbed_past = bgate("Timer", T(high), seconds=0.15)      # a moment's pulse as it climbs past
+sank_past = bgate("Timer", (low, "result"), seconds=0.15)  # and as it sinks past
 # A press raises the gear if it is down, settled, and the jet is off the
 # ground (on the ground a press does nothing); a press lowers it if it is up
 # and settled. "Settled" keeps one press from doing both.
@@ -894,8 +904,10 @@ can_raise2 = bgate("AND", (can_raise, "result"), (bgate("NOT", (down_fresh, "res
 go_up = bgate("AND", (tap, "result"), (can_raise2, "result"))
 can_lower = bgate("AND", (gear_up, "result"), (bgate("NOT", (up_fresh, "result")), "result"))
 go_down = bgate("AND", (tap, "result"), (can_lower, "result"))
-b.link(gear_up, "a", go_up, "result")
-b.link(gear_up, "b", go_down, "result")
+raise_gear = bgate("OR", (go_up, "result"), (climbed_past, "result"))
+lower_gear = bgate("OR", (go_down, "result"), (sank_past, "result"))
+b.link(gear_up, "a", raise_gear, "result")
+b.link(gear_up, "b", lower_gear, "result")
 been_up = bgate("Latch", (gear_up, "result"))
 closing_wait = bgate("Timer", (gear_up, "result"), seconds=2.6)
 not_closing_wait = bgate("NOT", (closing_wait, "result"))

@@ -109,7 +109,13 @@ const PORTS := {
 				["frequency", "Frequency (Hz)", "number"]],
 		"outputs": [["output", "Output", "bool"], ["phase", "Phase (0 to 1)", "number"]],
 	},
-	"speed_sensor": {"inputs": [], "outputs": SPEED_OUT},
+	"speed_sensor": {
+		"inputs": [],
+		"outputs": [
+			["speed", "Speed", "number"], ["forward", "Forward speed", "number"],
+			["sideways", "Sideways speed (right +)", "number"], ["upward", "Upward speed", "number"],
+		],
+	},
 	"altitude_sensor": {"inputs": [], "outputs": [["altitude", "Altitude", "number"]]},
 	"attitude_sensor": {
 		"inputs": [],
