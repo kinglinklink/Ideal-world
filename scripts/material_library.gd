@@ -67,6 +67,10 @@ const MATERIALS := {
 		"color": Color(0.88, 0.88, 0.90), "metallic": 0.95, "roughness": 0.2},
 	"lead": {"name": "Lead", "density": 11340.0, "friction": 0.5, "strength": 1.0,
 		"color": Color(0.36, 0.37, 0.42), "metallic": 0.7, "roughness": 0.6},
+	# Uranium with the fissile U-235 taken out: nearly as dense as tungsten,
+	# and tough, which is why it is used for armour-piercing penetrators.
+	"depleted_uranium": {"name": "Depleted uranium", "density": 19050.0, "friction": 0.45, "strength": 9.0,
+		"color": Color(0.30, 0.32, 0.30), "metallic": 0.8, "roughness": 0.5},
 	"tungsten": {"name": "Tungsten", "density": 19250.0, "friction": 0.4, "strength": 8.0,
 		"color": Color(0.40, 0.41, 0.43), "metallic": 0.85, "roughness": 0.45},
 	"gold": {"name": "Gold", "density": 19300.0, "friction": 0.45, "strength": 1.0,

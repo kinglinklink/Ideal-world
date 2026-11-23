@@ -10,6 +10,7 @@ extends CharacterBody3D
 const Units = preload("res://scripts/units.gd")
 const MapInfo = preload("res://scripts/map_info.gd")
 const Weather = preload("res://scripts/weather.gd")
+const Gamepad = preload("res://scripts/gamepad.gd")
 
 const WALK_SPEED := 4.0       # m/s
 const RUN_SPEED := 7.5        # m/s
@@ -26,6 +27,7 @@ const SWIM_PUSH := 3.0        # m/s^2 a swimmer can push itself through the wate
 const FLOAT_DEPTH := 1.2      # metres of the body under water when floating: head and shoulders out
 const WATER_DRAG := 2.5       # 1/s; how fast the water slows the swimmer
 const MOUSE_SENSITIVITY := 0.0025
+const STICK_LOOK_SPEED := 3.0  # radians per second with the right stick all the way over
 const ZOOM_MAX := 80.0        # metres behind the character
 const BODY_SCALE := 0.85      # the character model is built 1.8 m tall, then shrunk
 const EYE_HEIGHT := 1.6 * BODY_SCALE    # metres
@@ -55,6 +57,7 @@ var pitch := -0.35
 var zoom := 8.0               # 0 means first person
 var cursor_free := false      # Esc toggles this in first person
 var seated := false           # sitting in a seat: no walking until it stands up
+var _pad_sprint := false      # clicking the left stick runs until the stick is let go
 
 var _turning := false         # right mouse button held
 var _jump_locked := false     # Space was used to stand up; no jump until it is released
@@ -227,6 +230,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and key.physical_keycode == KEY_ESCAPE:
 			cursor_free = not cursor_free
+	elif event is InputEventJoypadButton:
+		# The right stick's click swaps first and third person. On foot the
+		# D-pad zooms; seated, the D-pad belongs to the build's controls.
+		if Gamepad.pressed_in(event, JOY_BUTTON_RIGHT_STICK):
+			zoom = 8.0 if is_first_person() else 0.0
+		elif Gamepad.pressed_in(event, JOY_BUTTON_LEFT_STICK):
+			_pad_sprint = true
+		elif not seated and Gamepad.pressed_in(event, JOY_BUTTON_DPAD_UP):
+			_zoom_in()
+		elif not seated and Gamepad.pressed_in(event, JOY_BUTTON_DPAD_DOWN):
+			_zoom_out()
+
+
+## Space, or A (Cross) on a controller.
+func _jump_held() -> bool:
+	return Input.is_physical_key_pressed(KEY_SPACE) or Gamepad.held(JOY_BUTTON_A)
 
 
 func _zoom_in() -> void:
@@ -251,7 +270,7 @@ func _physics_process(delta: float) -> void:
 		_measure_g(ride_velocity, delta)
 		return
 	ride_velocity = Vector3.ZERO
-	if _jump_locked and not Input.is_physical_key_pressed(KEY_SPACE):
+	if _jump_locked and not _jump_held():
 		_jump_locked = false
 
 	var input := Vector2.ZERO
@@ -266,6 +285,11 @@ func _physics_process(delta: float) -> void:
 	# Ctrl+A, Ctrl+C and friends are tool shortcuts, not walking.
 	if Input.is_physical_key_pressed(KEY_CTRL):
 		input = Vector2.ZERO
+	# The left stick walks, as far as it is pushed.
+	var stick := Gamepad.stick(true)
+	input += Vector2(stick.x, -stick.y)
+	if stick == Vector2.ZERO:
+		_pad_sprint = false
 	# While a text box has the keyboard, typing must not walk the character.
 	var typing := get_viewport().gui_get_focus_owner() != null
 	if typing:
@@ -276,7 +300,7 @@ func _physics_process(delta: float) -> void:
 		direction = direction.normalized()
 
 	var speed := WALK_SPEED
-	if Input.is_physical_key_pressed(KEY_SHIFT):
+	if Input.is_physical_key_pressed(KEY_SHIFT) or _pad_sprint:
 		speed = RUN_SPEED
 	swimming = _in_deep_water()
 	if swimming:
@@ -301,7 +325,7 @@ func _physics_process(delta: float) -> void:
 		var reached := speed_before.move_toward(wanted, _floor_grip * GRAVITY * delta)
 		velocity.x = reached.x
 		velocity.z = reached.z
-		if Input.is_physical_key_pressed(KEY_SPACE) and not typing and not _jump_locked:
+		if _jump_held() and not typing and not _jump_locked:
 			velocity.y = JUMP_SPEED
 			grounded = false
 	else:
@@ -388,10 +412,10 @@ func _swim(direction: Vector3, typing: bool, delta: float) -> void:
 	# balancing gravity at FLOAT_DEPTH.
 	var lift := GRAVITY * clampf(depth / FLOAT_DEPTH, 0.0, 2.0)
 	velocity.y += (lift - GRAVITY) * delta
-	if Input.is_physical_key_pressed(KEY_SPACE) and not typing:
+	if _jump_held() and not typing:
 		velocity.y += SWIM_PUSH * 2.0 * delta
 	velocity *= exp(-WATER_DRAG * delta)
-	var top := SWIM_SPRINT if Input.is_physical_key_pressed(KEY_SHIFT) else SWIM_SPEED
+	var top := SWIM_SPRINT if Input.is_physical_key_pressed(KEY_SHIFT) or _pad_sprint else SWIM_SPEED
 	var flat := Vector2(velocity.x, velocity.z)
 	flat = flat.move_toward(Vector2(direction.x, direction.z) * top, SWIM_PUSH * delta)
 	velocity.x = flat.x
@@ -659,6 +683,13 @@ func _pose(thigh_l: float, thigh_r: float, knee_l: float, knee_r: float, arm_l: 
 
 
 func _process(delta: float) -> void:
+	# The right stick looks around, on foot and seated alike. Squaring the
+	# push gives fine aim near the middle and a fast turn at full throw.
+	var look := Gamepad.stick(false)
+	if look != Vector2.ZERO and get_viewport().gui_get_focus_owner() == null:
+		var rate := look * look.length() * STICK_LOOK_SPEED * delta
+		yaw -= rate.x
+		pitch = clampf(pitch + rate.y, -PITCH_LIMIT, PITCH_LIMIT)
 	var bob := _animate(delta)
 	_model.position.y = _step_offset + bob
 	_pivot.position.y = EYE_HEIGHT + _step_offset

@@ -23,7 +23,7 @@ const IDS := [
 	"aero_panel", "aero_panel_triangle", "aero_panel_dragless", "aero_panel_triangle_dragless",
 	"propeller", "lift_gas_tank",
 	"seat", "anchor_block", "dynamic_offsetter",
-	"input_block", "mouse_click", "boolean_gate", "number_gate", "pid_controller", "pwm_generator",
+	"input_block", "mouse_click", "gamepad_input", "boolean_gate", "number_gate", "pid_controller", "pwm_generator",
 	"speed_sensor", "altitude_sensor", "attitude_sensor", "distance_sensor",
 	"graph_display", "instrument", "magnet", "winch", "coupler",
 ]
@@ -426,6 +426,18 @@ static func build(part_id: String, options: Dictionary = {}) -> ArrayMesh:
 			Kit.add_box(detail, Vector3(-0.09, 0.24, -0.12), Vector3(0.16, 0.06, 0.2))
 			Kit.add_box(detail, Vector3(0.09, 0.24, -0.12), Vector3(0.16, 0.06, 0.2))
 			detail_look = Kit.tinted_material(Color(0.95, 0.85, 0.2))
+		"gamepad_input":
+			# A base with a little controller on it: a body, two grips, two
+			# sticks and four face buttons.
+			Kit.add_box(body, Vector3(0.0, -0.2, 0.0), Vector3(0.9375, 0.6, 0.9375))
+			Kit.add_box(detail, Vector3(0.0, 0.15, 0.0), Vector3(0.62, 0.1, 0.3))
+			Kit.add_box(detail, Vector3(-0.27, 0.15, 0.16), Vector3(0.18, 0.1, 0.24))
+			Kit.add_box(detail, Vector3(0.27, 0.15, 0.16), Vector3(0.18, 0.1, 0.24))
+			Kit.add_cylinder(detail, Vector3(-0.14, 0.23, 0.0), Y, 0.05, 0.06)
+			Kit.add_cylinder(detail, Vector3(0.08, 0.23, 0.06), Y, 0.05, 0.06)
+			Kit.add_box(detail, Vector3(0.2, 0.22, -0.06), Vector3(0.05, 0.04, 0.05))
+			Kit.add_box(detail, Vector3(0.26, 0.22, -0.02), Vector3(0.05, 0.04, 0.05))
+			detail_look = Kit.tinted_material(Color(0.35, 0.75, 0.95))
 		"boolean_gate":
 			# A board with a square chip, two input studs and an output stud.
 			Kit.add_box(body, Vector3(0.0, -0.25, 0.0), Vector3(0.9375, 0.5, 0.9375))

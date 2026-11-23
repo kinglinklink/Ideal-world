@@ -313,6 +313,7 @@ PLAN = {
     "copper":       (lambda: polished(0.12, 0.18, seed=25), 0.5, 0.08, 0.2),
     "silver":       (lambda: polished(0.1, 0.08, seed=26), 0.5, 0.06, 0.15),
     "lead":         (lambda: cast(27), 0.5, 0.25, 0.2),
+    "depleted_uranium": (lambda: cast(31), 0.3, 0.3, 0.25),
     "tungsten":     (lambda: plain(0.12, 0.8, seed=28), 0.2, 0.2, 0.2),
     "gold":         (lambda: polished(0.08, 0.1, seed=29), 0.5, 0.05, 0.15),
     "frictionless": (lambda: lab_grid(30), 1.0, 0.0, 0.0),

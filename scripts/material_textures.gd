@@ -33,6 +33,7 @@ const TEXTURES := {
 	"copper": {"tile": 0.500, "bump": 0.08, "gain": 1.210, "rough_var": 0.20, "normals": true},
 	"silver": {"tile": 0.500, "bump": 0.06, "gain": 1.094, "rough_var": 0.15, "normals": true},
 	"lead": {"tile": 0.500, "bump": 0.25, "gain": 1.277, "rough_var": 0.20, "normals": true},
+	"depleted_uranium": {"tile": 0.300, "bump": 0.30, "gain": 1.247, "rough_var": 0.25, "normals": true},
 	"tungsten": {"tile": 0.200, "bump": 0.20, "gain": 1.144, "rough_var": 0.20, "normals": true},
 	"gold": {"tile": 0.500, "bump": 0.05, "gain": 1.111, "rough_var": 0.15, "normals": true},
 	"frictionless": {"tile": 1.000, "bump": 0.00, "gain": 1.022, "rough_var": 0.00, "normals": false},

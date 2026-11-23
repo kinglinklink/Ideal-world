@@ -25,6 +25,7 @@ extends Node3D
 const Units = preload("res://scripts/units.gd")
 const PartLibrary = preload("res://scripts/part_library.gd")
 const MaterialLibrary = preload("res://scripts/material_library.gd")
+const Gamepad = preload("res://scripts/gamepad.gd")
 const FailureLog = preload("res://scripts/failure_log.gd")
 const BuildGrid = preload("res://scripts/build_grid.gd")
 const Aero = preload("res://scripts/aero.gd")
@@ -209,6 +210,7 @@ var _thrusters: Array = []     # [piece, transform inside the body, thrust in ne
 var _panels: Array = []        # aero panels: [piece, centre inside the body, normal inside it, area, dragless]
 var _inputs: Dictionary = {}   # input block uid -> its keys and what it is putting out
 var _mice: Dictionary = {}     # mouse click block uid -> {"button", "mode", "was_down", "latched", "pressed", "x", "y"}
+var _pads: Dictionary = {}     # controller input block uid -> its settings and state; see _new_pad_state
 var _outputs: Dictionary = {}  # part uid -> {output id: number}
 var _turners: Array = []       # every joint that turns about an axis; see _add_turner
 var _sliders: Array = []       # pistons, solenoids and springs; see _add_slider
@@ -218,13 +220,19 @@ var _racks: Array = []         # racks, each with the gears that drive it
 var _flame_mesh: Mesh = null
 
 # The physics engine's joint motors may count a positive speed either way
-# round. The first time a drive moves, its answer is compared with what was
-# asked, and the sign is settled for good: once for turning, once for sliding.
+# round. Jolt's are known (a hinge motor turns its second body backwards
+# about the hinge's Z, a slider motor moves it forwards along X), measured
+# with two loose bodies and nothing else touching them. With any other
+# engine the first time a drive moves, its answer is compared with what was
+# asked, and the sign is settled for good: once for turning, once for
+# sliding. That vote can be fooled by a build landing on its own pistons as
+# it spawns, so it is not used where the answer is known.
+static var _on_jolt: bool = str(ProjectSettings.get_setting("physics/3d/physics_engine", "")) == "Jolt Physics"
 var _turn_sign := -1.0
-var _turn_sign_known := false
+var _turn_sign_known := _on_jolt
 var _turn_votes := 0
 var _slide_sign := 1.0
-var _slide_sign_known := false
+var _slide_sign_known := _on_jolt
 var _slide_votes := 0
 
 
@@ -401,6 +409,8 @@ func spawn(grid: Node3D) -> Dictionary:
 		var input_record: Dictionary = _records[input_uid]
 		if input_record["type"] == "input_block":
 			_inputs[input_uid] = _new_input_state(input_record.get("props", {}))
+		elif input_record["type"] == "gamepad_input":
+			_pads[input_uid] = _new_pad_state(input_record.get("props", {}))
 		elif input_record["type"] == "mouse_click":
 			var mouse_props: Dictionary = input_record.get("props", {})
 			_mice[input_uid] = {
@@ -630,6 +640,7 @@ func despawn() -> void:
 	_panels.clear()
 	_inputs.clear()
 	_mice.clear()
+	_pads.clear()
 	_outputs.clear()
 	_turners.clear()
 	_sliders.clear()
@@ -2660,6 +2671,49 @@ func _new_input_state(props: Dictionary) -> Dictionary:
 	}
 
 
+func _new_pad_state(props: Dictionary) -> Dictionary:
+	return {
+		"control": str(props.get("control", "Left stick Y (up +)")),
+		"second": str(props.get("second_control", "D-pad left")),
+		"two": str(props.get("output", "One control")) != "One control",
+		"mode": str(props.get("mode", "Hold")),
+		"deadzone": float(props.get("deadzone", 0.12)),
+		"curve": float(props.get("curve", 1.0)),
+		"scale": float(props.get("scale", 1.0)) * (-1.0 if bool(props.get("invert", false)) else 1.0),
+		"was_down": false, "latched": false,
+		"pressed": 0.0, "value": 0.0,
+	}
+
+
+## Reads every Controller input block. Like key binds, they work only while
+## the character is seated.
+func _update_pads(seated: bool) -> void:
+	for uid in _pads:
+		var state: Dictionary = _pads[uid]
+		var amount := 0.0
+		if seated:
+			amount = Gamepad.read(state["control"], state["deadzone"], state["curve"])
+			if state["two"]:
+				amount -= Gamepad.read(state["second"], state["deadzone"], state["curve"])
+		var down := absf(amount) >= 0.5
+		var pressed := down
+		match str(state["mode"]):
+			"Toggle":
+				if down and not state["was_down"]:
+					state["latched"] = not state["latched"]
+				pressed = state["latched"]
+			"Pulse":
+				pressed = down and not state["was_down"]
+		state["was_down"] = down
+		state["pressed"] = 1.0 if pressed else 0.0
+		# A toggled button's value follows its switch; anything else reads
+		# how far it is pushed.
+		var value := amount
+		if str(state["mode"]) != "Hold" and not Gamepad.is_analog(state["control"]):
+			value = state["pressed"]
+		state["value"] = value * float(state["scale"])
+
+
 ## Turns a key's name, such as "W", "Shift" or "Up", into its key code.
 static func _keycode(key_name: String) -> int:
 	var cleaned := key_name.strip_edges()
@@ -2668,10 +2722,25 @@ static func _keycode(key_name: String) -> int:
 	return OS.find_keycode_from_string(cleaned)
 
 
+## True while the character sits in this build and one of its input blocks
+## uses the key, so the game's own shortcut on that key (M for the map, P to
+## respawn ...) should leave it to the build.
+func binds_key(keycode: int) -> bool:
+	if occupied_seat == 0 or keycode == KEY_NONE:
+		return false
+	for uid in _inputs:
+		var state: Dictionary = _inputs[uid]
+		if int(state["key"]) == keycode or int(state["second_key"]) == keycode:
+			return true
+	return false
+
+
 ## Reads every input block's keys. Key binds only work while the character is
 ## seated; on foot the same keys walk.
 func _update_inputs() -> void:
 	var seated: bool = occupied_seat != 0
+	if not _pads.is_empty():
+		_update_pads(seated)
 	if not _mice.is_empty():
 		var viewport := get_viewport()
 		var screen := viewport.get_visible_rect().size
@@ -2737,6 +2806,9 @@ func _input_value(links: Dictionary, input_id: String, unlinked: float) -> float
 	if type == "mouse_click":
 		var mouse_state: Dictionary = _mice.get(source_uid, {})
 		return float(mouse_state.get(output_id, 0.0))
+	if type == "gamepad_input":
+		var pad_state: Dictionary = _pads.get(source_uid, {})
+		return float(pad_state.get(output_id, 0.0))
 	if type == "seat":
 		return 1.0 if occupied_seat == source_uid else 0.0
 	if _outputs.has(source_uid):

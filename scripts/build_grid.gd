@@ -202,7 +202,8 @@ static func volume_of(record: Dictionary) -> float:
 ## so wiring never changes how a build flies. Sensors stay solid, since
 ## they measure where they are. Their "Visible after spawn" setting keeps
 ## one as an ordinary part, for checking a build.
-const CONTROL_PARTS := ["input_block", "boolean_gate", "number_gate", "pid_controller", "pwm_generator", "mouse_click"]
+const CONTROL_PARTS := ["input_block", "boolean_gate", "number_gate", "pid_controller", "pwm_generator", "mouse_click",
+		"gamepad_input"]
 
 
 static func is_hidden_control(record: Dictionary) -> bool:

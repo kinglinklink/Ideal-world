@@ -169,9 +169,11 @@ func _attach(node: Node3D, body: RigidBody3D, at: Vector3) -> void:
 func _drop(id: String) -> void:
 	var effect: Dictionary = _effects.get(id, {})
 	for key in ["smoke", "fire"]:
-		var node: Node = effect.get(key)
-		if node != null and is_instance_valid(node):
-			node.queue_free()
+		# Untyped: the node may already be gone along with its part, and a
+		# freed node cannot be put in a typed variable.
+		var node: Variant = effect.get(key)
+		if is_instance_valid(node):
+			(node as Node).queue_free()
 	_effects.erase(id)
 
 
