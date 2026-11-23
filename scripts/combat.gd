@@ -694,8 +694,13 @@ func _run_explosives() -> void:
 		_explosives = _explosives.filter(func(uid: int) -> bool: return not spawner.is_dead(uid))
 
 
-func _on_part_destroyed(_uid: int, type: String, at: Vector3, props: Dictionary) -> void:
+func _on_part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary) -> void:
 	if type != "explosive_block":
+		return
+	if spawner != null and spawner.is_dropped_payload(uid) and spawner.is_payload_safe(uid):
+		# A missile or bomb let go less than its gate's safe time ago is not
+		# armed yet: smashed into something close by, it is a dud.
+		_add_flash(at, 0.3)
 		return
 	var radius: float = float(props.get("blast_radius", 2.0))
 	if radius > 0.0:

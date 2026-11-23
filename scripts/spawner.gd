@@ -3840,7 +3840,9 @@ func _run_gates(delta: float) -> void:
 ## True for an explosive (or any part) of a reload gate's payload that is
 ## still on the rail, or was let go less than the gate's safe time ago: its
 ## Detonate signal is ignored, so a bump on the rail or a brush with the
-## next missile on the way out doesn't set it off. Destroyed, it still goes.
+## next missile on the way out doesn't set it off. Destroyed while still on
+## the rail, it still goes; let go and destroyed within the safe time (it
+## hit something close by), it is a dud.
 func is_payload_safe(uid: int) -> bool:
 	return _alive_time < float(_payload_safe.get(uid, -1.0))
 

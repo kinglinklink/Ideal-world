@@ -1,6 +1,10 @@
 """Writes the F-14 build: a 1.5x scale Tomcat in black balsa with red trim.
 
-    python3 tools/make_f14.py <out.json> [thrust_newtons_per_engine]
+    python3 tools/make_f14.py <out.json> [thrust_newtons_per_engine] [--mk2]
+
+--mk2 writes the Mark 2 instead: five missiles a side on half-second
+reloads, two bombs under the tunnel, four nose guns, and every warhead a
+100 m blast (see MK2 below).
 
 The nose points along +Z, up is +Y, and the pilot's left is +X. One metre of
 the real aeroplane is 6 cells here (1.5x scale, 0.25 m cells). Ground is y 0.
@@ -11,9 +15,22 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from build_kit import Build, X0, side_box, holes_cut, IDENT  # noqa: E402
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/f14.json"
-THRUST = float(sys.argv[2]) if len(sys.argv) > 2 else 500000.0          # each engine, right trigger
-AFTERBURNER = float(sys.argv[3]) if len(sys.argv) > 3 else 5000000.0    # each engine, left trigger on top
+MK2 = "--mk2" in sys.argv
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+OUT = ARGS[0] if len(ARGS) > 0 else ("/tmp/f14mk2.json" if MK2 else "/tmp/f14.json")
+THRUST = float(ARGS[1]) if len(ARGS) > 1 else 500000.0          # each engine, right trigger
+AFTERBURNER = float(ARGS[2]) if len(ARGS) > 2 else 5000000.0    # each engine, left trigger on top
+
+# The Mark 2's weapons.
+BLAST = 100.0 if MK2 else 4.0          # m, every warhead's blast radius
+MISSILE_RELOAD = 0.5 if MK2 else 3.0   # s, as fast as the B-2's
+# A missile's warhead stays safe this long after it leaves the rail. A
+# 100 m blast hurts the pilot out to 151 m, and pulling away at about 10 g
+# the missile is some 200 m ahead by 2 s: anything it hits sooner, it hits
+# as a dud.
+MISSILE_SAFE = 2.0
+BOMB_RELOAD = 2.0                      # s, like the B-2's small bombs
+BOMB_FLOOR = 160.0                     # m above the ground: no bombs below this (the blast hurts out to 150 m)
 
 BLACK = "#17171a"
 DARK = "#24252a"
@@ -24,7 +41,7 @@ WHITE = "#e9e9e6"
 ENGINE = "#0d0d0f"
 METAL = "#55585f"
 
-b = Build("F-14 Tomcat")
+b = Build("F-14 Tomcat Mark 2" if MK2 else "F-14 Tomcat")
 SIDES = (1, -1)          # +1 the pilot's left (+X), -1 the right (-X)
 
 # Heights (y, cells) and stations (z, cells)
@@ -245,11 +262,13 @@ for s in SIDES:
                          ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), GREY,
                          settings={"projectile_material": "Depleted uranium", "unlimited_ammo": True}))
 # Nose guns either side of the radome's root.
+# The Mark 2 has a second pair above the first.
 GUNS = []
 for s in SIDES:
-    GUNS.append(b.add("machine_gun", side_box(s, FF_X, FF_X + 1.0, 9.0, 10.0, 160.0, 163.0),
-                      ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), GREY,
-                      settings={"fire_rate": 25.0, "range": 1500.0, "unlimited_ammo": True}))
+    for (gy0, gy1) in ([(9.0, 10.0), (11.0, 12.0)] if MK2 else [(9.0, 10.0)]):
+        GUNS.append(b.add("machine_gun", side_box(s, FF_X, FF_X + 1.0, gy0, gy1, 160.0, 163.0),
+                          ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), GREY,
+                          settings={"fire_rate": 25.0, "range": 1500.0, "unlimited_ammo": True}))
 
 # Boarding ladder on the left, just ahead of the intake, from near the
 # ground up past the cockpit sill, on two brackets off the side. It folds
@@ -523,12 +542,13 @@ for s in SIDES:
 MISSILES = []    # (reload gate, rocket, detector, explosive)
 
 
-def missile(cx, cz0, drop=0.0, length=19.0):
+def missile(cx, cz0, drop=0.0, length=19.0, under_nacelle=False):
     """A missile hanging on a reload gate under a pylon. `drop` lowers it
     (and lengthens its pylon), so neighbours' fins don't meet as one passes
-    the other."""
+    the other. Under the glove, or (the Mark 2's) under a nacelle's belly."""
     d = 1.2
-    rail = 12.6 - drop                 # the gate's rail, and the top of the missile
+    mount = BELLY if under_nacelle else GLOVE_Y0      # the skin the pylon hangs from
+    rail = (6.25 if under_nacelle else 12.6) - drop   # the gate's rail, and the top of the missile
     y0, y1 = rail - d, rail
     yc = (y0 + y1) / 2
     z = cz0
@@ -545,7 +565,7 @@ def missile(cx, cz0, drop=0.0, length=19.0):
     # share the space), keeping the body whole round it.
     b.along("cylinder", (cx - d / 2, cx + d / 2, y0, y1, z + 12.0, z + 13.4), (0, 0, 1), RED, material="aluminum")
     exp = b.add("explosive_block", (cx - d / 2, cx + d / 2, y0, y1, z + 13.4, z + 16.0), IDENT, WHITE,
-                material="aluminum", settings={"blast_radius": 4.0})
+                material="aluminum", settings={"blast_radius": BLAST})
     b.along("cone", (cx - d / 2, cx + d / 2, y0, y1, z + 16.0, z + length), (0, 0, 1), WHITE, material="aluminum")
     # Fins: a cross at the tail and a smaller one forward.
     for (zf, span, chord) in [(z, 0.7, 2.2), (z + 13.6, 0.5, 1.5)]:
@@ -560,31 +580,89 @@ def missile(cx, cz0, drop=0.0, length=19.0):
                 fb = (cx - 0.05, cx + 0.05, min(ya, ya + uy * span), max(ya, ya + uy * span), zf, zf + chord)
             b.tri_panel(fb, (ux, uy, 0), (0, 0, 1), WHITE, material="aluminum")
     # The reload gate on the pylon, rail down, holding the missile: it lets
-    # go when fired and hangs a new one there three seconds later.
+    # go when fired and hangs a new one there after the reload time (three
+    # seconds; half a second on the Mark 2).
     rack = b.add("reload_gate", (cx - 0.3, cx + 0.3, rail, rail + 0.25, z + 5.0, z + 13.0),
                  ([1, 0, 0], [0, -1, 0], [0, 0, -1]), GREY, material="aluminum",
-                 settings={"reload_time": 3.0, "reloads": 0.0})
-    # Pylon up to the glove, aluminium for the heavy missile, on a wide shoe
+                 settings=dict({"reload_time": MISSILE_RELOAD, "reloads": 0.0},
+                               **({"safe_time": MISSILE_SAFE} if MK2 else {})))
+    # Pylon up to the skin, aluminium for the heavy missile, on a wide shoe
     # so its weight spreads into the balsa.
-    b.box((cx - 0.3, cx + 0.3, rail + 0.25, GLOVE_Y0 - 0.25, z + 5.0, z + 13.0), BLACK, material="aluminum")
+    b.box((cx - 0.3, cx + 0.3, rail + 0.25, mount - 0.25, z + 5.0, z + 13.0), BLACK, material="aluminum")
     # (Short of the wing's pivot on the outer one.)
     outer = abs(cx - X0) > 16.0
     sx = (cx - 1.0, cx + 0.3) if (outer and cx > X0) else (cx - 0.3, cx + 1.0) if outer else (cx - 1.0, cx + 1.0)
-    b.box((sx[0], sx[1], GLOVE_Y0 - 0.25, GLOVE_Y0, z + 3.0, z + 15.0), BLACK, material="aluminum")
+    b.box((sx[0], sx[1], mount - 0.25, mount, z + 3.0, z + 15.0), BLACK, material="aluminum")
     MISSILES.append((rack, rocket, det, exp))
 
 
 for s in SIDES:
     missile(X0 + s * 14.6, 117.0)
     missile(X0 + s * 17.4, 112.0, drop=1.5)
+# The Mark 2: three more a side under the nacelle, ahead of the main gear,
+# the middle one lower and further forward so the fins pass each other.
+if MK2:
+    for s in SIDES:
+        missile(X0 + s * 6.2, 117.0, under_nacelle=True)
+        missile(X0 + s * 9.0, 122.0, drop=1.5, under_nacelle=True)
+        missile(X0 + s * 11.8, 117.0, under_nacelle=True)
+
+# ---------------------------------------------------------------------------
+# The Mark 2's bombs: two in tandem under the tunnel between the nacelles,
+# behind the gun pack, each on a reload gate that pushes it clear and hangs a
+# new one two seconds later. A heavy steel nose keeps each falling nose first.
+BOMBS = []       # (gate, explosive, detector), the back one first
+BOMB_COLOUR = "#4b5233"     # olive drab
+BOMB_NOSE = "#3c3f2a"
+
+
+def bomb(cx, z0, ceiling, dia, nose, body, tail):
+    """A bomb hanging from a gate under `ceiling`, its tail end at z0."""
+    top = ceiling - 0.25
+    r = dia / 2
+    y0, y1 = top - dia, top
+    yc = (y0 + y1) / 2
+    zb0, zb1 = z0 + tail, z0 + tail + body
+    # Inside the casing, in the same plastic: the charge, and the detector
+    # that sets it off on impact. Listed first so they keep their own weight
+    # where they share space with the casing.
+    q = dia * 0.34
+    exp = b.add("explosive_block", (cx - q, cx + q, yc - q, yc + q, zb0 + 1.0, zb1 - 1.5), IDENT, BOMB_COLOUR,
+                material="plastic", settings={"blast_radius": BLAST})
+    dd = 0.5
+    det = b.add("impact_detector", (cx - dd, cx + dd, yc - dd, yc + dd, zb1 - 1.25, zb1 - 0.25), IDENT,
+                BOMB_COLOUR, material="plastic", settings={"threshold": 30.0, "pulse": 0.2})
+    b.along("cylinder", (cx - r, cx + r, y0, y1, zb0, zb1), (0, 0, 1), BOMB_COLOUR, material="plastic")
+    b.along("cone", (cx - r, cx + r, y0, y1, zb1, zb1 + nose), (0, 0, 1), BOMB_NOSE, material="steel")
+    b.along("cone", (cx - r, cx + r, y0, y1, z0, zb0), (0, 0, -1), BOMB_COLOUR, material="plastic")
+    # Tail fins: a cross of thin plates, no wider than the bomb.
+    t = 0.05
+    b.box((cx - r, cx + r, yc - t, yc + t, z0, zb0), BOMB_COLOUR, material="plastic")
+    b.box((cx - t, cx + t, y0, y1, z0, zb0), BOMB_COLOUR, material="plastic")
+    # The gate over the casing, rail down.
+    zm = (zb0 + zb1) / 2
+    rack = b.add("reload_gate", (cx - 0.5, cx + 0.5, top, ceiling, zm - 2.0, zm + 2.0),
+                 ([1, 0, 0], [0, -1, 0], [0, 0, -1]), GREY, material="aluminum",
+                 settings={"reload_time": BOMB_RELOAD, "reloads": 0.0, "safe_time": 1.0, "push_speed": 3.0})
+    return rack, exp, det
+
+
+if MK2:
+    # Each 2.5 m long and 0.6 m thick, about a tonne; the front one ends
+    # short of the gun pack's fairing, so it falls clear of it.
+    for z0 in (84.5, 95.0):
+        BOMBS.append(bomb(X0, z0, 10.0, 2.5, 2.0, 6.0, 2.0))
 
 # ---------------------------------------------------------------------------
 # Sensors inside the centre fuselage.
 ATT = b.add("attitude_sensor", (X0 - 0.5, X0 + 0.5, 10.5, 11.5, 118.0, 119.0),
             ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), DARK)
 SPEED = b.add("speed_sensor", (X0 - 0.5, X0 + 0.5, 10.5, 11.5, 120.0, 121.0), IDENT, DARK)
-DIST = b.add("distance_sensor", (X0 - 0.5, X0 + 0.5, 9.5, 10.0, 100.0, 101.0),
-             ([1, 0, 0], [0, 0, -1], [0, 1, 0]), DARK, settings={"range": 60.0})
+# The Mark 2's looks further down (for the bombs' height floor), from ahead
+# of the gun pack, where its bombs don't hang in the way.
+DIST = b.add("distance_sensor", (X0 - 0.5, X0 + 0.5, 9.5, 10.0, 138.5, 139.5) if MK2 else
+             (X0 - 0.5, X0 + 0.5, 9.5, 10.0, 100.0, 101.0),
+             ([1, 0, 0], [0, 0, -1], [0, 1, 0]), DARK, settings={"range": 3000.0 if MK2 else 60.0})
 # Anti-collision beacon on the spine.
 BEACON = b.add("light_panel", (X0 - 0.5, X0 + 0.5, 17.0, 17.125, 110.0, 111.0), IDENT, "#ff1010",
                settings={"color": "#ff1010", "brightness": 3.0})
@@ -844,24 +922,69 @@ cannons = bgate("OR", P(pad_a), P(key_f))
 for c in CANNONS:
     b.link(c, "fire", cannons, "result")
 
+def ripple(control, k, per_second, ok=None):
+    """One shot as the control goes down, then per_second more while it is
+    held: a pulse one tick long each time (a PWM clock that starts with the
+    press, and a timer gate that catches each turn on). `ok` gates it."""
+    held = bgate("OR", P(pad(control)), P(key(k)))
+    if ok is not None:
+        held = bgate("AND", (held, "result"), ok)
+    clock = logic("pwm_generator", {"frequency": per_second, "duty": 50.0}, {"enable": (held, "result")})
+    return bgate("Timer", (clock, "output"), seconds=0.004)
+
+
+def first_loaded(shot, racks):
+    """Each shot goes to the first loaded rack in the list. Returns each
+    rack's fire signal."""
+    fires = []
+    taken = None     # a rack earlier in the order is loaded and takes this shot
+    for rack in racks:
+        fire = bgate("AND", (shot, "result"), (rack, "loaded"))
+        if taken is not None:
+            fire = bgate("AND", (fire, "result"), (bgate("NOT", (taken, "result")), "result"))
+            taken = bgate("OR", (taken, "result"), (rack, "loaded"))
+        else:
+            taken = bgate("OR", (rack, "loaded"))
+        fires.append(fire)
+    return fires
+
+
 # Missiles: each press of Y (or R) fires the first loaded rack, inner pair
-# first. A fired rack hangs a new missile three seconds later. Each missile
-# looks after itself: its warhead goes off on its own impact detector.
-pad_y = pad("Y / Triangle", mode="Pulse")
-key_r = key("R", mode="Pulse")
-shot = bgate("OR", P(pad_y), P(key_r))
-order = [MISSILES[0], MISSILES[2], MISSILES[1], MISSILES[3]]
-taken = None     # a rack earlier in the order is loaded and takes this shot
-for (rack, rocket, det, exp) in order:
-    fire = bgate("AND", (shot, "result"), (rack, "loaded"))
-    if taken is not None:
-        fire = bgate("AND", (fire, "result"), (bgate("NOT", (taken, "result")), "result"))
-        taken = bgate("OR", (taken, "result"), (rack, "loaded"))
-    else:
-        taken = bgate("OR", (rack, "loaded"))
+# first. A fired rack hangs a new missile after its reload time. Each
+# missile looks after itself: its warhead goes off on its own impact
+# detector. On the Mark 2, holding Y keeps them coming, eight a second, the
+# sides taking turns.
+if MK2:
+    shot = ripple("Y / Triangle", "R", 8.0)
+    # Left and right in turn: glove inner, nacelle inner, glove outer,
+    # nacelle outer, nacelle middle.
+    by_spot = {}
+    for m in MISSILES:
+        dx = round(abs(b.parts[m[1]]["pos"][0] - X0), 1)
+        by_spot.setdefault(dx, []).append(m)
+    order = []
+    for dx in (14.6, 6.2, 17.4, 11.8, 9.0):
+        pair = sorted(by_spot[dx], key=lambda m: -b.parts[m[1]]["pos"][0])   # left first
+        order += pair
+else:
+    pad_y = pad("Y / Triangle", mode="Pulse")
+    key_r = key("R", mode="Pulse")
+    shot = bgate("OR", P(pad_y), P(key_r))
+    order = [MISSILES[0], MISSILES[2], MISSILES[1], MISSILES[3]]
+for (rack, rocket, det, exp), fire in zip(order, first_loaded(shot, [m[0] for m in order])):
     b.link(rack, "release", fire, "result")
     b.link(rocket, "ignite", fire, "result")
     b.link(exp, "detonate", det, "triggered")
+
+# The Mark 2's bombs: X (or B) drops the next one, the back one first; held,
+# one every half second as they reload. Only 160 m or more above the ground,
+# where their blast can't reach the jet.
+if MK2:
+    high_enough = gate("Compare", (DIST, "distance"), value=BOMB_FLOOR)
+    drop = ripple("X / Square", "B", 2.0, ok=T(high_enough))
+    for (rack, exp, det), fire in zip(BOMBS, first_loaded(drop, [g for (g, e, d) in BOMBS])):
+        b.link(rack, "release", fire, "result")
+        b.link(exp, "detonate", det, "triggered")
 
 # The ladder folds away while the engines run or the gear is up.
 ladder_away = bgate("OR", T(engines_on), (retract, "result"))
@@ -885,6 +1008,29 @@ for i, p_ in enumerate(DOOR_PISTONS):
 for i, (rack, rocket, det, exp) in enumerate(MISSILES):
     names["missile_%d" % i] = rocket
     names["rack_%d" % i] = rack
+    names["warhead_%d" % i] = exp
+for i, (rack, exp, det) in enumerate(BOMBS):
+    names["bomb_rack_%d" % i] = rack
+    names["bomb_%d" % i] = exp
+for i, g_ in enumerate(GUNS):
+    names["gun_%d" % i] = g_
 with open(OUT + ".names.json", "w") as f:
     json.dump(names, f)
-print("parts", len(b.parts), "logic", _logic_slot[0])
+# A rough weigh-in (overlaps counted twice), for tuning: the weight and
+# where its centre is, against the main wheels.
+DENSITY = {"balsa": 150.0, "aluminum": 2700.0, "steel": 7850.0, "plastic": 1050.0, "glass": 2500.0}
+FILL = {"wedge": 0.5, "corner_wedge": 1 / 6, "cylinder": 0.785, "cone": 0.262, "aero_panel_triangle": 0.5,
+        "servo": 0.5, "door_hinge_servo": 0.5, "piston": 0.5, "wheel": 0.5, "light_panel": 0.5,
+        "impact_detector": 0.4, "explosive_block": 0.8, "reload_gate": 0.8, "ladder": 0.3, "seat": 0.4}
+LOGIC = {"gamepad_input", "input_block", "number_gate", "boolean_gate", "pid_controller", "pwm_generator",
+         "mouse_click", "attitude_sensor", "speed_sensor", "distance_sensor"}
+mass = mz = 0.0
+for p_ in b.parts:
+    if p_["type"] in LOGIC:
+        continue
+    sx, sy, sz = p_["size"]
+    m = sx * sy * sz / 64.0 * FILL.get(p_["type"], 1.0) * DENSITY.get(p_["material"], 1000.0)
+    mass += m
+    mz += m * p_["pos"][2]
+print("parts %d logic %d | missiles %d, bombs %d, guns %d | ~%.1f t, centre of mass z %.1f (main wheels z %.1f)" % (
+    len(b.parts), _logic_slot[0], len(MISSILES), len(BOMBS), len(GUNS), mass / 1000.0, mz / mass, MAIN_Z))

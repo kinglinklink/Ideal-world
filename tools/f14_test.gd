@@ -1,12 +1,16 @@
 extends SceneTree
 ## Systems and flight test for the F-14 build (tools/make_f14.py):
-##     godot --headless --path . -s tools/f14_test.gd -- <f14.json> [ground|takeoff|air|missile|fast|reload|ladder] [nofail]
+##     godot --headless --path . -s tools/f14_test.gd -- <f14.json> [ground|takeoff|air|missile|fast|reload|ladder|barrage|dud] [nofail]
 ## Loads it, spawns it, sits in it and works its controls through a fake
 ## controller, printing what every system does and every part that breaks.
 ## ground: on the pad; takeoff: from the start of Wild Horse Island's runway;
 ## air and missile: from 400 m at 120 m/s with a test pilot holding height.
 ## ladder: on foot by the boarding ladder, walks into it, climbs, and checks
 ## the seat is in reach from the top.
+## barrage (the Mark 2): from 400 m, holds Y for a stream of missiles, drops
+## the bombs one at a time and then holds X as they reload; reports every
+## shot and blast, the nearest blast to the jet and anything the jet lost.
+## dud: on the pad, fires missiles at a wall put 40 m ahead.
 ## nofail turns structural failure off. Environment switches for more detail:
 ## F14_STRESS=1 the most loaded joints, F14_PEAK=<ratio> every joint past that
 ## share of its strength, F14_CONTACT=1 the main body's contacts, F14_GEAR=1
@@ -34,6 +38,11 @@ var clock := 0.0
 var seen_breaks := 0
 var start_speed := 120.0
 var cruise := 120.0
+var blasts: Array = []        # [radius, distance from the jet, from the seat]
+var shots := {"missile": 0, "bomb": 0}
+var was_loaded := {}          # rack name -> loaded last tick
+var jet_lost: Array = []      # types of the jet's own parts destroyed (not payload)
+var duds := 0
 
 # Each phase: [seconds, controller controls held, label, keys held]
 const GROUND := [
@@ -55,6 +64,7 @@ const GROUND := [
 	[1.5, {}, "throttle off"],
 	[0.5, {"A / Cross": 1.0}, "cannons"],
 	[0.5, {"B / Circle": 1.0}, "guns"],
+	[0.5, {"X / Square": 1.0}, "bomb button on the ground (Mark 2: should drop nothing)"],
 	[1.0, {}, "done"],
 ]
 const TAKEOFF := [
@@ -104,6 +114,29 @@ const RELOAD := [
 	[0.2, {"Y / Triangle": 1.0}, "first reloaded missile", true],
 	[3.0, {}, "away", true],
 ]
+# A missile fired on the pad at a wall 40 m ahead: within its safe time it
+# should hit as a dud, not blow up the jet.
+const DUD := [
+	[1.0, {}, "idle on the pad, a wall 40 m ahead"],
+	[0.2, {"Y / Triangle": 1.0}, "missile at the wall"],
+	[4.0, {}, "after"],
+	[1.0, {}, "done"],
+]
+# The Mark 2's weapons, from 400 m.
+const BARRAGE := [
+	[2.0, {}, "level", true],
+	[3.0, {"Y / Triangle": 1.0}, "hold Y: a stream of missiles", true],
+	[2.0, {}, "away", true],
+	[0.2, {"X / Square": 1.0}, "bomb 1", true],
+	[1.0, {}, "-", true],
+	[0.2, {"X / Square": 1.0}, "bomb 2", true],
+	[0.5, {}, "-", true],
+	[0.2, {"X / Square": 1.0}, "nothing loaded yet: no bomb", true],
+	[2.5, {}, "reloading", true],
+	[2.5, {"X / Square": 1.0}, "hold X: bombs as they reload", true],
+	[14.0, {}, "falling", true],
+	[1.0, {}, "done", true],
+]
 const AIR := [
 	[3.0, {}, "level", true],
 	[0.2, {"D-pad up": 1.0}, "gear up", true],
@@ -143,7 +176,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	file = args[0]
 	for arg in args:
-		if arg in ["air", "ground", "missile", "takeoff", "fast", "reload", "ladder"]:
+		if arg in ["air", "ground", "missile", "takeoff", "fast", "reload", "ladder", "barrage", "dud"]:
 			mode = arg
 	no_fail = args.has("nofail")
 	names = JSON.parse_string(FileAccess.get_file_as_string(file + ".names.json"))
@@ -189,8 +222,10 @@ func _systems() -> String:
 	var burner: Dictionary = spawner._outputs.get(int(uids.get("burner_L", 0)), {})
 	line += " | thrust %.0fk + %.0fk" % [float(thrust.get("thrust", 0.0)) / 1000.0, float(burner.get("thrust", 0.0)) / 1000.0]
 	var racks := ""
-	for i in 4:
-		racks += "%d" % int(float(spawner.outputs_of(int(uids.get("rack_%d" % i, 0))).get("loaded", 0.0)))
+	for name in _rack_names():
+		if str(name).begins_with("bomb") and not racks.contains(" "):
+			racks += " bombs "
+		racks += "%d" % int(float(spawner.outputs_of(int(uids.get(name, 0))).get("loaded", 0.0)))
 	line += " | racks %s" % racks
 	var ladder: Dictionary = spawner.record_of(int(uids.get("ladder", 0)))
 	if not ladder.is_empty():
@@ -265,6 +300,7 @@ func _process(delta: float) -> bool:
 		_report_build()
 		main.get_node("BuildController").toggle_spawn()
 		main_body = spawner.heaviest_body()
+		spawner.part_destroyed.connect(_on_destroyed)
 		_report_bodies()
 		var controller: Node = main.get_node("BuildController")
 		if mode != "ladder":
@@ -272,6 +308,18 @@ func _process(delta: float) -> bool:
 		main.get_node("Player").damage_enabled = false
 	if frame == 12 and mode == "takeoff":
 		_to_runway()
+	if frame == 12 and mode == "dud":
+		var wall := StaticBody3D.new()
+		wall.collision_layer = Units.LAYER_WORLD
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(30.0, 20.0, 2.0)
+		shape.shape = box
+		wall.add_child(shape)
+		root.add_child(wall)
+		var nose: Vector3 = main_body.global_transform.basis.z
+		nose.y = 0.0
+		wall.global_transform = Transform3D(Basis.looking_at(nose.normalized()), main_body.global_position + nose.normalized() * 40.0)
 	if frame == 12 and _flying():
 		var lift := Vector3(0, _cruise_height(), 0)
 		var forward: Vector3 = main_body.global_transform.basis.z
@@ -309,6 +357,10 @@ func _process(delta: float) -> bool:
 		script = FAST
 	elif mode == "reload":
 		script = RELOAD
+	elif mode == "barrage":
+		script = BARRAGE
+	elif mode == "dud":
+		script = DUD
 	if not is_instance_valid(main_body):
 		print("F14: the main body is gone")
 		return true
@@ -317,6 +369,7 @@ func _process(delta: float) -> bool:
 		clock = 0.0
 		if step >= script.size():
 			_report_bodies()
+			_report_weapons()
 			_key_check()
 			return true
 		print("F14: --- ", script[step][2])
@@ -340,6 +393,7 @@ func _process(delta: float) -> bool:
 			held["Left stick X (right +)"] = clampf(-roll * 0.02, -0.6, 0.6)
 	Gamepad.fake = held
 	clock += delta
+	_count_shots()
 	if mode == "missile" and step >= 1 and frame % 3 == 0:
 		var rocket_uid := int(uids.get("missile_0", 0))
 		var frame_body: Array = spawner.part_frame(rocket_uid) if spawner.record_of(rocket_uid).size() > 0 else []
@@ -497,8 +551,60 @@ func _key_check() -> void:
 	print("F14: M pressed while seated: world map open ", main._hud.world_map_open())
 
 
+func _rack_names() -> Array:
+	var list: Array = []
+	for i in 64:
+		if uids.has("rack_%d" % i):
+			list.append("rack_%d" % i)
+	for i in 8:
+		if uids.has("bomb_rack_%d" % i):
+			list.append("bomb_rack_%d" % i)
+	return list
+
+
+## Counts each rack letting go (loaded, then not).
+func _count_shots() -> void:
+	for name in _rack_names():
+		var loaded := float(spawner.outputs_of(int(uids.get(name, 0))).get("loaded", 0.0)) != 0.0
+		if bool(was_loaded.get(name, false)) and not loaded:
+			shots["bomb" if str(name).begins_with("bomb") else "missile"] += 1
+		was_loaded[name] = loaded
+
+
+func _on_destroyed(uid: int, type: String, at: Vector3, props: Dictionary) -> void:
+	if not spawner.is_payload(uid):
+		jet_lost.append(type)
+	if type != "explosive_block":
+		return
+	if spawner.is_dropped_payload(uid) and spawner.is_payload_safe(uid):
+		duds += 1
+		return
+	var seat_at: Vector3 = main.get_node("Player").global_position
+	var from_jet := at.distance_to(main_body.global_position) if is_instance_valid(main_body) else -1.0
+	blasts.append([float(props.get("blast_radius", 0.0)), from_jet, at.distance_to(seat_at)])
+	if blasts.size() <= 8:
+		print("F14:   blast %.0f m, %.0f m from the jet, %.0f m from the pilot (map y %.0f)" % [
+				float(props.get("blast_radius", 0.0)), from_jet, at.distance_to(seat_at), Origin.to_map(at).y])
+
+
+func _report_weapons() -> void:
+	var nearest_jet := INF
+	var nearest_pilot := INF
+	var radii := {}
+	for item in blasts:
+		nearest_jet = minf(nearest_jet, float(item[1]))
+		nearest_pilot = minf(nearest_pilot, float(item[2]))
+		radii[int(item[0])] = true
+	print("F14: === shots: %d missiles, %d bombs | blasts %d (radii %s), duds %d | nearest blast to the jet %.0f m, to the pilot %.0f m" % [
+			shots["missile"], shots["bomb"], blasts.size(), str(radii.keys()), duds, nearest_jet, nearest_pilot])
+	var lost := {}
+	for type in jet_lost:
+		lost[type] = int(lost.get(type, 0)) + 1
+	print("F14: === the jet's own parts destroyed: %d %s" % [jet_lost.size(), str(lost)])
+
+
 func _flying() -> bool:
-	return mode in ["air", "missile", "fast", "reload"]
+	return mode in ["air", "missile", "fast", "reload", "barrage"]
 
 
 ## Bodies whose speed is changing faster than 10 g over the crash window.
