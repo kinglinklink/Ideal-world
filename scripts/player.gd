@@ -21,6 +21,7 @@ const MASS := 70.0            # kg; what the character weighs and pushes with
 const PUSH_TIME := 0.25       # seconds over which a push hands over the character's momentum
 const G_SMOOTHING := 0.2       # seconds; the g-force readout is averaged over about this long
 const GROUND_GRIP := 1.0      # friction coefficient between the feet and the ground or any fixed surface
+const CLIMB_SPEED := 2.0      # m/s up a ladder
 const SWIM_SPEED := 1.4       # m/s
 const SWIM_SPRINT := 2.4      # m/s with Shift
 const SWIM_PUSH := 3.0        # m/s^2 a swimmer can push itself through the water
@@ -64,6 +65,8 @@ var _jump_locked := false     # Space was used to stand up; no jump until it is 
 var _floor_body: RigidBody3D = null   # the loose body being stood on, if any
 var _floor_point := Vector3.ZERO      # where the feet rest on it, in world space
 var _floor_grip := GROUND_GRIP        # friction coefficient of whatever is underfoot
+var _ladder := Vector3.ZERO           # the face of a ladder the character is up against (flat, pointing out at it), or zero
+var _ladder_velocity := Vector3.ZERO  # how fast that ladder is moving
 var ride_velocity := Vector3.ZERO     # while seated: the velocity of the seat, for the speed readout
 var terrain: Node3D = null            # terrain.gd, for the height of the ground under the camera
 var swimming := false                 # in the lake, deeper than standing height
@@ -151,6 +154,7 @@ func get_heading() -> float:
 ## cushion, and `heading` is the way the seat faces, as a turn about Y.
 func sit(cushion: Vector3, heading: float) -> void:
 	seated = true
+	_ladder = Vector3.ZERO
 	velocity = Vector3.ZERO
 	_step_offset = 0.0
 	_g_skip = true
@@ -182,6 +186,7 @@ func stand_up(exit_point: Vector3) -> void:
 func teleport(at: Vector3, heading: float) -> void:
 	global_position = at
 	velocity = Vector3.ZERO
+	_ladder = Vector3.ZERO
 	# Godot remembers the last moving platform the character stood on and, on
 	# the next step, carries the character along with it and adds its
 	# velocity. After a teleport that platform is somewhere else entirely, so
@@ -304,7 +309,10 @@ func _physics_process(delta: float) -> void:
 		speed = RUN_SPEED
 	swimming = _in_deep_water()
 	if swimming:
+		_ladder = Vector3.ZERO
 		_swim(direction, typing, delta)
+		return
+	if _ladder != Vector3.ZERO and not typing and _climb(direction, delta):
 		return
 	var grounded := is_on_floor()
 	_floor_body = null
@@ -359,6 +367,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		move_and_slide()
 		pushing = _push_bodies(wanted, grip_force, delta)
+	_ladder = _ladder_touch()
 	if _settle_ticks > 0:
 		_settle_ticks -= 1
 		global_position = Vector3(before_move.x, maxf(global_position.y, before_move.y - 0.5), before_move.z)
@@ -389,6 +398,62 @@ func _physics_process(delta: float) -> void:
 	elif direction.length() > 0.1:
 		var target := atan2(-direction.x, -direction.z)
 		_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - exp(-12.0 * delta))
+
+
+## On a ladder: pushing into it, or holding jump, climbs; standing still
+## hangs on; pushing away lets go. Past the top, the push into it carries the
+## character over onto whatever it leads to. Returns false once it lets go.
+func _climb(direction: Vector3, delta: float) -> bool:
+	var out := _ladder
+	var into := -direction.dot(out)
+	if into < -0.3:
+		_ladder = Vector3.ZERO
+		return false   # stepping off backwards
+	var across := direction - out * direction.dot(out)
+	var rise := 0.0
+	if into > 0.3 or _jump_held():
+		rise = CLIMB_SPEED
+	# Keep pressed to the ladder, and ride along with it if it is moving.
+	velocity = _ladder_velocity + across * WALK_SPEED * 0.5 - out * maxf(into, 0.2) * WALK_SPEED \
+			+ Vector3.UP * rise
+	move_and_slide()
+	_ladder = _ladder_touch()
+	_floor_body = null
+	_measure_g(get_real_velocity(), delta)
+	return true
+
+
+## The face of a ladder the character is up against, flat and pointing out
+## at the character, or zero if there is none. Notes how fast it moves.
+func _ladder_touch() -> Vector3:
+	for index in get_slide_collision_count():
+		var face := _ladder_face(get_slide_collision(index))
+		if face != Vector3.ZERO:
+			return face
+	if _ladder != Vector3.ZERO:
+		var probe := KinematicCollision3D.new()
+		if test_move(global_transform, -_ladder * 0.1, probe):
+			return _ladder_face(probe)
+	return Vector3.ZERO
+
+
+func _ladder_face(hit: KinematicCollision3D) -> Vector3:
+	var body := hit.get_collider() as RigidBody3D
+	if body == null:
+		return Vector3.ZERO
+	var owner_node := body.get_parent()
+	if owner_node == null or not owner_node.has_method("part_of_shape"):
+		return Vector3.ZERO
+	var uid: int = owner_node.part_of_shape(body, hit.get_collider_shape_index())
+	if uid == 0 or str((owner_node.record_of(uid) as Dictionary).get("type", "")) != "ladder":
+		return Vector3.ZERO
+	var face := hit.get_normal()
+	face.y = 0.0
+	if face.length() < 0.5:
+		return Vector3.ZERO   # its top or bottom end, not its face
+	var centre: Vector3 = body.global_transform * body.center_of_mass
+	_ladder_velocity = body.linear_velocity + body.angular_velocity.cross(hit.get_position() - centre)
+	return face.normalized()
 
 
 ## True when the character is in the lake deep enough to float.

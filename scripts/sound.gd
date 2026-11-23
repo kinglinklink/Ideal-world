@@ -227,6 +227,8 @@ func _process(_delta: float) -> void:
 	if int(spawner.generation) != _generation:
 		_generation = int(spawner.generation)
 		_machines = _find_machines(spawner)
+		if not spawner.parts_added.is_connected(_on_parts_added):
+			spawner.parts_added.connect(_on_parts_added)
 	_run_machines(spawner, _machines)
 
 
@@ -258,14 +260,23 @@ func _run_ambience() -> void:
 
 ## Gives every machine on a newly spawned build a looping sound, carried on
 ## its part. Returns the list for _run_machines.
-func _find_machines(source: Node) -> Array:
-	var found: Array = []
+## Parts made while the build is out (a reload gate's payload) get their
+## sounds too.
+func _on_parts_added(uids: Array) -> void:
+	if _generation == int(spawner.generation):
+		_find_machines(spawner, uids, _machines)
+
+
+func _find_machines(source: Node, only: Array = [], found: Array = []) -> Array:
 	var records: Dictionary = source.all_records()
-	for key in records:
+	var uids: Array = only if not only.is_empty() else records.keys()
+	for key in uids:
 		if found.size() >= MAX_MACHINES:
 			break
 		var uid: int = key
-		var record: Dictionary = records[uid]
+		var record: Dictionary = records.get(uid, {})
+		if record.is_empty():
+			continue
 		var type: String = record["type"]
 		var props: Dictionary = record.get("props", {})
 		var loop := ""

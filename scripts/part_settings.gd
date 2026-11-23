@@ -162,7 +162,7 @@ static func _build_table() -> void:
 	var shown := _flag("visible_after_spawn", "Visible after spawn (weighs and collides, for checking)", false)
 	_table["input_block"] = [
 		_text("key", "Key", "W"),
-		_choice("mode", "Mode", ["Hold", "Toggle"]),
+		_choice("mode", "Mode", ["Hold", "Toggle", "Pulse"]),
 		_choice("output", "Output", ["Boolean", "Number from two keys"]),
 		_text("second_key", "Second key", "S"),
 		shown,
@@ -261,6 +261,11 @@ static func _build_table() -> void:
 	var projectile := _choice("projectile_material", "Projectile material", material_names)
 	projectile["default"] = "Steel"
 	# The cannon's bore and barrel length are its X/Y and Z dimensions.
+	_table["reload_gate"] = [
+		_number("reload_time", "Reload time", "s", 3.0, 0.0, 3600.0, 0.1),
+		_number("reloads", "Reloads (0 for no limit)", "", 0.0, 0.0, 100000.0, 1.0),
+		_number("safe_time", "Explosives safe after letting go", "s", 0.5, 0.0, 60.0, 0.05),
+	]
 	_table["large_cannon"] = [
 		projectile,
 		_flag("unlimited_ammo", "Unlimited ammo", true),

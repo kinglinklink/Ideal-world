@@ -138,11 +138,16 @@ const PORTS := {
 		"outputs": [],
 	},
 	"vanish_block": {"inputs": [["vanish", "Vanish", "bool"]], "outputs": []},
+	"ladder": {"inputs": [["stowed", "Stowed (folded away)", "bool"]], "outputs": []},
 	# Combat
 	"explosive_block": {"inputs": [["detonate", "Detonate", "bool"]], "outputs": []},
 	"machine_gun": {"inputs": GUN_IN, "outputs": []},
 	"hitscan_gun": {"inputs": GUN_IN, "outputs": [["firing", "Firing", "bool"], ["hit_distance", "Distance to aim point", "number"]]},
 	"large_cannon": {"inputs": GUN_IN, "outputs": []},
+	"reload_gate": {
+		"inputs": [["release", "Release", "bool"]],
+		"outputs": [["loaded", "Loaded", "bool"], ["reloads", "Reloads used", "number"]],
+	},
 	"ammo_generator": {
 		"inputs": [],
 		"outputs": [["ammo", "Ammo supply", "ammo"], ["stored", "Ammo stored", "number"]],

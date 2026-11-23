@@ -125,9 +125,25 @@ func _physics_process(delta: float) -> void:
 	_fade_effects(delta)
 
 
+## Parts made while spawned (a reload gate's payload): guns and
+## explosives join in.
+func _on_parts_added(uids: Array) -> void:
+	if _generation != int(spawner.generation):
+		return   # not started on this spawn yet; _start will find them
+	for item in uids:
+		var uid: int = item
+		var type := str(spawner.record_of(uid).get("type", ""))
+		if type == "machine_gun" or type == "large_cannon" or type == "hitscan_gun":
+			_guns[uid] = {"cooldown": 0.0}
+		elif type == "explosive_block":
+			_explosives.append(uid)
+
+
 ## Notes the combat parts of a new spawn.
 func _start() -> void:
 	_generation = int(spawner.generation)
+	if not spawner.parts_added.is_connected(_on_parts_added):
+		spawner.parts_added.connect(_on_parts_added)
 	var records: Dictionary = spawner.all_records()
 	var cannon_shell_mass: Dictionary = {}   # generator uid -> heaviest shell a linked cannon fires
 	for key in records:
@@ -654,7 +670,8 @@ func _run_explosives() -> void:
 		if record.is_empty():
 			continue
 		var links: Dictionary = record.get("links", {})
-		if links.has("detonate") and spawner.input_value(links, "detonate", 0.0) != 0.0:
+		if links.has("detonate") and spawner.input_value(links, "detonate", 0.0) != 0.0 \
+				and not (spawner.has_method("is_payload_safe") and spawner.is_payload_safe(uid)):
 			detonate.append(uid)
 	for item in detonate:
 		var uid: int = item

@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from build_kit import Build, X0, side_box, holes_cut, IDENT  # noqa: E402
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/f14.json"
-THRUST = float(sys.argv[2]) if len(sys.argv) > 2 else 300000.0
+THRUST = float(sys.argv[2]) if len(sys.argv) > 2 else 500000.0          # each engine, right trigger
+AFTERBURNER = float(sys.argv[3]) if len(sys.argv) > 3 else 5000000.0    # each engine, left trigger on top
 
 BLACK = "#17171a"
 DARK = "#24252a"
@@ -250,6 +251,14 @@ for s in SIDES:
                       ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), GREY,
                       settings={"fire_rate": 25.0, "range": 1500.0, "unlimited_ammo": True}))
 
+# Boarding ladder on the left, just ahead of the intake, from near the
+# ground up past the cockpit sill, on two brackets off the side. It folds
+# away (Stowed) once the engines run or the gear is up.
+LADDER = b.add("ladder", side_box(1, 6.0, 6.25, 1.5, 17.5, 149.0, 151.0), ([0, 0, -1], [0, 1, 0], [1, 0, 0]),
+               "#55585f")
+for (y0, y1) in [(10.0, 11.0), (15.5, 16.5)]:
+    b.box(side_box(1, FF_X, 6.0, y0, y1, 149.5, 150.5), BLACK)
+
 # ---------------------------------------------------------------------------
 # Gloves: the fixed inner wing, with the pivots under them.
 GLOVE_Y0, GLOVE_Y1 = 14.5, 16.0
@@ -270,7 +279,7 @@ for s in SIDES:
     # The sweep servo hangs under the glove; the wing hangs from its output.
     PIVOTS[s] = b.add("servo", side_box(s, PIVOT_DX - 1.5, PIVOT_DX + 1.5, 13.8, 15.0, PIVOT_Z - 1.5, PIVOT_Z + 1.5),
                       ([1, 0, 0], [0, -1, 0], [0, 0, -1]), DARK,
-                      settings={"default_angle": 0.0, "positive_angle": 48.0 * s, "negative_angle": 0.0,
+                      settings={"default_angle": 0.0, "positive_angle": -48.0 * s, "negative_angle": 0.0,
                                 "speed": 15.0, "easing": 30.0, "max_torque": 5000000.0,
                                 "when_idle": "Return to default angle"})
 
@@ -284,6 +293,7 @@ TIP_DX = 58.6
 LE_ROOT_Z, LE_TIP_Z = 125.0, 112.4
 WING_SEGS = [(30.2, 44.0), (44.4, 58.4)]     # inboard, outboard surfaces (dx)
 SURFACES = {}    # (side, seg, "top"/"bottom") -> servo index
+TIPS = {}        # side -> the wing-tip light, to see where the wing has swung
 TOP_AXES = ([-1, 0, 0], [0, 0, -1], [0, -1, 0])
 BOTTOM_AXES = ([1, 0, 0], [0, 0, -1], [0, 1, 0])
 
@@ -323,6 +333,7 @@ for s in SIDES:
                  ([0, 0, 1], [s, 0, 0], [0, s, 0]),
                  "#ff2222" if s > 0 else "#22ff44",
                  settings={"color": "#ff2222" if s > 0 else "#22ff44", "brightness": 2.0})
+    TIPS[s] = lamp
 
 # ---------------------------------------------------------------------------
 # Tail: horizontal stabilisers with split elevators, twin fins with rudders.
@@ -355,7 +366,7 @@ for s in SIDES:
 # Engines: each nozzle turns on a servo for thrust vectoring, carrying a
 # hidden thruster and the lights that glow with the throttle.
 ENG_Y = 11.5
-NOZZLES, THRUSTERS, LIGHTS_RING, LIGHTS_CORE = [], [], [], []
+NOZZLES, THRUSTERS, BURNERS, LIGHTS_RING, LIGHTS_CORE = [], [], [], [], []
 for s in SIDES:
     cx = X0 + s * 9.0
     # Mount on the nacelle's tail plate, touching only the servo's base.
@@ -379,31 +390,38 @@ for s in SIDES:
         bx = (cx + fx * (r_out - 0.6) - (1.0 if fx > 0 else 0), cx + fx * (r_out - 0.6) + (0 if fx > 0 else 1.0))
         by = (ENG_Y + fy * (r_out - 0.6) - (1.0 if fy > 0 else 0), ENG_Y + fy * (r_out - 0.6) + (0 if fy > 0 else 1.0))
         b.corner((min(bx), max(bx), min(by), max(by), 73.0, 82.6), (-fx, 0, 0), (0, -fy, 0), (0, 0, -1), ENGINE)
-    # Petal ring at the exit, slightly flared, and the turbine face inside.
     # The turbine face is a thick plug that fills the can up to the hub, so
-    # each petal and the hub join it over a wide face and the engine's push
-    # has a strong path.
-    b.box((cx - 2.8, cx + 2.8, ENG_Y - 2.8, ENG_Y + 2.8, 77.5, 79.9), "#1a1110")
-    # Hidden thruster in the middle of the nozzle. Steel, so the nozzle's
-    # own heft takes the engine's push rather than its balsa petals.
-    THRUSTERS.append(b.add("thruster", (cx - 1.0, cx + 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 75.5, 77.5),
+    # each petal and the hub join it over a wide face. Behind it, a thin
+    # steel plate the thrusters push on spreads their push over the whole
+    # plug: the afterburners push hard enough to tear balsa through anything
+    # narrower.
+    b.box((cx - 2.8, cx + 2.8, ENG_Y - 2.8, ENG_Y + 2.8, 77.9, 79.9), "#1a1110")
+    # (One piece, clear of the corner wedges.)
+    b.box((cx - 1.8, cx + 1.8, ENG_Y - 2.8, ENG_Y + 2.8, 77.8, 77.9), "#1a1110", material="steel")
+    # Hidden thrusters in the middle of the nozzle: the engine, and behind
+    # it the afterburner. Steel, so the nozzle's own heft takes their push
+    # rather than its balsa petals.
+    THRUSTERS.append(b.add("thruster", (cx - 1.0, cx + 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 75.5, 77.8),
                            ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), ENGINE, material="steel",
                            settings={"thrust": THRUST, "ideal": True}))
+    BURNERS.append(b.add("thruster", (cx - 1.0, cx + 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 74.5, 75.5),
+                         ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), ENGINE, material="steel",
+                         settings={"thrust": AFTERBURNER, "ideal": True}))
     # Lights at the exit: a hot core and four glowing quarters round it.
-    LIGHTS_CORE.append(b.add("light_panel", (cx - 1.0, cx + 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 75.38, 75.5),
+    LIGHTS_CORE.append(b.add("light_panel", (cx - 1.0, cx + 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 74.38, 74.5),
                              ([1, 0, 0], [0, 0, -1], [0, 1, 0]), "#ffd36a",
                              settings={"color": "#ffd36a", "brightness": 5.0}))
     for (qx, qy) in [(-2.75, -1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -2.75)]:
         w = 1.75 if qx in (-2.75, 1.0) else 2.0
         h = 2.0 if qx in (-2.75, 1.0) else 1.75
         if qy == 1.0:
-            box = (cx - 1.0, cx + 1.0, ENG_Y + 1.0, ENG_Y + 2.75, 76.4, 76.525)
+            box = (cx - 1.0, cx + 1.0, ENG_Y + 1.0, ENG_Y + 2.75, 77.68, 77.8)
         elif qy == -2.75:
-            box = (cx - 1.0, cx + 1.0, ENG_Y - 2.75, ENG_Y - 1.0, 76.4, 76.525)
+            box = (cx - 1.0, cx + 1.0, ENG_Y - 2.75, ENG_Y - 1.0, 77.68, 77.8)
         elif qx == -2.75:
-            box = (cx - 2.75, cx - 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 76.4, 76.525)
+            box = (cx - 2.75, cx - 1.0, ENG_Y - 1.0, ENG_Y + 1.0, 77.68, 77.8)
         else:
-            box = (cx + 1.0, cx + 2.75, ENG_Y - 1.0, ENG_Y + 1.0, 76.4, 76.525)
+            box = (cx + 1.0, cx + 2.75, ENG_Y - 1.0, ENG_Y + 1.0, 77.68, 77.8)
         LIGHTS_RING.append(b.add("light_panel", box, ([1, 0, 0], [0, 0, -1], [0, 1, 0]), "#ff5a14",
                                  settings={"color": "#ff5a14", "brightness": 3.0}))
     # And the four corners, so the glow fills the nozzle. These don't throw
@@ -411,13 +429,9 @@ for s in SIDES:
     for (fx, fy) in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
         xa, xb = sorted((cx + fx * 1.0, cx + fx * 2.75))
         ya, yb = sorted((ENG_Y + fy * 1.0, ENG_Y + fy * 2.75))
-        LIGHTS_RING.append(b.add("light_panel", (xa, xb, ya, yb, 76.4, 76.525), ([1, 0, 0], [0, 0, -1], [0, 1, 0]),
+        LIGHTS_RING.append(b.add("light_panel", (xa, xb, ya, yb, 77.68, 77.8), ([1, 0, 0], [0, 0, -1], [0, 1, 0]),
                                  "#ff5a14", settings={"color": "#ff5a14", "brightness": 1.5}))
-    # The light frames hold onto the hub: a cross of thin bars behind them,
-    # broken where the thruster sits.
-    for (a0, a1) in [(-2.75, -1.0), (1.0, 2.75)]:
-        b.box((cx + a0, cx + a1, ENG_Y - 0.15, ENG_Y + 0.15, 76.525, 77.9), "#1a1110")
-        b.box((cx - 0.15, cx + 0.15, ENG_Y + a0, ENG_Y + a1, 76.525, 77.9), "#1a1110")
+    # (The glowing quarters and corners sit on the steel plate.)
 
 # ---------------------------------------------------------------------------
 # Landing gear: each leg a piston that pulls it up into its well, and a door
@@ -488,7 +502,7 @@ def door(x0, x1, pocket_z0, pocket_z1, travel):
 NOSE_X, NOSE_Z = X0, 161.5
 nose_piston, NOSE_STEER = gear_leg(NOSE_X, NOSE_Z, 3.2, 1.1, [-1.3, 1.3], steer=True)
 for s in SIDES:   # barrel mounts out to the well walls, aluminium, on wide plates
-    b.box(side_box(s, 0.9, 2.4, BELLY + 0.4, BELLY + 1.5, NOSE_Z - 0.9, NOSE_Z + 0.9), DARK, material="aluminum")
+    b.box(side_box(s, 0.9, 2.2, BELLY + 0.4, BELLY + 1.5, NOSE_Z - 0.9, NOSE_Z + 0.9), DARK, material="aluminum")
     b.box(side_box(s, 2.2, 2.4, BELLY + WALL, 12.0, 158.5, 164.5), DARK, material="aluminum")
 door(NOSE_POCKET[0], NOSE_POCKET[1], NOSE_POCKET[2], NOSE_POCKET[3], NOSE_BAY[3] - NOSE_BAY[2])
 
@@ -506,24 +520,33 @@ for s in SIDES:
 
 # ---------------------------------------------------------------------------
 # Missiles: two under each glove, held by electromagnets.
-MISSILES = []    # (magnet, rocket, detector, explosive)
+MISSILES = []    # (reload gate, rocket, detector, explosive)
 
 
-def missile(cx, cz0, length=19.0):
+def missile(cx, cz0, drop=0.0, length=19.0):
+    """A missile hanging on a reload gate under a pylon. `drop` lowers it
+    (and lengthens its pylon), so neighbours' fins don't meet as one passes
+    the other."""
     d = 1.2
-    y0, y1 = 12.6 - 0.05 - d, 12.6 - 0.05
+    rail = 12.6 - drop                 # the gate's rail, and the top of the missile
+    y0, y1 = rail - d, rail
     yc = (y0 + y1) / 2
     z = cz0
+    # All aluminium, with a big motor: about 650 kg pushed at 13 g, so it
+    # pulls away from the jet even at top speed, where the thick air slows
+    # a light missile so hard the jet would fly into it.
     rocket = b.add("solid_rocket", (cx - d / 2, cx + d / 2, y0, y1, z, z + 7.0),
-                   ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), WHITE,
-                   settings={"thrust": 9000.0, "burn_time": 5.0, "ideal": False})
-    b.along("cylinder", (cx - d / 2, cx + d / 2, y0, y1, z + 7.0, z + 12.0), (0, 0, 1), WHITE)
+                   ([-1, 0, 0], [0, 1, 0], [0, 0, -1]), WHITE, material="aluminum",
+                   settings={"thrust": 85000.0, "burn_time": 5.0, "ideal": False})
+    b.along("cylinder", (cx - d / 2, cx + d / 2, y0, y1, z + 7.0, z + 12.0), (0, 0, 1), WHITE, material="aluminum")
     det = b.add("impact_detector", (cx - 0.45, cx + 0.45, yc - 0.45, yc + 0.45, z + 12.0, z + 12.9),
-                IDENT, RED, settings={"threshold": 40.0, "pulse": 0.2})
-    b.along("cylinder", (cx - d / 2, cx + d / 2, y0, y1, z + 12.9, z + 13.4), (0, 0, 1), RED)
+                IDENT, RED, material="aluminum", settings={"threshold": 40.0, "pulse": 0.2})
+    # The red band runs right over the detector (same metal, so they may
+    # share the space), keeping the body whole round it.
+    b.along("cylinder", (cx - d / 2, cx + d / 2, y0, y1, z + 12.0, z + 13.4), (0, 0, 1), RED, material="aluminum")
     exp = b.add("explosive_block", (cx - d / 2, cx + d / 2, y0, y1, z + 13.4, z + 16.0), IDENT, WHITE,
-                settings={"blast_radius": 4.0})
-    b.along("cone", (cx - d / 2, cx + d / 2, y0, y1, z + 16.0, z + length), (0, 0, 1), WHITE)
+                material="aluminum", settings={"blast_radius": 4.0})
+    b.along("cone", (cx - d / 2, cx + d / 2, y0, y1, z + 16.0, z + length), (0, 0, 1), WHITE, material="aluminum")
     # Fins: a cross at the tail and a smaller one forward.
     for (zf, span, chord) in [(z, 0.7, 2.2), (z + 13.6, 0.5, 1.5)]:
         for (ux, uy) in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
@@ -535,19 +558,25 @@ def missile(cx, cz0, length=19.0):
                 if uy > 0:
                     continue   # no top fin: it would touch the rail
                 fb = (cx - 0.05, cx + 0.05, min(ya, ya + uy * span), max(ya, ya + uy * span), zf, zf + chord)
-            b.tri_panel(fb, (ux, uy, 0), (0, 0, 1), WHITE)
-    # The magnet on the pylon above it, face down, a hair off the missile.
-    mag = b.add("magnet", (cx - 0.3, cx + 0.3, 12.6, 12.85, z + 5.0, z + 13.0),
-                ([1, 0, 0], [0, -1, 0], [0, 0, -1]), GREY,
-                settings={"strength": 2000000.0, "on_unlinked": True, "grabs_ground": False})
-    # Pylon up to the glove.
-    b.box((cx - 0.3, cx + 0.3, 12.85, GLOVE_Y0, z + 6.0, z + 12.0), BLACK)
-    MISSILES.append((mag, rocket, det, exp))
+            b.tri_panel(fb, (ux, uy, 0), (0, 0, 1), WHITE, material="aluminum")
+    # The reload gate on the pylon, rail down, holding the missile: it lets
+    # go when fired and hangs a new one there three seconds later.
+    rack = b.add("reload_gate", (cx - 0.3, cx + 0.3, rail, rail + 0.25, z + 5.0, z + 13.0),
+                 ([1, 0, 0], [0, -1, 0], [0, 0, -1]), GREY, material="aluminum",
+                 settings={"reload_time": 3.0, "reloads": 0.0})
+    # Pylon up to the glove, aluminium for the heavy missile, on a wide shoe
+    # so its weight spreads into the balsa.
+    b.box((cx - 0.3, cx + 0.3, rail + 0.25, GLOVE_Y0 - 0.25, z + 5.0, z + 13.0), BLACK, material="aluminum")
+    # (Short of the wing's pivot on the outer one.)
+    outer = abs(cx - X0) > 16.0
+    sx = (cx - 1.0, cx + 0.3) if (outer and cx > X0) else (cx - 0.3, cx + 1.0) if outer else (cx - 1.0, cx + 1.0)
+    b.box((sx[0], sx[1], GLOVE_Y0 - 0.25, GLOVE_Y0, z + 3.0, z + 15.0), BLACK, material="aluminum")
+    MISSILES.append((rack, rocket, det, exp))
 
 
 for s in SIDES:
     missile(X0 + s * 14.6, 117.0)
-    missile(X0 + s * 17.4, 112.0)
+    missile(X0 + s * 17.4, 112.0, drop=1.5)
 
 # ---------------------------------------------------------------------------
 # Sensors inside the centre fuselage.
@@ -572,7 +601,9 @@ pad_yaw = pad("D-pad right", second="D-pad left")
 key_yaw = key("X", second="Z")
 yaw_in = gate("Add", V(pad_yaw), V(key_yaw))
 
-# Throttle: the right trigger, M for cruise, K for full afterburner.
+# Throttle: the right trigger, M for cruise, K for full power. Once that is
+# all the way in, the left trigger (or Shift) lights the afterburners on
+# top, up to AFTERBURNER more per engine.
 pad_rt = pad("RT / R2 trigger", deadzone=0.05)
 key_k = key("K")
 key_m = key("M", mode="Toggle")
@@ -580,16 +611,39 @@ cruise = gate("Multiply", V(key_m), value=0.55)
 t1 = gate("Max", V(pad_rt), R(cruise))
 throttle = gate("Max", R(t1), V(key_k))
 engines_on = gate("Compare", R(throttle), value=0.02)
-burner = gate("Compare", R(throttle), value=0.9)
+full_power = gate("Compare", R(throttle), value=0.97)
+pad_lt = pad("LT / L2 trigger", deadzone=0.05)
+key_shift = key("Shift")
+burn_ask = gate("Max", V(pad_lt), V(key_shift))
+burn_wanted = gate("Multiply", R(burn_ask), T(full_power))
+# The afterburners give no more than drag needs plus about 5 g of push: at
+# low speed a full afterburner would shove the jet at 25 g (crushing it and
+# you). Share allowed: 0.12 + (speed / 700 m/s) squared, up to all of it.
+burn_v2 = gate("Multiply", (SPEED, "speed"), (SPEED, "speed"))
+burn_share = gate("Multiply", R(burn_v2), value=1.0 / 490000.0)
+burn_cap_raw = gate("Add", R(burn_share), value=0.12)
+burn_cap = gate("Min", R(burn_cap_raw), value=1.0)
+burn_target = gate("Min", R(burn_wanted), R(burn_cap))
+# The afterburners light up and die away over a few seconds (a PID set to
+# follow its own output, a 4 s lag): cut them all at once near top speed and
+# the thick air would stop the jet at over 20 g.
+burn = logic("pid_controller", {"kp": 0.0, "ki": 0.25, "kd": 0.0, "output_min": 0.0, "output_max": 1.0},
+             {"setpoint": R(burn_target)})
+b.link(burn, "measurement", burn, "output")
+burning = gate("Compare", O(burn), value=0.01)
 
-# Gain schedule: the surfaces bite harder the faster the jet goes, so the
-# stability system's commands are scaled by (120 m/s / speed) squared,
-# between 0.2 and 1.3.
+# Gain schedule: the faster the jet goes, the less surface a turn rate
+# takes, so the stability system's commands are scaled by 120 m/s / speed,
+# up to 1.3. Past 250 m/s they fall with speed squared instead, so the
+# surfaces' push (and the strain on their balsa) stays about the same.
 v2 = gate("Multiply", (SPEED, "speed"), (SPEED, "speed"))
-v2_floor = gate("Max", R(v2), value=11077.0)
-k_const = gate("Constant", value=14400.0)
-sched_raw = gate("Divide", R(k_const), R(v2_floor))
-sched = gate("Max", R(sched_raw), value=0.2)
+v_sched = gate("Max", (SPEED, "speed"), value=92.3)
+k_const = gate("Constant", value=120.0)
+sched_slow = gate("Divide", R(k_const), R(v_sched))
+v2_sched = gate("Max", R(v2), value=1.0)
+k2_const = gate("Constant", value=30000.0)
+sched_fast = gate("Divide", R(k2_const), R(v2_sched))
+sched = gate("Min", R(sched_slow), R(sched_fast))
 # Below about 25 m/s the stability system lets go and the sticks move the
 # surfaces straight; it takes over fully by 55 m/s. On the ground its
 # setpoints follow what it measures, so nothing winds up before takeoff.
@@ -628,18 +682,31 @@ g_rate = gate("Divide", R(g_cap), R(v_floor))
 pitch_rate = gate("Min", R(g_rate), value=22.0)
 P_ = stability_axis(pitch_in, pitch_rate, (ATT, "pitch_rate"),
                     {"kp": 1.1, "ki": 0.9, "kd": 0.0, "output_min": -28.0, "output_max": 28.0}, 25.0)
-# Roll: the stick asks for a roll rate; let go and the bank holds.
-R_ = stability_axis(roll_in, 110.0, (ATT, "roll_rate"),
+# Roll: the stick asks for a roll rate (110 degrees a second, or 30000 /
+# speed when fast); let go and the bank holds.
+roll_cap = gate("Constant", value=30000.0)
+roll_fast = gate("Divide", R(roll_cap), R(v_floor))
+roll_rate = gate("Min", R(roll_fast), value=110.0)
+R_ = stability_axis(roll_in, roll_rate, (ATT, "roll_rate"),
                     {"kp": 0.35, "ki": 0.15, "kd": 0.0, "output_min": -40.0, "output_max": 40.0}, 30.0)
-# Yaw: the D-pad asks for a yaw rate; the rudders also damp any wagging.
-Y_ = stability_axis(yaw_in, 14.0, (ATT, "yaw_rate"),
+# Yaw: the D-pad asks for a yaw rate (no more than about 2 g sideways when
+# fast); the rudders also damp any wagging.
+side_cap = gate("Constant", value=2.0 * 9.81 * 57.2958)
+side_rate = gate("Divide", R(side_cap), R(v_floor))
+yaw_rate = gate("Min", R(side_rate), value=14.0)
+Y_ = stability_axis(yaw_in, yaw_rate, (ATT, "yaw_rate"),
                     {"kp": 1.2, "ki": 0.0, "kd": 0.0, "output_min": -30.0, "output_max": 30.0}, 25.0)
 
 # Air brake: D-pad down (or Q) opens every split surface both ways.
 pad_brake = pad("D-pad down")
 key_brake = key("Q")
 brake_on = bgate("OR", P(pad_brake), P(key_brake))
-brake = gate("Multiply", (brake_on, "result"), value=55.0)
+brake_full = gate("Multiply", (brake_on, "result"), value=55.0)
+# Fast, it opens less: full up to 150 m/s, then by (150 / speed) squared.
+brake_v2 = gate("Max", R(v2), value=22500.0)
+brake_k = gate("Constant", value=22500.0)
+brake_share = gate("Divide", R(brake_k), R(brake_v2))
+brake = gate("Multiply", R(brake_full), R(brake_share))
 
 # Mixing. A positive deflection lifts the trailing edge (the top panel
 # opens); a negative one drops it (the bottom panel opens). Stick back lifts
@@ -661,9 +728,14 @@ for key_, dsrc in list(deflection.items()):
     if dsrc in opened:
         top_g, bottom_g = opened[dsrc]
     else:
+        # The air brake opens both panels; the pitch and roll command opens
+        # one of them further on top of that, so the jet still answers the
+        # stick (and the stability system) with the brake out.
         neg_d = gate("Multiply", R(dsrc), value=-1.0)
-        top_g = gate("Max", R(dsrc), R(brake))
-        bottom_g = gate("Max", R(neg_d), R(brake))
+        up_only = gate("Max", R(dsrc), value=0.0)
+        down_only = gate("Max", R(neg_d), value=0.0)
+        top_g = gate("Add", R(up_only), R(brake))
+        bottom_g = gate("Add", R(down_only), R(brake))
         if SIGN_TOP < 0:
             top_g = gate("Multiply", R(top_g), value=-1.0)
         if SIGN_BOTTOM < 0:
@@ -674,8 +746,13 @@ for key_, dsrc in list(deflection.items()):
     b.link(SURFACES[(s, name, "bottom")], "angle", bottom_g, "result")
 for r in RUDDERS:
     b.link(r, "angle", Y_, "result")
-# Thrust vectoring follows the pitch command.
-vector = gate("Multiply", R(P_), value=0.7)
+# Thrust vectoring follows the pitch command, less with the afterburners
+# lit (the push it turns is that much bigger): by full power over the
+# total thrust.
+burn_ratio = gate("Multiply", O(burn), value=AFTERBURNER / THRUST)
+thrust_ratio = gate("Add", R(burn_ratio), value=1.0)
+vector_raw = gate("Multiply", R(P_), value=0.7)
+vector = gate("Divide", R(vector_raw), R(thrust_ratio))
 for n in NOZZLES:
     b.link(n, "angle", vector, "result")
 # Nose wheel steering from the yaw input.
@@ -685,16 +762,25 @@ b.link(NOSE_STEER, "angle", steer, "result")
 for t in THRUSTERS:
     b.link(t, "throttle", throttle, "result")
     b.link(t, "on", engines_on, "is_true")
+for t in BURNERS:
+    b.link(t, "throttle", burn, "output")
+    b.link(t, "on", burning, "is_true")
+# The glow: orange with the throttle, turning yellow and then white-blue at
+# the core as the afterburners come in.
 ring_r = gate("Multiply", R(throttle), value=255.0)
-ring_g = gate("Multiply", R(throttle), value=80.0)
-zero = gate("Constant", value=0.0)
-core_g = gate("Multiply", R(throttle), value=200.0)
-core_b = gate("Multiply", T(burner), value=170.0)
+ring_g_dry = gate("Multiply", R(throttle), value=80.0)
+ring_g_wet = gate("Multiply", O(burn), value=120.0)
+ring_g = gate("Add", R(ring_g_dry), R(ring_g_wet))
+ring_b = gate("Multiply", O(burn), value=40.0)
+core_g_dry = gate("Multiply", R(throttle), value=200.0)
+core_g_wet = gate("Multiply", O(burn), value=55.0)
+core_g = gate("Add", R(core_g_dry), R(core_g_wet))
+core_b = gate("Multiply", O(burn), value=255.0)
 for l in LIGHTS_RING:
     b.link(l, "on", engines_on, "is_true")
     b.link(l, "red", ring_r, "result")
     b.link(l, "green", ring_g, "result")
-    b.link(l, "blue", zero, "result")
+    b.link(l, "blue", ring_b, "result")
 for l in LIGHTS_CORE:
     b.link(l, "on", engines_on, "is_true")
     b.link(l, "red", ring_r, "result")
@@ -713,13 +799,25 @@ for s in SIDES:
 # Landing gear: D-pad up (or G) asks for gear up. The gear only goes up once
 # off the ground; the doors close after it is in, and open before it comes
 # down.
-pad_gear = pad("D-pad up", mode="Toggle")
-key_gear = key("G", mode="Toggle")
-gear_wanted = bgate("XOR", P(pad_gear), P(key_gear))
+pad_gear = pad("D-pad up")
+key_gear = key("G")
+gear_press = bgate("OR", P(pad_gear), P(key_gear))
+tap = bgate("Timer", (gear_press, "result"), seconds=0.15)
 airborne = gate("Compare", (DIST, "distance"), value=5.0)
-go_up = bgate("AND", (gear_wanted, "result"), T(airborne))
-not_wanted = bgate("NOT", (gear_wanted, "result"))
-gear_up = bgate("Latch", (go_up, "result"), (not_wanted, "result"))
+# A press raises the gear if it is down, settled, and the jet is off the
+# ground (on the ground a press does nothing); a press lowers it if it is up
+# and settled. "Settled" keeps one press from doing both.
+gear_up = bgate("Latch")
+up_fresh = bgate("Timer", (gear_up, "result"), seconds=0.4)
+gear_down_now = bgate("NOT", (gear_up, "result"))
+down_fresh = bgate("Timer", (gear_down_now, "result"), seconds=0.4)
+can_raise = bgate("AND", (gear_down_now, "result"), T(airborne))
+can_raise2 = bgate("AND", (can_raise, "result"), (bgate("NOT", (down_fresh, "result")), "result"))
+go_up = bgate("AND", (tap, "result"), (can_raise2, "result"))
+can_lower = bgate("AND", (gear_up, "result"), (bgate("NOT", (up_fresh, "result")), "result"))
+go_down = bgate("AND", (tap, "result"), (can_lower, "result"))
+b.link(gear_up, "a", go_up, "result")
+b.link(gear_up, "b", go_down, "result")
 been_up = bgate("Latch", (gear_up, "result"))
 closing_wait = bgate("Timer", (gear_up, "result"), seconds=2.6)
 not_closing_wait = bgate("NOT", (closing_wait, "result"))
@@ -746,28 +844,28 @@ cannons = bgate("OR", P(pad_a), P(key_f))
 for c in CANNONS:
     b.link(c, "fire", cannons, "result")
 
-# Missiles: each press of Y (or R) lets the next one go, inner pair first.
-pad_y = pad("Y / Triangle", mode="Toggle")
-key_r = key("R", mode="Toggle")
-salvo = bgate("XOR", P(pad_y), P(key_r))
-not_salvo = bgate("NOT", (salvo, "result"))
-f1 = bgate("Latch", (salvo, "result"))
-c2 = bgate("AND", (not_salvo, "result"), (f1, "result"))
-f2 = bgate("Latch", (c2, "result"))
-c3 = bgate("AND", (salvo, "result"), (f2, "result"))
-f3 = bgate("Latch", (c3, "result"))
-c4 = bgate("AND", (not_salvo, "result"), (f3, "result"))
-f4 = bgate("Latch", (c4, "result"))
+# Missiles: each press of Y (or R) fires the first loaded rack, inner pair
+# first. A fired rack hangs a new missile three seconds later. Each missile
+# looks after itself: its warhead goes off on its own impact detector.
+pad_y = pad("Y / Triangle", mode="Pulse")
+key_r = key("R", mode="Pulse")
+shot = bgate("OR", P(pad_y), P(key_r))
 order = [MISSILES[0], MISSILES[2], MISSILES[1], MISSILES[3]]
-for (mag, rocket, det, exp), fire in zip(order, [f1, f2, f3, f4]):
-    hold = bgate("NOT", (fire, "result"))
-    b.link(mag, "on", hold, "result")
+taken = None     # a rack earlier in the order is loaded and takes this shot
+for (rack, rocket, det, exp) in order:
+    fire = bgate("AND", (shot, "result"), (rack, "loaded"))
+    if taken is not None:
+        fire = bgate("AND", (fire, "result"), (bgate("NOT", (taken, "result")), "result"))
+        taken = bgate("OR", (taken, "result"), (rack, "loaded"))
+    else:
+        taken = bgate("OR", (rack, "loaded"))
+    b.link(rack, "release", fire, "result")
     b.link(rocket, "ignite", fire, "result")
-    # The warhead arms 0.8 s after launch, well clear of the jet.
-    safe = bgate("Timer", (fire, "result"), seconds=0.8)
-    armed = bgate("AND", (fire, "result"), (bgate("NOT", (safe, "result")), "result"))
-    boom = bgate("AND", (armed, "result"), (det, "triggered"))
-    b.link(exp, "detonate", boom, "result")
+    b.link(exp, "detonate", det, "triggered")
+
+# The ladder folds away while the engines run or the gear is up.
+ladder_away = bgate("OR", T(engines_on), (retract, "result"))
+b.link(LADDER, "stowed", ladder_away, "result")
 
 b.write(OUT)
 # Names of the parts the systems test looks at, by index in the file.
@@ -775,7 +873,8 @@ import json  # noqa: E402
 names = {"seat": SEAT, "att": ATT, "speed": SPEED, "dist": DIST,
          "pivot_L": PIVOTS[1], "pivot_R": PIVOTS[-1], "nozzle_L": NOZZLES[0], "nozzle_R": NOZZLES[1],
          "rudder_L": RUDDERS[0], "rudder_R": RUDDERS[1], "steer": NOSE_STEER,
-         "thrust_L": THRUSTERS[0], "thrust_R": THRUSTERS[1], "core_L": LIGHTS_CORE[0],
+         "thrust_L": THRUSTERS[0], "thrust_R": THRUSTERS[1], "burner_L": BURNERS[0], "burner_R": BURNERS[1],
+         "core_L": LIGHTS_CORE[0], "ladder": LADDER, "tip_L": TIPS[1], "tip_R": TIPS[-1],
          "cannon_L": CANNONS[0], "gun_L": GUNS[0]}
 for (s_, name, half), idx in SURFACES.items():
     names["%s_%s_%s" % (name, "L" if s_ > 0 else "R", half)] = idx
@@ -783,9 +882,9 @@ for i, p_ in enumerate(GEAR_PISTONS):
     names["gear_%d" % i] = p_
 for i, p_ in enumerate(DOOR_PISTONS):
     names["door_%d" % i] = p_
-for i, (mag, rocket, det, exp) in enumerate(MISSILES):
+for i, (rack, rocket, det, exp) in enumerate(MISSILES):
     names["missile_%d" % i] = rocket
-    names["magnet_%d" % i] = mag
+    names["rack_%d" % i] = rack
 with open(OUT + ".names.json", "w") as f:
     json.dump(names, f)
 print("parts", len(b.parts), "logic", _logic_slot[0])

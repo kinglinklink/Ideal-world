@@ -6,6 +6,7 @@ extends RefCounted
 ## and centre of mass below are given as fractions of the bounding box.
 
 const MechModels = preload("res://scripts/mech_models.gd")
+const Units = preload("res://scripts/units.gd")
 
 ## id -> [name, category, default size in cells, volume fraction,
 ##        centre of mass in unit-box coordinates, collision kind]
@@ -19,6 +20,7 @@ const PARTS := {
 	"plate": ["Plate", "Structural", Vector3(1, 0.25, 1), 1.0, Vector3(0, 0, 0), "box"],
 	"post": ["Post", "Structural", Vector3(0.5, 1, 0.5), 1.0, Vector3(0, 0, 0), "box"],
 	"rod": ["Rod", "Structural", Vector3(0.25, 1, 0.25), 0.785398, Vector3(0, 0, 0), "convex"],
+	"ladder": ["Ladder", "Structural", Vector3(1, 4, 0.25), 0.3, Vector3(0, 0, 0), "box"],
 	"corner_wedge": ["Corner wedge", "Advanced", Vector3(1, 1, 1), 0.166667, Vector3(-0.25, -0.25, -0.25), "convex"],
 	"inverse_corner": ["Inverse corner", "Advanced", Vector3(1, 1, 1), 0.833333, Vector3(-0.05, -0.05, -0.05), "convex"],
 	"pyramid": ["Pyramid", "Advanced", Vector3(1, 1, 1), 0.333333, Vector3(0, -0.25, 0), "convex"],
@@ -60,6 +62,7 @@ const PARTS := {
 	"hitscan_gun": ["Hit-scan gun", "Combat", Vector3(1, 1, 2), 0.3, Vector3(0, 0, 0), "box"],
 	"large_cannon": ["Large cannon", "Combat", Vector3(1, 1, 4), 0.3, Vector3(0, 0, 0), "box"],
 	"ammo_generator": ["Ammo generator", "Combat", Vector3(2, 2, 2), 0.7, Vector3(0, 0, 0), "box"],
+	"reload_gate": ["Reload gate", "Combat", Vector3(1, 0.5, 2), 0.8, Vector3(0, 0, 0), "box"],
 	"fluid_cylinder": ["Fluid cylinder", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"pump": ["Pump", "Fluid and Engine", Vector3(1, 1, 1), 0.5, Vector3(0, 0, 0), "box"],
 	"valve": ["Valve", "Fluid and Engine", Vector3(1, 1, 1), 0.3, Vector3(0, 0, 0), "box"],
@@ -111,6 +114,8 @@ const DEFAULT_COLORS := {
 	"hitscan_gun": Color(0.22, 0.24, 0.30),
 	"large_cannon": Color(0.30, 0.33, 0.27),
 	"ammo_generator": Color(0.30, 0.33, 0.27),
+	"reload_gate": Color(0.30, 0.33, 0.27),
+	"ladder": Color(0.55, 0.57, 0.60),
 	"lift_gas_tank": Color(0.88, 0.92, 0.96),
 	"aero_panel_dragless": Color(0.55, 0.90, 1.0),
 	"aero_panel_triangle_dragless": Color(0.55, 0.90, 1.0),
@@ -237,6 +242,10 @@ static func mesh_for_record(record: Dictionary) -> Mesh:
 			"blades": clampi(int(props.get("blades", 4)), 2, 12),
 			"pitch": int(round(float(props.get("pitch", 20.0)))),
 		})
+	if type == "ladder":
+		# A rung about every 30 cm, however long the ladder is.
+		var length := Units.to_metres(record["size"] as Vector3i).y
+		return get_mesh(type, {"rungs": clampi(int(round(length / 0.3)), 1, 64)})
 	return get_mesh(type)
 
 

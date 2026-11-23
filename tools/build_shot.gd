@@ -102,6 +102,7 @@ func _initialize() -> void:
 	# Each view: name, direction from the centre to the camera, distance factor.
 	views = [
 		["front_quarter", Vector3(-0.9, 0.55, 1.0), 1.05],
+		["left_quarter", Vector3(0.95, 0.3, 0.8), 0.85],
 		["rear_quarter", Vector3(0.9, 0.5, -1.0), 1.05],
 		["side", Vector3(-1.0, 0.08, 0.0), 1.15],
 		["top", Vector3(0.0, 1.0, 0.0001), 1.35],
