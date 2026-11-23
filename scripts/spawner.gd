@@ -39,6 +39,9 @@ signal part_destroyed(uid: int, type: String, at: Vector3, props: Dictionary)
 ## Parts made while spawned (a reload gate's new payload), for the scripts
 ## that look after parts of each kind to take them on.
 signal parts_added(uids: Array)
+## Every body was just picked up and put down somewhere else, stopped dead
+## (To runway): anything that measures a change of speed starts afresh.
+signal teleported
 
 const TOUCH := 0.0004   # metres; faces this close together count as touching
 const BUCKET := 1.0     # metres; size of the sorting boxes used to find neighbours
@@ -223,6 +226,8 @@ var _racks: Array = []         # racks, each with the gears that drive it
 var _flame_mesh: Mesh = null
 var _reload_gates: Dictionary = {}  # reload gate uid -> see _find_reload_payloads
 var _payload_safe: Dictionary = {}  # payload part uid -> time alive until which its explosives can't be set off
+var _changed_bodies: Dictionary = {}   # body -> true: weigh again after this tick's reload gates
+var _change_count := 0         # goes up whenever parts are destroyed or move between bodies
 var _next_uid := 1             # the uid the next part made while spawned gets
 
 # The physics engine's joint motors may count a positive speed either way
@@ -1258,6 +1263,9 @@ func _run_body_drag() -> void:
 		var frame: Transform3D = spawned_body.global_transform
 		var density: float = Aero.air_density(frame.origin.y)
 		var wind: Vector3 = Weather.wind_at(frame.origin)
+		if is_ordnance(spawned_body):
+			_ordnance_drag(spawned_body, axes, frame, density, wind)
+			continue
 		var pushed := false
 		for axis in 3:
 			var pair: Array = axes[axis]
@@ -1280,6 +1288,36 @@ func _run_body_drag() -> void:
 			pushed = true
 		if pushed:
 			spawned_body.sleeping = false
+
+
+## A dropped bomb's or fired missile's drag: as for any body, but the three
+## sides' pushes added up and put on at once, at the middle of its outline,
+## and not counted toward the stress model, which leaves it alone. There
+## can be hundreds of these falling at once.
+func _ordnance_drag(body: RigidBody3D, axes: Array, frame: Transform3D, density: float, wind: Vector3) -> void:
+	var moving: Vector3 = body.linear_velocity - wind
+	if moving.length_squared() < 0.25:
+		return
+	var total := Vector3.ZERO
+	var weighted := Vector3.ZERO
+	var weight := 0.0
+	for axis in 3:
+		var pair: Array = axes[axis]
+		var area: float = pair[0]
+		if area <= 0.0:
+			continue
+		var direction: Vector3 = frame.basis[axis].normalized()
+		var speed: float = moving.dot(direction)
+		var force: float = 0.5 * density * BODY_DRAG * area * speed * absf(speed)
+		force = minf(absf(force), body.mass * absf(speed) * 240.0 * 0.5) * signf(force)
+		total -= direction * force
+		var point: Vector3 = pair[1]
+		point[axis] = body.center_of_mass[axis]
+		weighted += point * absf(force)
+		weight += absf(force)
+	if weight <= 0.0:
+		return
+	body.apply_force(total, frame.basis * (weighted / weight))
 
 
 # --- Damage ------------------------------------------------------------------
@@ -1543,6 +1581,7 @@ func destroy_part(uid: int) -> void:
 ## Removes parts. If that leaves a body in separate chunks, each chunk
 ## becomes a body of its own.
 func _destroy_parts(uids: Array) -> void:
+	_change_count += 1
 	var touched: Array = []   # bodies that lost pieces
 	var gone: Array = []      # [uid, type, where it was, props]
 	for item in uids:
@@ -1687,6 +1726,7 @@ func _chunk_is_fixed(pieces: Array) -> bool:
 ## Moves a chunk of a body's pieces into a new body, at the same place and
 ## moving the same way.
 func _move_to_new_body(old: RigidBody3D, pieces: Array) -> void:
+	_change_count += 1
 	var old_held: Array = _body_pieces[old]
 	if not _any_solid(pieces):
 		# Nothing to see or touch in this chunk: it simply goes.
@@ -2812,8 +2852,12 @@ func _input_value(links: Dictionary, input_id: String, unlinked: float) -> float
 	if not links.has(input_id):
 		return unlinked
 	var link: Dictionary = links[input_id]
-	var source_uid: int = int(link.get("uid", 0))
-	var output_id: String = str(link.get("output", ""))
+	return read_output(int(link.get("uid", 0)), str(link.get("output", "")), unlinked)
+
+
+## What a part's output reads now: what a link from it gives. `unlinked` if
+## the part isn't there; 0 if it has been destroyed.
+func read_output(source_uid: int, output_id: String, unlinked: float) -> float:
 	if not _records.has(source_uid):
 		return unlinked
 	if _dead.has(source_uid):
@@ -3297,6 +3341,38 @@ func where() -> Variant:
 # --- Re-centring ---------------------------------------------------------------
 
 ## Moves every body and joint by -`shift` when main.gd re-centres the world.
+## Moves and turns every body of the build, and its joints, by `move` (put
+## on top of where each one is now), and stops them dead. The sudden stop
+## isn't a crash: crash damage, the stress model and impact detectors start
+## measuring afresh.
+func teleport(move: Transform3D) -> void:
+	for item in _bodies:
+		var body: RigidBody3D = item
+		if not is_instance_valid(body):
+			continue
+		body.global_transform = move * body.global_transform
+		body.linear_velocity = Vector3.ZERO
+		body.angular_velocity = Vector3.ZERO
+		if _parked.has(body):
+			_parked[body] = [Vector3.ZERO, Vector3.ZERO]
+		else:
+			body.sleeping = false
+	for entry in _joints:
+		var joint_entry: Dictionary = entry
+		var node: Node3D = joint_entry["node"]
+		if is_instance_valid(node):
+			node.global_transform = move * node.global_transform
+	_speed_history.clear()
+	if stress != null:
+		stress.forget_motion()
+	teleported.emit()
+
+
+## Which way the pad's grid faces: a spawned body's frame as built.
+func grid_basis() -> Basis:
+	return _grid_frame.basis
+
+
 func shift_origin(shift: Vector3) -> void:
 	_grid_frame.origin -= shift
 	for item in _bodies:
@@ -3470,6 +3546,9 @@ func _run_buoyancy(delta: float) -> void:
 		var data: Array = _floats[body]
 		var reach: float = data[2]
 		var place := body.global_transform
+		# Far above the lake, with no tsunami about: nothing to work out.
+		if place.origin.y - reach > surface + 30.0 and Weather.calm_water():
+			continue
 		var level: float = Weather.water_height(place.origin)
 		if place.origin.y - reach > maxf(surface, level) + 0.5:
 			continue   # well clear of the water
@@ -3610,8 +3689,21 @@ func _find_reload_payloads() -> void:
 		var snapshot: Dictionary = {}
 		for item in payload:
 			snapshot[item] = (_records[item] as Dictionary).duplicate(true)
+		# How far the payload reaches out from the rail: a let-go payload
+		# has to be that far clear before the next one can be made.
+		var up: Vector3 = (record["rot"] as Basis).y.normalized()
+		var reach := 0.0
+		for item in payload:
+			var box: AABB = BuildGrid.bounds_of(_records[item])
+			var low := INF
+			var high := -INF
+			for corner in 8:
+				var along: float = box.get_endpoint(corner).dot(up)
+				low = minf(low, along)
+				high = maxf(high, along)
+			reach = maxf(reach, high - low)
 		_reload_gates[uid] = {"payload": payload, "snapshot": snapshot, "current": payload.duplicate(),
-				"released": [], "timer": 0.0, "waiting": false, "used": 0}
+				"released": [], "waited": 0.0, "waiting": false, "used": 0, "reach": reach}
 		for item in payload:
 			_payload_safe[item] = INF
 
@@ -3670,6 +3762,21 @@ func _parts_on_rail(uid: int, record: Dictionary) -> Array:
 ## Lets go of each loaded gate's payload while its Release is on, and makes
 ## the payload again once it has been gone for the reload time.
 func _run_reload_gates(delta: float) -> void:
+	_run_gates(delta)
+	# A body that lost or gained payloads is weighed again once, however many
+	# of its gates let go or reloaded this tick (a bomber's salvo).
+	for body in _changed_bodies:
+		if is_instance_valid(body) and _body_pieces.has(body):
+			_refresh_body(body)
+	_changed_bodies.clear()
+
+
+## Marks a body to be weighed again at the end of this tick's reload gates.
+func _body_changed(body: RigidBody3D) -> void:
+	_changed_bodies[body] = true
+
+
+func _run_gates(delta: float) -> void:
 	for key in _reload_gates:
 		var uid: int = key
 		var gate: Dictionary = _reload_gates[uid]
@@ -3681,37 +3788,49 @@ func _run_reload_gates(delta: float) -> void:
 		var record: Dictionary = _records[uid]
 		var props: Dictionary = record.get("props", {})
 		# What of the payload is still on the rail: alive, and still part of
-		# the gate's body.
-		var held: Array = []
-		for item in gate["current"]:
-			var part: int = item
-			if _dead.has(part):
-				continue
-			for index in PIECES:
-				var piece: int = part * PIECES + index
-				if _pieces.has(piece) and (_pieces[piece] as Dictionary)["body"] == gate_body:
-					held.append(piece)
+		# the gate's body. Worked out again only when the build has changed
+		# (a part broken or let go somewhere); otherwise the last answer holds.
+		var held: Array = gate.get("held", [])
+		if int(gate.get("held_at", -1)) != _change_count:
+			held = []
+			for item in gate["current"]:
+				var part: int = item
+				if _dead.has(part):
+					continue
+				for index in PIECES:
+					var piece: int = part * PIECES + index
+					if _pieces.has(piece) and (_pieces[piece] as Dictionary)["body"] == gate_body:
+						held.append(piece)
+			gate["held"] = held
+			gate["held_at"] = _change_count
 		var loaded := not held.is_empty()
-		if loaded and _input_value(record.get("links", {}), "release", 0.0) != 0.0:
+		var links: Dictionary = record.get("links", {})
+		if loaded and _input_value(links, "release", 0.0) != 0.0:
 			_move_to_new_body(gate_body, held)
-			_refresh_body(gate_body)
+			_change_count += 1
+			_body_changed(gate_body)
 			gate_body.sleeping = false
 			gate["released"] = held
 			loaded = false
 			var armed_at: float = _alive_time + maxf(float(props.get("safe_time", 0.5)), 0.0)
 			for item in gate["current"]:
 				_payload_safe[item] = armed_at
+			_push_off(uid, record, gate_body, held, float(props.get("push_speed", 0.0)))
 		if loaded:
 			gate["waiting"] = false
 		else:
 			if not bool(gate["waiting"]):
 				gate["waiting"] = true
-				gate["timer"] = maxf(float(props.get("reload_time", 3.0)), 0.0)
-			gate["timer"] = float(gate["timer"]) - delta
+				gate["waited"] = 0.0
+			gate["waited"] = float(gate["waited"]) + delta
+			# The Reload time input, while linked, overrides the setting, so a
+			# build can change how fast a gate reloads as it goes.
+			var reload_time: float = maxf(_input_value(links, "reload_time", float(props.get("reload_time", 3.0))), 0.0)
 			var limit := int(float(props.get("reloads", 0.0)))
-			if float(gate["timer"]) <= 0.0 and (limit <= 0 or int(gate["used"]) < limit) \
+			if float(gate["waited"]) >= reload_time and (limit <= 0 or int(gate["used"]) < limit) \
 					and not _rail_blocked(gate, gate_body):
 				gate["current"] = _remake_payload(gate, gate_body)
+				_change_count += 1
 				gate["used"] = int(gate["used"]) + 1
 				gate["waiting"] = false
 				loaded = true
@@ -3726,10 +3845,46 @@ func is_payload_safe(uid: int) -> bool:
 	return _alive_time < float(_payload_safe.get(uid, -1.0))
 
 
+## Sends a payload just let go off the rail at `speed` (m/s), straight out
+## from the rail, and pushes the gate's body back by as much (an ejector
+## rack), so a bomb clears its bay at once instead of drifting out of it.
+func _push_off(uid: int, record: Dictionary, gate_body: RigidBody3D, held: Array, speed: float) -> void:
+	if speed <= 0.0 or held.is_empty():
+		return
+	var body: RigidBody3D = _piece_body(held[0])
+	if body == null or body == gate_body or body.freeze:
+		return
+	var out: Vector3 = (gate_body.global_transform.basis * (record["rot"] as Basis).y).normalized()
+	body.linear_velocity += out * speed
+	if not gate_body.freeze:
+		var centre: Vector3 = body.global_transform * body.center_of_mass
+		gate_body.apply_impulse(-out * speed * body.mass, centre - gate_body.global_position)
+
+
+## True for a body that is nothing but a payload a reload gate let go: a
+## dropped bomb, a fired missile.
+func is_ordnance(body: RigidBody3D) -> bool:
+	var pieces: Array = _body_pieces.get(body, [])
+	return not pieces.is_empty() and is_dropped_payload(_uid_of(pieces[0]))
+
+
+## True for a part of a reload gate's payload, held on its rail or let go.
+func is_payload(uid: int) -> bool:
+	return _payload_safe.has(uid)
+
+
+## True for a part of a payload a reload gate has let go: a dropped bomb, a
+## fired missile. This build's own blasts pass it by.
+func is_dropped_payload(uid: int) -> bool:
+	return _payload_safe.has(uid) and float(_payload_safe[uid]) != INF
+
+
 ## True while the last payload let go is still sitting where the new one
-## would go (a rocket that didn't light, say).
+## would go (a rocket that didn't light, say), or hasn't yet got clear of
+## it (a bomb falling out of its bay).
 func _rail_blocked(gate: Dictionary, gate_body: RigidBody3D) -> bool:
 	var origin: Vector3 = body_origin_in_grid(gate_body)
+	var clear: float = maxf(0.5, float(gate.get("reach", 0.0)) + 0.1)
 	for item in gate["released"]:
 		var piece: int = item
 		if not _pieces.has(piece):
@@ -3740,7 +3895,7 @@ func _rail_blocked(gate: Dictionary, gate_body: RigidBody3D) -> bool:
 			continue
 		var now: Vector3 = body.global_transform * (entry["centre"] as Vector3)
 		var home: Vector3 = gate_body.global_transform * (_piece_centre(piece, _records[_uid_of(piece)]) - origin)
-		if now.distance_to(home) < 0.5:
+		if now.distance_to(home) < clear:
 			return true
 	return false
 
@@ -3782,7 +3937,7 @@ func _remake_payload(gate: Dictionary, gate_body: RigidBody3D) -> Array:
 		made.append(new_uid)
 		_payload_safe[new_uid] = INF
 	(_body_pieces[gate_body] as Array).append_array(new_pieces)
-	_refresh_body(gate_body)
+	_body_changed(gate_body)
 	gate_body.sleeping = false
 	parts_added.emit(made)
 	return made

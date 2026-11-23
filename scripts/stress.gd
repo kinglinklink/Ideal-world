@@ -89,6 +89,12 @@ func clear() -> void:
 	_over.clear()
 
 
+## Forgets how fast each body was going, so the next check works out no
+## acceleration from a jump in speed that wasn't one (a teleport).
+func forget_motion() -> void:
+	_motion.clear()
+
+
 ## Called by the spawner once a tick, after every force has been put on.
 func run(alive_time: float) -> void:
 	_tick += 1
@@ -102,6 +108,11 @@ func run(alive_time: float) -> void:
 			_uncolour()
 		return
 	var interval: float = EVERY / float(Engine.physics_ticks_per_second)
+	# The forces put on directly (thrust, lift ...) were added up every tick
+	# since the last check: their average over those ticks is the load, as
+	# the accelerations are averaged over the same ticks.
+	for key in applied:
+		applied[key] = (applied[key] as Vector3) / float(EVERY)
 	var doomed: Array = []
 	for item in spawner.all_bodies():
 		var body: RigidBody3D = item
@@ -110,6 +121,8 @@ func run(alive_time: float) -> void:
 		var pieces: Array = spawner.body_pieces(body)
 		if body.sleeping:
 			continue   # nothing has changed, and its contacts are old news
+		if spawner.is_ordnance(body):
+			continue   # a dropped bomb or a fired missile: it is on its way to blowing up anyway
 		var previous: Array = _motion.get(body, [])
 		var velocity := body.linear_velocity
 		var spin := body.angular_velocity
@@ -222,6 +235,11 @@ func _tree_for(body: RigidBody3D, pieces: Array) -> Dictionary:
 		var key: float = distance if distance > ROOT_REACH else -1.0e6 - mass
 		if mass <= 0.0:
 			key += 1.0e9
+		elif spawner.is_payload(piece >> 3):
+			# A bomb on a reload gate is cargo, hung on by its rail: the
+			# structure doesn't hang from it, even when it sits right on
+			# the centre of mass.
+			key += 1.0e8
 		if key < best_key:
 			best_key = key
 			root = piece

@@ -36,6 +36,11 @@ var terrain: Node3D = null    # terrain.gd, for the distance sensor to see the g
 
 var _generation := -1
 var _gates: Array = []        # uids, in the order they run
+var _compiled: Array = []     # one entry per gate in _gates: see _compile
+var _detectors: Array = []    # impact detectors: [uid, state, outputs, threshold, pulse]
+var _order_dirty := false     # gates were added: put them in order again before the next tick
+var _outputs_table: Dictionary = {}   # the spawner's outputs and destroyed parts, read directly
+var _dead_table: Dictionary = {}
 var _state: Dictionary = {}   # uid -> what a gate, PID or detector remembers between ticks
 var _sensors: Array = []
 var _lights: Array = []       # {"uid", "glow" material, "lamp" OmniLight3D or null, "plain": original overrides}
@@ -72,9 +77,19 @@ func _physics_tick(delta: float) -> void:
 		_start()
 	for uid in _sensors:
 		_run_sensor(uid, delta)
+	_run_detectors(delta)
+	if _order_dirty:
+		_sort_gates()
 	for pass_index in GATE_PASSES:
-		for uid in _gates:
-			_run_gate(uid, delta, pass_index)
+		var last_pass := pass_index == GATE_PASSES - 1
+		var middle := pass_index != 0 and not last_pass
+		for entry in _compiled:
+			if middle and not entry[2 if entry[1] == KIND_OTHER else 9]:
+				continue   # settled on the first pass: see _sort_gates
+			if entry[1] == KIND_OTHER:
+				_run_gate(entry[0], delta, pass_index)
+			else:
+				_run_compiled(entry, delta, last_pass)
 	_run_lights()
 	_run_vanish()
 	_run_propellers()
@@ -87,12 +102,25 @@ func _start() -> void:
 	_generation = int(spawner.generation)
 	if not spawner.parts_added.is_connected(_on_parts_added):
 		spawner.parts_added.connect(_on_parts_added)
+	if not spawner.teleported.is_connected(_on_teleported):
+		spawner.teleported.connect(_on_teleported)
+	_outputs_table = spawner._outputs
+	_dead_table = spawner._dead
 	var records: Dictionary = spawner.all_records()
 	for key in records:
 		_add_part(int(key), records[key])
 
 
 ## Parts made while spawned (a reload gate's payload) join in.
+## The build was teleported and stopped: impact detectors would read the
+## stop as a crash, so they start again from the next tick.
+func _on_teleported() -> void:
+	for key in _state:
+		var state: Variant = _state[key]
+		if state is Dictionary and (state as Dictionary).has("primed"):
+			state["primed"] = false
+
+
 func _on_parts_added(uids: Array) -> void:
 	if _generation != int(spawner.generation):
 		return   # not started on this spawn yet; _start will find them
@@ -110,6 +138,16 @@ func _add_part(uid: int, record: Dictionary) -> void:
 		_gates.append(uid)
 		_state[uid] = {"latched": false, "was_on": false, "timer": 0.0, "integral": 0.0,
 				"last": 0.0, "primed": false}
+		_compiled.append(_compile(uid, record))
+		_order_dirty = true
+	elif type == "impact_detector":
+		# Many of these (one in every bomb), so they keep what they need:
+		# their settings and the dictionary their outputs live in.
+		var out := {"triggered": 0.0, "acceleration": 0.0}
+		spawner.set_outputs(uid, out)
+		_state[uid] = {"velocity": Vector3.ZERO, "primed": false, "pulse": 0.0}
+		_detectors.append([uid, _state[uid], out, float(props.get("threshold", 10.0)),
+				float(props.get("pulse", 0.1))])
 	elif SENSORS.has(type):
 		_sensors.append(uid)
 		_state[uid] = {"velocity": Vector3.ZERO, "primed": false, "pulse": 0.0}
@@ -145,6 +183,8 @@ func _clear() -> void:
 		if is_instance_valid(lamp):
 			lamp.queue_free()
 	_gates.clear()
+	_compiled.clear()
+	_detectors.clear()
 	_state.clear()
 	_sensors.clear()
 	_lights.clear()
@@ -161,6 +201,203 @@ func _clear() -> void:
 
 
 # --- Gates -------------------------------------------------------------------
+
+# --- Gates, worked out once ---------------------------------------------------
+# A boolean or number gate runs four times a tick, so what it reads, what it
+# does and where it puts its result are looked up once, at spawn: its
+# operation as a number, each input as [source uid, output] (empty if not
+# linked), and the dictionary its outputs live in, filled in place.
+
+const KIND_OTHER := 0
+const KIND_BOOL := 1
+const KIND_NUMBER := 2
+const BOOL_OPS := {"AND": 0, "OR": 1, "NOT": 2, "XOR": 3, "NAND": 4, "NOR": 5, "Latch": 6, "Timer": 7}
+const NUMBER_OPS := {"Constant": 0, "Add": 1, "Subtract": 2, "Multiply": 3, "Divide": 4, "Absolute value": 5,
+		"Min": 6, "Max": 7, "Clamp": 8, "Compare": 9, "Select": 10, "Map range": 11, "Modulo": 12, "Between": 13}
+
+
+## [uid, kind, operation, a, b, c, value, outputs, state]
+func _compile(uid: int, record: Dictionary) -> Array:
+	var type: String = record["type"]
+	var props: Dictionary = record.get("props", {})
+	var links: Dictionary = record.get("links", {})
+	var sources: Array = []
+	for port in ["a", "b", "c"]:
+		if links.has(port):
+			var link: Dictionary = links[port]
+			sources.append([int(link.get("uid", 0)), str(link.get("output", ""))])
+		else:
+			sources.append([])
+	if type == "boolean_gate":
+		var out := {"result": 0.0}
+		spawner.set_outputs(uid, out)
+		return [uid, KIND_BOOL, int(BOOL_OPS.get(str(props.get("operation", "AND")), -1)),
+				sources[0], sources[1], sources[2], maxf(float(props.get("seconds", 1.0)), 0.0), out, _state[uid], true]
+	if type == "number_gate":
+		var operation := int(NUMBER_OPS.get(str(props.get("operation", "Constant")), -1))
+		var value := float(props.get("value", 0.0))
+		var out := {"result": value if operation == 0 else 0.0, "is_true": 1.0 if operation == 0 and value != 0.0 else 0.0}
+		spawner.set_outputs(uid, out)
+		return [uid, KIND_NUMBER, operation, sources[0], sources[1], sources[2], value, out, _state[uid], true]
+	return [uid, KIND_OTHER, true]
+
+
+## Puts the gates in the order signals flow through them, so on the first
+## pass of a tick each gate reads what the gates before it worked out this
+## tick. A gate that isn't in a loop, and isn't fed by one, is then settled
+## after the first pass: it is skipped on the middle passes, and runs again
+## on the last (when latches and timers move). Gates in loops, and those fed
+## by them, run on every pass, in the order they were built.
+func _sort_gates() -> void:
+	_order_dirty = false
+	var index_of := {}
+	for i in _compiled.size():
+		index_of[int(_compiled[i][0])] = i
+	var feeds: Array = []      # index -> indices of the gates it feeds
+	var waiting: Array = []    # index -> how many gates feed it
+	feeds.resize(_compiled.size())
+	waiting.resize(_compiled.size())
+	for i in _compiled.size():
+		feeds[i] = []
+		waiting[i] = 0
+	var looped := {}
+	for i in _compiled.size():
+		var record: Dictionary = spawner.record_of(int(_compiled[i][0]))
+		var links: Dictionary = record.get("links", {})
+		for port in links:
+			var source := int((links[port] as Dictionary).get("uid", 0))
+			if not index_of.has(source):
+				continue
+			var j: int = index_of[source]
+			if j == i:
+				looped[i] = true   # reads its own output
+				continue
+			(feeds[j] as Array).append(i)
+			waiting[i] = int(waiting[i]) + 1
+	var order: Array = []
+	var ready: Array = []
+	for i in _compiled.size():
+		if int(waiting[i]) == 0:
+			ready.append(i)
+	var head := 0
+	while head < ready.size():
+		var i: int = ready[head]
+		head += 1
+		order.append(i)
+		for k in feeds[i]:
+			waiting[k] = int(waiting[k]) - 1
+			if int(waiting[k]) == 0:
+				ready.append(k)
+	var placed := {}
+	for i in order:
+		placed[i] = true
+	# What is left is in a loop or fed by one: every pass, in build order.
+	var stirred := looped.duplicate()
+	for i in _compiled.size():
+		if not placed.has(i):
+			stirred[i] = true
+	var spread: Array = stirred.keys()
+	while not spread.is_empty():
+		var i: int = spread.pop_back()
+		for k in feeds[i]:
+			if not stirred.has(k):
+				stirred[k] = true
+				spread.append(k)
+	var sorted: Array = []
+	for i in order:
+		sorted.append(i)
+	for i in _compiled.size():
+		if not placed.has(i):
+			sorted.append(i)
+	var result: Array = []
+	for i in sorted:
+		var entry: Array = _compiled[i]
+		entry[entry.size() - 1] = stirred.has(i)
+		result.append(entry)
+	_compiled = result
+
+
+func _read(source: Array, unlinked: float) -> float:
+	if source.is_empty():
+		return unlinked
+	# Most links come from another gate or sensor, whose outputs are in the
+	# spawner's table: read it straight. Anything else (keys, controller,
+	# seats, destroyed parts) the spawner works out.
+	var reported: Variant = _outputs_table.get(source[0])
+	if reported != null and not _dead_table.has(source[0]):
+		return float((reported as Dictionary).get(source[1], 0.0))
+	return spawner.read_output(source[0], source[1], unlinked)
+
+
+func _run_compiled(entry: Array, delta: float, last_pass: bool) -> void:
+	if _dead_table.has(entry[0]):
+		return
+	var out: Dictionary = entry[7]
+	var operation: int = entry[2]
+	if entry[1] == KIND_BOOL:
+		var a: bool = _read(entry[3], 0.0) != 0.0
+		var b: bool = _read(entry[4], 0.0) != 0.0
+		var on := false
+		match operation:
+			0: on = a and b
+			1: on = a or b
+			2: on = not a
+			3: on = a != b
+			4: on = not (a and b)
+			5: on = not (a or b)
+			6:
+				# Latch: A switches it on, B switches it off.
+				var state: Dictionary = entry[8]
+				if last_pass:
+					if b:
+						state["latched"] = false
+					elif a:
+						state["latched"] = true
+				on = state["latched"]
+			7:
+				# Timer: when A switches on, the result stays on for the timer length.
+				var state: Dictionary = entry[8]
+				if last_pass:
+					if a and not state["was_on"]:
+						state["timer"] = entry[6]
+					elif state["timer"] > 0.0:
+						state["timer"] = maxf(float(state["timer"]) - delta, 0.0)
+					state["was_on"] = a
+				on = float(state["timer"]) > 0.0 or (a and not state["was_on"])
+		out["result"] = 1.0 if on else 0.0
+		return
+	var value: float = entry[6]
+	var a: float = _read(entry[3], 0.0)
+	var b: float = _read(entry[4], value)   # an unlinked B is the constant
+	var c: float = _read(entry[5], 0.0)
+	var result := 0.0
+	var is_true := false
+	match operation:
+		0: result = value
+		1: result = a + b
+		2: result = a - b
+		3: result = a * b
+		4: result = a / b if absf(b) > 1e-9 else 0.0
+		5: result = absf(a)
+		6: result = minf(a, b)
+		7: result = maxf(a, b)
+		8: result = clampf(a, minf(b, c), maxf(b, c))
+		9:
+			is_true = a > b
+			result = 1.0 if is_true else 0.0
+		10: result = b if a != 0.0 else c
+		11: result = (a - b) / (c - b) if absf(c - b) > 1e-9 else 0.0
+		12: result = fposmod(a, b) if absf(b) > 1e-9 else 0.0
+		13:
+			is_true = a >= minf(b, c) and a <= maxf(b, c)
+			result = 1.0 if is_true else 0.0
+	if not is_finite(result):
+		result = 0.0
+	if operation != 9 and operation != 13:
+		is_true = result != 0.0
+	out["result"] = result
+	out["is_true"] = 1.0 if is_true else 0.0
+
 
 func _run_gate(uid: int, delta: float, pass_index: int) -> void:
 	var last_pass := pass_index == GATE_PASSES - 1
@@ -332,6 +569,39 @@ func _run_sensor(uid: int, delta: float) -> void:
 					"acceleration": g})
 
 
+## Impact detectors: the acceleration in g, from the change of speed of the
+## point they sit at since the last tick; on for their signal length once it
+## passes their trigger level.
+func _run_detectors(delta: float) -> void:
+	var keep := false
+	for entry in _detectors:
+		var uid: int = entry[0]
+		if _dead_table.has(uid):
+			keep = true
+			continue
+		var frame_and_body: Array = spawner.part_frame(uid)
+		if frame_and_body.is_empty():
+			continue
+		var body: RigidBody3D = frame_and_body[1]
+		var velocity := _velocity_at(body, (frame_and_body[0] as Transform3D).origin)
+		var state: Dictionary = entry[1]
+		var g := 0.0
+		if state["primed"]:
+			g = (velocity - (state["velocity"] as Vector3)).length() / maxf(delta, 1e-6) / GRAVITY
+		state["velocity"] = velocity
+		state["primed"] = true
+		if g >= float(entry[3]):
+			state["pulse"] = maxf(float(entry[4]), delta)
+		else:
+			state["pulse"] = maxf(float(state["pulse"]) - delta, 0.0)
+		var out: Dictionary = entry[2]
+		out["triggered"] = 1.0 if float(state["pulse"]) > 0.0 else 0.0
+		out["acceleration"] = g
+	# Destroyed ones are dropped from the list now and then.
+	if keep and Engine.get_physics_frames() % 60 == 0:
+		_detectors = _detectors.filter(func(entry: Array) -> bool: return not _dead_table.has(int(entry[0])))
+
+
 ## How fast a point fixed to a body is moving.
 func _velocity_at(body: RigidBody3D, point: Vector3) -> Vector3:
 	var centre: Vector3 = body.global_transform * body.center_of_mass
@@ -350,17 +620,32 @@ func _distance(body: RigidBody3D, frame: Transform3D, reach: float) -> float:
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		nearest = start.distance_to(hit["position"])
-	# The ground and the lake, which are only solid near the character.
+	# The ground and the lake, which are only solid near the character:
+	# along the line in up to 40 steps (2 m apart at most), then halving the
+	# step where it first goes under, to a few centimetres. A long reach
+	# (a bomber's height finder) costs no more than a short one.
 	if terrain != null:
 		var travel := minf(nearest, reach)
-		var steps := clampi(int(ceil(travel / 2.0)), 1, 200)
+		var steps := clampi(int(ceil(travel / 2.0)), 1, 40)
+		var above := 0.0
 		for step in range(1, steps + 1):
 			var along := travel * float(step) / steps
-			var point := start + forward * along
-			if point.y < MapInfo.LAKE_Y or point.y < terrain.ground_at(point):
-				nearest = along
+			if _under_ground(start + forward * along):
+				var below := along
+				while below - above > 0.05:
+					var middle := (above + below) * 0.5
+					if _under_ground(start + forward * middle):
+						below = middle
+					else:
+						above = middle
+				nearest = below
 				break
+			above = along
 	return nearest
+
+
+func _under_ground(point: Vector3) -> bool:
+	return point.y < MapInfo.LAKE_Y or point.y < terrain.ground_at(point)
 
 
 # --- Lights and vanishing ----------------------------------------------------

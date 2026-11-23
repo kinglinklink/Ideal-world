@@ -127,6 +127,12 @@ static func wind_at(world: Vector3) -> Vector3:
 	return instance._wind_at(world)
 
 
+## True while no tsunami is running: the lake is no higher anywhere than its
+## waves.
+static func calm_water() -> bool:
+	return instance == null or instance.tsunami.is_empty()
+
+
 ## The height of the lake's surface at a place in the world (game metres),
 ## with the waves and any tsunami.
 static func water_height(world: Vector3) -> float:

@@ -119,6 +119,11 @@ static func stick(left: bool) -> Vector2:
 
 ## True while a pad button is held.
 static func held(button: JoyButton) -> bool:
+	if not fake.is_empty():
+		for control in fake:
+			var spec: Array = CONTROLS.get(control, [])
+			if spec.size() > 1 and str(spec[0]) == "button" and int(spec[1]) == int(button):
+				return float(fake[control]) != 0.0
 	var pad := device()
 	return pad >= 0 and Input.is_joy_button_pressed(pad, button)
 

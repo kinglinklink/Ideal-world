@@ -20,7 +20,7 @@ const SNAP_STOPS := [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005]   # in cells
 const AXIS_NAMES := ["X", "Y", "Z"]
 ## Shown in the bottom-right corner, so it is easy to tell which copy of the
 ## game is running. Raised with every pushed change.
-const VERSION := "Build 32"
+const VERSION := "Build 33"
 const MESSAGE_SECONDS := 3.5
 const TURN_KEYS := ["R", "T", "Y"]
 const AXIS_COLORS := [Color(0.95, 0.25, 0.3), Color(0.3, 0.85, 0.3), Color(0.3, 0.5, 1.0)]   # X, Y, Z
@@ -38,6 +38,7 @@ signal respawn_pressed
 signal birds_pressed
 signal photos_pressed
 signal test_stand_pressed
+signal runway_pressed
 
 var controller: Node = null          # build_controller.gd
 var grid: Node = null                # build_grid.gd
@@ -610,6 +611,15 @@ func _build_bottom_bar() -> Control:
 	_tint_button(_spawn_button, Color(0.35, 0.85, 0.4))   # bright green, hard to miss
 	_spawn_button.pressed.connect(_on_spawn_button)
 	bar.add_child(_spawn_button)
+
+	var runway_button := _button("To runway", 100.0)
+	runway_button.custom_minimum_size = Vector2(100, 56)
+	runway_button.tooltip_text = "Take the build to the start of the nearest runway, level and facing down it (spawning it first). Press again for the next runway."
+	_tint_button(runway_button, Color(0.45, 0.7, 0.95))
+	runway_button.pressed.connect(func() -> void:
+		_part_search.release_focus()
+		runway_pressed.emit())
+	bar.add_child(runway_button)
 
 	# Everything else in the bar belongs to building and hides while spawned.
 	_build_bar = _row()
