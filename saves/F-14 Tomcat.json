@@ -2708,7 +2708,7 @@
    },
    "links": {
     "fire": {
-     "part": 492,
+     "part": 499,
      "output": "result"
     }
    }
@@ -2748,7 +2748,7 @@
    },
    "links": {
     "fire": {
-     "part": 492,
+     "part": 499,
      "output": "result"
     }
    }
@@ -2789,7 +2789,7 @@
    },
    "links": {
     "fire": {
-     "part": 489,
+     "part": 496,
      "output": "result"
     }
    }
@@ -2830,7 +2830,7 @@
    },
    "links": {
     "fire": {
-     "part": 489,
+     "part": 496,
      "output": "result"
     }
    }
@@ -2866,7 +2866,7 @@
    ],
    "links": {
     "stowed": {
-     "part": 510,
+     "part": 517,
      "output": "result"
     }
    }
@@ -7301,7 +7301,7 @@
    },
    "links": {
     "extend": {
-     "part": 486,
+     "part": 493,
      "output": "result"
     }
    }
@@ -7669,7 +7669,7 @@
    },
    "links": {
     "extend": {
-     "part": 482,
+     "part": 489,
      "output": "result"
     }
    }
@@ -7744,7 +7744,7 @@
    },
    "links": {
     "extend": {
-     "part": 486,
+     "part": 493,
      "output": "result"
     }
    }
@@ -7943,7 +7943,7 @@
    },
    "links": {
     "extend": {
-     "part": 482,
+     "part": 489,
      "output": "result"
     }
    }
@@ -8018,7 +8018,7 @@
    },
    "links": {
     "extend": {
-     "part": 486,
+     "part": 493,
      "output": "result"
     }
    }
@@ -8217,7 +8217,7 @@
    },
    "links": {
     "extend": {
-     "part": 482,
+     "part": 489,
      "output": "result"
     }
    }
@@ -8288,7 +8288,7 @@
    },
    "links": {
     "ignite": {
-     "part": 496,
+     "part": 503,
      "output": "result"
     }
    }
@@ -8671,7 +8671,7 @@
    },
    "links": {
     "release": {
-     "part": 496,
+     "part": 503,
      "output": "result"
     }
    }
@@ -8772,7 +8772,7 @@
    },
    "links": {
     "ignite": {
-     "part": 504,
+     "part": 511,
      "output": "result"
     }
    }
@@ -9155,7 +9155,7 @@
    },
    "links": {
     "release": {
-     "part": 504,
+     "part": 511,
      "output": "result"
     }
    }
@@ -9256,7 +9256,7 @@
    },
    "links": {
     "ignite": {
-     "part": 500,
+     "part": 507,
      "output": "result"
     }
    }
@@ -9639,7 +9639,7 @@
    },
    "links": {
     "release": {
-     "part": 500,
+     "part": 507,
      "output": "result"
     }
    }
@@ -9740,7 +9740,7 @@
    },
    "links": {
     "ignite": {
-     "part": 508,
+     "part": 515,
      "output": "result"
     }
    }
@@ -10123,7 +10123,7 @@
    },
    "links": {
     "release": {
-     "part": 508,
+     "part": 515,
      "output": "result"
     }
    }
@@ -10278,7 +10278,7 @@
     0.0
    ],
    "settings": {
-    "range": 60.0
+    "range": 3000.0
    }
   },
   {
@@ -16867,7 +16867,7 @@
    }
   },
   {
-   "type": "boolean_gate",
+   "type": "number_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16896,22 +16896,18 @@
     1.0
    ],
    "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
+    "operation": "Compare",
+    "value": 50.0
    },
    "links": {
     "a": {
-     "part": 475,
-     "output": "result"
-    },
-    "b": {
-     "part": 478,
-     "output": "result"
+     "part": 307,
+     "output": "distance"
     }
    }
   },
   {
-   "type": "boolean_gate",
+   "type": "number_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16940,13 +16936,13 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 0.4
+    "operation": "Compare",
+    "value": 35.0
    },
    "links": {
     "a": {
-     "part": 468,
-     "output": "result"
+     "part": 307,
+     "output": "distance"
     }
    }
   },
@@ -16985,8 +16981,8 @@
    },
    "links": {
     "a": {
-     "part": 468,
-     "output": "result"
+     "part": 469,
+     "output": "is_true"
     }
    }
   },
@@ -17021,12 +17017,12 @@
    ],
    "settings": {
     "operation": "Timer",
-    "seconds": 0.4
+    "seconds": 0.15
    },
    "links": {
     "a": {
-     "part": 470,
-     "output": "result"
+     "part": 468,
+     "output": "is_true"
     }
    }
   },
@@ -17060,17 +17056,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.15
    },
    "links": {
     "a": {
      "part": 470,
      "output": "result"
-    },
-    "b": {
-     "part": 467,
-     "output": "is_true"
     }
    }
   },
@@ -17104,12 +17096,16 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "Latch",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 471,
+     "part": 484,
+     "output": "result"
+    },
+    "b": {
+     "part": 485,
      "output": "result"
     }
    }
@@ -17144,15 +17140,11 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.4
    },
    "links": {
     "a": {
-     "part": 472,
-     "output": "result"
-    },
-    "b": {
      "part": 473,
      "output": "result"
     }
@@ -17188,16 +17180,12 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "NOT",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 466,
-     "output": "result"
-    },
-    "b": {
-     "part": 474,
+     "part": 473,
      "output": "result"
     }
    }
@@ -17232,12 +17220,12 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.4
    },
    "links": {
     "a": {
-     "part": 469,
+     "part": 475,
      "output": "result"
     }
    }
@@ -17277,12 +17265,12 @@
    },
    "links": {
     "a": {
-     "part": 468,
+     "part": 475,
      "output": "result"
     },
     "b": {
-     "part": 476,
-     "output": "result"
+     "part": 467,
+     "output": "is_true"
     }
    }
   },
@@ -17316,16 +17304,12 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "NOT",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 466,
-     "output": "result"
-    },
-    "b": {
-     "part": 477,
+     "part": 476,
      "output": "result"
     }
    }
@@ -17360,12 +17344,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Latch",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 468,
+     "part": 477,
+     "output": "result"
+    },
+    "b": {
+     "part": 478,
      "output": "result"
     }
    }
@@ -17400,12 +17388,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 2.6
+    "operation": "AND",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 468,
+     "part": 466,
+     "output": "result"
+    },
+    "b": {
+     "part": 479,
      "output": "result"
     }
    }
@@ -17445,7 +17437,7 @@
    },
    "links": {
     "a": {
-     "part": 480,
+     "part": 474,
      "output": "result"
     }
    }
@@ -17485,7 +17477,7 @@
    },
    "links": {
     "a": {
-     "part": 468,
+     "part": 473,
      "output": "result"
     },
     "b": {
@@ -17524,12 +17516,16 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 468,
+     "part": 466,
+     "output": "result"
+    },
+    "b": {
+     "part": 482,
      "output": "result"
     }
    }
@@ -17564,12 +17560,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Timer",
-    "seconds": 2.2
+    "operation": "OR",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 483,
+     "part": 480,
+     "output": "result"
+    },
+    "b": {
+     "part": 471,
      "output": "result"
     }
    }
@@ -17604,16 +17604,16 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 484,
+     "part": 483,
      "output": "result"
     },
     "b": {
-     "part": 479,
+     "part": 472,
      "output": "result"
     }
    }
@@ -17648,16 +17648,304 @@
     1.0
    ],
    "settings": {
+    "operation": "Latch",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 473,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 2.6
+   },
+   "links": {
+    "a": {
+     "part": 473,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 487,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 473,
+     "output": "result"
+    },
+    "b": {
+     "part": 488,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 473,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 2.2
+   },
+   "links": {
+    "a": {
+     "part": 490,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 491,
+     "output": "result"
+    },
+    "b": {
+     "part": 486,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
     "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 468,
+     "part": 473,
      "output": "result"
     },
     "b": {
-     "part": 485,
+     "part": 492,
      "output": "result"
     }
    }
@@ -17667,9 +17955,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    19.5,
+    9.0,
     0.25,
-    22.5
+    24.0
    ],
    "size": [
     1.0,
@@ -17705,9 +17993,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    21.0,
+    10.5,
     0.25,
-    22.5
+    24.0
    ],
    "size": [
     1.0,
@@ -17739,9 +18027,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    22.5,
+    12.0,
     0.25,
-    22.5
+    24.0
    ],
    "size": [
     1.0,
@@ -17769,11 +18057,11 @@
    },
    "links": {
     "a": {
-     "part": 487,
+     "part": 494,
      "output": "pressed"
     },
     "b": {
-     "part": 488,
+     "part": 495,
      "output": "pressed"
     }
    }
@@ -17783,9 +18071,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    24.0,
+    13.5,
     0.25,
-    22.5
+    24.0
    ],
    "size": [
     1.0,
@@ -17821,7 +18109,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    4.5,
+    15.0,
     0.25,
     24.0
    ],
@@ -17857,7 +18145,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
+    16.5,
     0.25,
     24.0
    ],
@@ -17887,11 +18175,11 @@
    },
    "links": {
     "a": {
-     "part": 490,
+     "part": 497,
      "output": "pressed"
     },
     "b": {
-     "part": 491,
+     "part": 498,
      "output": "pressed"
     }
    }
@@ -17901,7 +18189,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    18.0,
     0.25,
     24.0
    ],
@@ -17939,7 +18227,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    9.0,
+    19.5,
     0.25,
     24.0
    ],
@@ -17975,306 +18263,6 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    10.5,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 493,
-     "output": "pressed"
-    },
-    "b": {
-     "part": 494,
-     "output": "pressed"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 495,
-     "output": "result"
-    },
-    "b": {
-     "part": 257,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 257,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 495,
-     "output": "result"
-    },
-    "b": {
-     "part": 287,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 497,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 498,
-     "output": "result"
-    },
-    "b": {
-     "part": 499,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 497,
-     "output": "result"
-    },
-    "b": {
-     "part": 287,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
     21.0,
     0.25,
     24.0
@@ -18300,17 +18288,17 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 495,
-     "output": "result"
+     "part": 500,
+     "output": "pressed"
     },
     "b": {
-     "part": 272,
-     "output": "loaded"
+     "part": 501,
+     "output": "pressed"
     }
    }
   },
@@ -18344,13 +18332,17 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 501,
+     "part": 502,
      "output": "result"
+    },
+    "b": {
+     "part": 257,
+     "output": "loaded"
     }
    }
   },
@@ -18384,17 +18376,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 502,
-     "output": "result"
-    },
-    "b": {
-     "part": 503,
-     "output": "result"
+     "part": 257,
+     "output": "loaded"
     }
    }
   },
@@ -18428,16 +18416,16 @@
     1.0
    ],
    "settings": {
-    "operation": "OR",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 501,
+     "part": 502,
      "output": "result"
     },
     "b": {
-     "part": 272,
+     "part": 287,
      "output": "loaded"
     }
    }
@@ -18472,17 +18460,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "NOT",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 495,
+     "part": 504,
      "output": "result"
-    },
-    "b": {
-     "part": 302,
-     "output": "loaded"
     }
    }
   },
@@ -18516,12 +18500,16 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
      "part": 505,
+     "output": "result"
+    },
+    "b": {
+     "part": 506,
      "output": "result"
     }
    }
@@ -18556,17 +18544,17 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 506,
+     "part": 504,
      "output": "result"
     },
     "b": {
-     "part": 507,
-     "output": "result"
+     "part": 287,
+     "output": "loaded"
     }
    }
   },
@@ -18600,16 +18588,16 @@
     1.0
    ],
    "settings": {
-    "operation": "OR",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 505,
+     "part": 502,
      "output": "result"
     },
     "b": {
-     "part": 302,
+     "part": 272,
      "output": "loaded"
     }
    }
@@ -18644,6 +18632,306 @@
     1.0
    ],
    "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 508,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 509,
+     "output": "result"
+    },
+    "b": {
+     "part": 510,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 508,
+     "output": "result"
+    },
+    "b": {
+     "part": 272,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 502,
+     "output": "result"
+    },
+    "b": {
+     "part": 302,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 512,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 513,
+     "output": "result"
+    },
+    "b": {
+     "part": 514,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 512,
+     "output": "result"
+    },
+    "b": {
+     "part": 302,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
     "operation": "OR",
     "seconds": 1.0
    },
@@ -18653,7 +18941,7 @@
      "output": "is_true"
     },
     "b": {
-     "part": 486,
+     "part": 493,
      "output": "result"
     }
    }

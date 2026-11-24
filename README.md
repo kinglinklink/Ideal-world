@@ -6,6 +6,18 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 35
+
+- **The B-2 flies properly now.**
+  - **Thrust vectoring.** Each of its four engines now swivels up and down 20° on its own servo, just behind the wing root. All four swing together for pitch, and left against right for roll.
+  - **Differential thrust.** Each side's pair of engines has its own throttle, and the stability system opens one side up and the other down to yaw. The drag rudders still help.
+  - **Yaw stability.** A flying wing has no fin, so it used to swing its nose about and slide sideways through the air: by full throttle it was flying nearly 40° sideways. Now the stability system reads the sideslip and swings the nose into the airflow, as a fin would. Hands off, it holds its heading with the slip within half a degree, and turns are coordinated.
+  - **Roll** is nearly twice as fast: 17 to 20° a second at full stick, up from 11. The elevons move faster, and the inner pair now take the full roll command. **Pitch** answers the stick properly, up to its 1.5 g limit.
+  - **Let go in a turn** and it holds the bank, its height and the turn. Let go wings-level and it stays wings-level on its heading.
+  - The engines only swivel once it's flying: on the runway the stick moves the elevons alone, so the nose doesn't snatch up on rotation and drag the missiles. Pull back from about 80 m/s; it lifts off at about 88 m/s.
+- **F-14 and F-14 Mark 2: the gear goes up by itself** as the jet climbs past 50 m above the ground, and comes down by itself as it sinks below 35 m. **D-pad up** (or G) still raises or lowers it by hand any time off the ground. Your choice holds until the next time the jet climbs or sinks past those heights.
+- **Speed sensor**: three new outputs, its speed through the air (the wind taken off) along its own axes: forward, sideways (right +) and upward. Sideways over forward is how far a build is slipping sideways (what the B-2's yaw stability flies on); upward over forward, its angle of attack.
+
 ### New in Build 34
 
 - **F-14 Tomcat Mark 2** in the saves folder: the F-14 armed to the teeth.
@@ -48,7 +60,7 @@ Don't fire at anything much closer than 200 m: it will be a dud.
 | Controller | Keyboard | |
 | --- | --- | --- |
 | Left stick | W S A D | Pitch and roll (and nose-wheel steering, slowly, on the ground) |
-| | Z X | Yaw (the drag rudders) |
+| | Z X | Yaw (differential thrust and the drag rudders; also steers on the ground) |
 | RT | K (full), M (cruise) | Throttle, 250 kN an engine |
 | | Q | Air brake |
 | A | 1 | Every small bay: the carpet |
@@ -72,7 +84,7 @@ Hold a bomb button and those bays keep dropping as fast as they reload. Fly at l
   - A boarding ladder on the left by the cockpit. It folds away once the engines run or the gear is up.
   - **Right trigger** (or K for full power, M for cruise): 500 kN a side.
   - **Left trigger** (or Shift): afterburners, only once the right trigger is fully in. Up to 5 MN a side. They spool over about 4 s and ease off at speed so the airframe isn't crushed, and it reaches the game's top speed of about 740 m/s (best high up).
-  - **D-pad up** (or G): gear up once airborne, and again to lower it.
+  - **D-pad up** (or G): gear up once airborne, and again to lower it. (From Build 35 it also goes up by itself past 50 m and comes down below 35 m.)
   - The four missiles sit on reload gates and the trigger fires the next loaded one. They are now heavier aluminium so they outrun the jet.
 
 ### New in Build 31
@@ -222,7 +234,7 @@ Link outputs to inputs with the Config tool. On/off signals are 1 and 0; any num
 - **Number logic:** an unlinked B uses the Constant setting, so "Add" with only A linked adds the constant. Add, Subtract (A − B), Multiply, Divide (A ÷ B, 0 if B is 0), Absolute value (of A), Min, Max, Clamp (A between B and C), Compare (on if A > B), Select (B if A is on, else C), Map range (A from B…C onto 0…1), Modulo (A wrapped into 0 up to B), Between (on while A is between B and C). "Comparison is true" is on whenever the result is not 0.
 - **PID controller:** output = Kp × error + Ki × its running total + Kd × its rate of change, where error = setpoint − measurement, held between the lowest and highest output. The running total stops growing while the output is held at a limit, and the rate is taken from the measurement, so a sudden change of setpoint does not jolt it.
 - **PWM generator:** a square wave. Output is on for the duty cycle's share of every cycle and off for the rest, at its frequency (up to 120 Hz; the physics runs at 240 steps a second, so higher would be meaningless). Duty (0 to 1) and Frequency (Hz) inputs override the settings while linked, and Enable (on if not linked) stops it with the output off. Phase puts out where it is in the cycle, 0 to 1, as a sawtooth. Link Output to a thruster's On, a motor's direction or a light to pulse them; link a number (a PID's output, say) to Duty to vary the share of time on.
-- **Speed sensor:** m/s. **Altitude sensor:** metres above sea level (the lake is at 881 m). **Attitude sensor:** pitch (nose up positive), roll (right side down positive) and yaw (compass heading, 0 north, 90 east) in degrees, plus each rate in degrees per second, all of the sensor's own forward (−Z) and up (+Y).
+- **Speed sensor:** m/s; also its speed through the air along its own axes: forward (−Z), sideways (right +) and upward. **Altitude sensor:** metres above sea level (the lake is at 881 m). **Attitude sensor:** pitch (nose up positive), roll (right side down positive) and yaw (compass heading, 0 north, 90 east) in degrees, plus each rate in degrees per second, all of the sensor's own forward (−Z) and up (+Y).
 - **Distance sensor:** metres from the sensor straight ahead along its −Z to the first part, building, ground or water, up to its range; it reads the range if nothing is there.
 - **Impact detector:** puts out its acceleration in g (0 at rest or in steady flight) and switches on for its signal length whenever that passes its trigger level.
 - **Light panel:** glows in its color, or in the Red, Green and Blue inputs (0 to 255) if linked, while On is on (always, if On is not linked), and lights up what is around it.
@@ -475,7 +487,7 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `tools/build_kit.py`, `make_f14.py`, `make_b2.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`), its Mark 2 (`python3 tools/make_f14.py "saves/F-14 Tomcat Mark 2.json" --mk2`), the B-2 (`python3 tools/make_b2.py "saves/B-2 Spirit.json"`) and the big delta plane |
 | `tools/build_shot.gd` | Pictures of a build file from six sides (add `lit` for its lights on) |
 | `tools/ladder_test.gd` | Climbs ladders on the pad, spawned and on a fleet vehicle: up with the stick and with A, hanging, climbing down and pushing off |
-| `tools/f14_test.gd`, `b2_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 and its Mark 2 (ground, takeoff, air, missile, fast, reload, ladder; barrage and dud for the Mark 2's weapons and arming), the B-2 (ground, takeoff, air, bomb, low, ladder; prints tick times) and the delta plane, and the controller test |
+| `tools/f14_test.gd`, `b2_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 and its Mark 2 (ground, takeoff, air, missile, fast, reload, ladder; barrage and dud for the Mark 2's weapons and arming; gear, the gear going up and down by itself over the lake), the B-2 (ground, takeoff, air, bomb, low, ladder, and handling: hands off between stick inputs, with the sideslip and rates; prints tick times) and the delta plane, and the controller test |
 | `tools/runway_test.gd` | To runway: from build mode, seated, again for the next runway, and rolling down it |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |
 | `tools/find_caves.py` | Searches the heights for cave sites |
