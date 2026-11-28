@@ -212,6 +212,7 @@ var _grid_frame := Transform3D.IDENTITY
 
 var _joints: Array = []        # {"node", "uid", "a", "b", "local"}: local is the joint's frame inside a's body
 var _seats: Dictionary = {}    # seat uid -> [piece, its transform inside the body, its size in metres]
+var _cameras: Dictionary = {}  # camera uid -> [the piece it rides on, its transform from that piece]
 var _thrusters: Array = []     # [piece, transform inside the body, thrust in newtons, links, flame]
 var _panels: Array = []        # aero panels: [piece, centre inside the body, normal inside it, area, dragless]
 var _inputs: Dictionary = {}   # input block uid -> its keys and what it is putting out
@@ -460,6 +461,7 @@ func spawn(grid: Node3D) -> Dictionary:
 			_make_joint(machine_uid, machine_record, str(machine["role"]), spec, a, b)
 			free_joints += 1
 
+	_find_cameras()
 	_check_reload_payloads()
 	_find_gears()
 	_find_meshes()
@@ -654,6 +656,7 @@ func despawn() -> void:
 	_fixed_buckets.clear()
 	_joints.clear()
 	_seats.clear()
+	_cameras.clear()
 	_thrusters.clear()
 	_panels.clear()
 	_inputs.clear()
@@ -727,6 +730,69 @@ func seat_frame(uid: int) -> Array:
 		return []
 	var place: Transform3D = seat[1]
 	return [body.global_transform * place, seat[2]]
+
+
+## Gives each camera the piece it rides on: the one it sits inside (the
+## smallest box holding it), else the nearest within a metre. A camera has
+## no body of its own.
+func _find_cameras() -> void:
+	for key in _records:
+		var uid: int = key
+		var record: Dictionary = _records[uid]
+		if str(record["type"]) != "camera":
+			continue
+		var place := Transform3D(record["rot"] as Basis, Vector3(record["pos"] as Vector3i) * Units.UNIT)
+		var best := -1
+		var best_score := INF
+		for piece_key in _boxes:
+			var piece: int = piece_key
+			if not _pieces.has(piece):
+				continue
+			var box: AABB = _boxes[piece]
+			var score: float
+			if box.grow(0.001).has_point(place.origin):
+				score = box.get_volume() * 0.000001   # inside: the smallest box wins
+			else:
+				var nearest := place.origin.clamp(box.position, box.end)
+				var gap := nearest.distance_to(place.origin)
+				if gap > 1.0:
+					continue
+				score = 1.0 + gap
+			if score < best_score:
+				best_score = score
+				best = piece
+		if best == -1:
+			continue
+		# All in the grid's space: the piece's place is inside its body, whose
+		# origin is the piece's part's middle less that place.
+		var entry: Dictionary = _pieces[best]
+		var piece_place: Transform3D = entry["place"]
+		var owner_record: Dictionary = _records[_uid_of(best)]
+		var body_origin: Vector3 = Vector3(owner_record["pos"] as Vector3i) * Units.UNIT - piece_place.origin
+		var in_body := Transform3D(place.basis, place.origin - body_origin)
+		_cameras[uid] = [best, piece_place.affine_inverse() * in_body]
+
+
+## The camera bound to a seat (its Seat input linked to that seat), as [its
+## transform in the world, its field of view in degrees]; empty for none.
+func camera_for_seat(seat_uid: int) -> Array:
+	for key in _cameras:
+		var uid: int = key
+		var link: Dictionary = (_records[uid].get("links", {}) as Dictionary).get("seat", {})
+		if int(link.get("uid", 0)) != seat_uid:
+			continue
+		var entry: Array = _cameras[uid]
+		var piece: int = entry[0]
+		if not _pieces.has(piece):
+			continue   # what it rode on is gone
+		var held: Dictionary = _pieces[piece]
+		var body: RigidBody3D = held["body"]
+		if not is_instance_valid(body):
+			continue
+		var props: Dictionary = _records[uid].get("props", {})
+		return [body.global_transform * (held["place"] as Transform3D) * (entry[1] as Transform3D),
+				float(props.get("fov", 75.0))]
+	return []
 
 
 ## How fast a spawned seat is moving, in metres per second.

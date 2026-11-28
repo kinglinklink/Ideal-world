@@ -6,6 +6,35 @@ Ideal World is a single-player 3D physics sandbox built in Godot 4. Build machin
 
 Early development. **Milestone 1: Build mode** is mostly in place, and **Milestone 2: Spawn** has its first basic version.
 
+### New in Build 36
+
+- **SR-71 Blackbird** in the saves folder: a 1.5x scale Blackbird, 49 m long, built to the published drawings. Its chines run from the nose out into the wing; the nacelles have their inlet spikes, swivelling nozzles and the fins canted 15 degrees in. Everything above the chine line is smooth curved shapes.
+  - **Engines like the F-14's**: the right trigger is the main thrust (700 kN a side), the left trigger adds the afterburners on top (up to 9 MN a side). From 120 m/s it reaches the game's top speed (about 748 m/s) in about 25 s, even low down, and holds it there.
+  - **Pitch and roll thrust vectoring**: the nozzles swivel 8 degrees with the stick. On the runway the stick swivels them too, which lifts the heavy nose. Rotate from about 70 m/s; it lifts off at about 110 m/s. Past 6 degrees nose up on the runway the stick eases off, so the nozzles don't scrape.
+  - **Hidden missiles**: four, in two bays under the body behind doors. One press of **Y** (or R) opens every bay, lets all four go at once, lights them as they drop clear, and closes the doors. A bay reloads behind closed doors 3 s later. Only 20 m or more above the ground.
+  - **The gear**: the nose leg slides up into its well and the main legs swing forward into theirs. Up by itself past 50 m, down below 35 m, and D-pad up (or G) by hand, like the F-14.
+  - **Boarding ladder** on the left by the cockpit; it folds away once the engines run or the gear is up.
+  - **Yaw** comes from differential thrust and the stability system turning the nose into the airflow, as the B-2's does. On the takeoff roll it holds the heading.
+  - The same buttons as the F-14, less the wing sweep (see below).
+- **Camera** part (Misc): link a seat's Occupied output to it, and seated in first person the view comes from the camera and turns with the build. It weighs nothing, is hidden once spawned, and can sit inside anything, so put it at the pilot's eyes inside the canopy and the view looks out through the glass. Its field of view is a setting. **The F-14, F-14 Mark 2, B-2 and SR-71 all have one**, so first person now works properly in all of them.
+- **New shapes** (Advanced): **curved wedge** (a wedge whose slope is a curve, level at its tall end), **rounded wedge** (the same, rounded across as well, matching a half cylinder behind it: one smooth canopy), **half cone** and **tapered half cylinder** (smooth tapering halves, for noses, tails, fairings and chines).
+- **The F-14's canopy** is now one smooth shape: a rounded windscreen, the bubble and a rounded fairing behind, in place of the flat triangle.
+- **Reverse thrust**: RB (or N) on the ground pushes the F-14, F-14 Mark 2, B-2 and SR-71 gently backwards, for the taxiway.
+- **Wild Horse Island**: the runway is half as wide again (45 m, from 30), and the trees are cleared to 100 m either side of its centreline (from 60) and 250 m past each end (from 120). A **taxiway**, 20 m of asphalt, now runs about 780 m from the build pad to the runway's apron, graded no steeper than 8 %, so small planes can taxi all the way.
+
+#### SR-71 controls
+
+| Controller | Keyboard | |
+| --- | --- | --- |
+| Left stick | W S A D | Pitch and roll (and nose-wheel steering, slowly, on the ground) |
+| D-pad left / right | Z X | Yaw |
+| RT | K (full), M (cruise) | Throttle, 700 kN an engine |
+| LT | Shift | Afterburners, once the right trigger is fully in |
+| Y | R | All four missiles at once |
+| D-pad down | Q | Air brake |
+| D-pad up | G | Gear up or down by hand (it also goes by itself) |
+| RB | N | Reverse thrust, on the ground |
+
 ### New in Build 35
 
 - **The B-2 flies properly now.**
@@ -484,9 +513,11 @@ One grid cell is a 0.25 meter cube. Sizes and positions are stored as whole mult
 | `shaders/part.gdshader`, `part_tint.gdshader`, `part_shine.gdshader` | Building parts: textures laid on in metres, and see-through glass |
 | `tools/smoke_test.gd`, `disaster_test.gd`, `race_test.gd`, `stand_test.gd`, ... | Headless tests: `godot --headless --path . -s tools/smoke_test.gd`; `tools/load_all.gd` loads every script to catch errors |
 | `tools/shot.gd`, `model_shot.gd`, `material_shot.gd`, `moon_shot.gd` | Screenshots with a real renderer, for checking looks |
-| `tools/build_kit.py`, `make_f14.py`, `make_b2.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`), its Mark 2 (`python3 tools/make_f14.py "saves/F-14 Tomcat Mark 2.json" --mk2`), the B-2 (`python3 tools/make_b2.py "saves/B-2 Spirit.json"`) and the big delta plane |
+| `tools/build_kit.py`, `make_f14.py`, `make_b2.py`, `make_sr71.py`, `make_plane.py` | Write builds from code: the F-14 (`python3 tools/make_f14.py "saves/F-14 Tomcat.json"`), its Mark 2 (`python3 tools/make_f14.py "saves/F-14 Tomcat Mark 2.json" --mk2`), the B-2 (`python3 tools/make_b2.py "saves/B-2 Spirit.json"`), the SR-71 (`python3 tools/make_sr71.py "saves/SR-71 Blackbird.json"`) and the big delta plane |
 | `tools/build_shot.gd` | Pictures of a build file from six sides (add `lit` for its lights on) |
+| `tools/shape_shot.gd` | Checks each curved shape's volume against the part table and pictures them |
 | `tools/ladder_test.gd` | Climbs ladders on the pad, spawned and on a fleet vehicle: up with the stick and with A, hanging, climbing down and pushing off |
+| `tools/sr71_test.gd` | Flight test of the SR-71 (ground, takeoff, air, missile, fast, reload, ladder, gear, and camera: the first-person view from the camera part) |
 | `tools/f14_test.gd`, `b2_test.gd`, `plane_test.gd`, `pad_test.gd` | Flight tests of the F-14 and its Mark 2 (ground, takeoff, air, missile, fast, reload, ladder; barrage and dud for the Mark 2's weapons and arming; gear, the gear going up and down by itself over the lake), the B-2 (ground, takeoff, air, bomb, low, ladder, and handling: hands off between stick inputs, with the sideslip and rates; prints tick times) and the delta plane, and the controller test |
 | `tools/runway_test.gd` | To runway: from build mode, seated, again for the next runway, and rolling down it |
 | `tools/check_shaders.gd` | Compiles every shader and reports failures |

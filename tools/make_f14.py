@@ -32,6 +32,7 @@ MISSILE_SAFE = 2.0
 BOMB_RELOAD = 2.0                      # s, like the B-2's small bombs
 BOMB_FLOOR = 160.0                     # m above the ground: no bombs below this (the blast hurts out to 150 m)
 GEAR_UP_AT = 50.0                      # m above the ground: the gear goes up by itself
+REVERSE = 0.025                        # reverse thrust on the ground, a share of full: about 0.05 g
 GEAR_DOWN_AT = 35.0                    # and comes down by itself below this
 
 BLACK = "#17171a"
@@ -159,18 +160,28 @@ b.along("cone", (X0 - 1.25, X0 + 1.25, 11.5, 13.5, 181.5, 185.0), (0, 0, 1), RED
 # Chin: from the belly up to the radome.
 b.wedge((X0 - FF_X, X0 + FF_X, BELLY, 8.5, FF_Z1, 171.0), (0, 0, -1), (0, 1, 0), BLACK)
 
-# Canopy: windscreen, bubble, and the fairing behind it.
-b.wedge((X0 - 3.0, X0 + 3.0, 16.5, 21.5, 152.0, 160.0), (0, 0, -1), (0, -1, 0), GLASS)
+# Canopy: one smooth shape, all the same half-round section 6 wide and 5.5
+# high. The windscreen is a rounded wedge curving down from the bubble to
+# the deck ahead; the bubble a half cylinder; and the fairing behind it
+# another rounded wedge, running back down onto the spine.
+b.wedge((X0 - 3.0, X0 + 3.0, 16.5, 22.0, 152.0, 160.0), (0, 0, -1), (0, -1, 0), GLASS, ptype="rounded_wedge")
 b.add("half_cylinder", (X0 - 3.0, X0 + 3.0, 16.5, 22.0, 141.0, 152.0), IDENT, GLASS)
 for zf in (146.5, 151.8):    # canopy frames
     b.add("half_cylinder", (X0 - 3.05, X0 + 3.05, 16.5, 22.05, zf, zf + 0.3), IDENT, BLACK)
-b.wedge((X0 - 3.0, X0 + 3.0, DECK, 21.0, 126.0, 141.0), (0, 0, 1), (0, -1, 0), BLACK)
+b.box((X0 - 3.0, X0 + 3.0, DECK, 16.5, 126.0, 141.0), BLACK)       # the spine under the fairing
+b.wedge((X0 - 3.0, X0 + 3.0, 16.5, 22.0, 126.0, 141.0), (0, 0, 1), (0, -1, 0), BLACK, ptype="rounded_wedge")
 # The deck either side of the canopy.
 for s in SIDES:
     b.box(side_box(s, 3.0, FF_X, 16.0, 16.5, FF_Z0, 158.0), BLACK)
 # Seat, facing the nose, on the cockpit floor.
 SEAT = b.add("seat", (X0 - 1.5, X0 + 1.5, 13.0, 16.0, 150.5, 153.5), ([-1, 0, 0], [0, 1, 0], [0, 0, -1]),
              GREY, settings={})
+# Where the pilot's eyes are: seated in first person, the view comes from
+# here and turns with the jet. (A camera weighs nothing and can sit inside
+# the canopy.)
+CAMERA = b.add("camera", (X0 - 0.25, X0 + 0.25, 19.0, 19.5, 152.25, 152.75), ([-1, 0, 0], [0, 1, 0], [0, 0, -1]),
+               DARK, material="plastic", settings={"fov": 80.0})
+b.link(CAMERA, "seat", SEAT, "occupied")
 # The radar operator's seat behind, for looks.
 b.box((X0 - 1.2, X0 + 1.2, 13.0, 14.0, 143.5, 146.0), GREY)
 b.box((X0 - 1.2, X0 + 1.2, 14.0, 17.5, 143.0, 143.5), GREY)
@@ -838,10 +849,23 @@ for n in NOZZLES:
 # Nose wheel steering from the yaw input.
 steer = gate("Multiply", R(yaw_in), value=25.0)
 b.link(NOSE_STEER, "angle", steer, "result")
+# Reverse thrust, for taxiing: RB (or N) on the ground pushes the jet back,
+# gently (REVERSE of full thrust), in place of the throttle.
+pad_rb = pad("RB / R1")
+key_n = key("N")
+rev_ask = bgate("OR", P(pad_rb), P(key_n))
+rev_high = gate("Compare", (DIST, "distance"), value=5.0)
+rev_low = bgate("NOT", T(rev_high))
+reversing = bgate("AND", (rev_ask, "result"), (rev_low, "result"))
+not_reversing = bgate("NOT", (reversing, "result"))
+fwd_part = gate("Multiply", R(throttle), (not_reversing, "result"))
+rev_part = gate("Multiply", (reversing, "result"), value=-REVERSE)
+engine_throttle = gate("Add", R(fwd_part), R(rev_part))
+engine_run = bgate("OR", T(engines_on), (reversing, "result"))
 # Engines.
 for t in THRUSTERS:
-    b.link(t, "throttle", throttle, "result")
-    b.link(t, "on", engines_on, "is_true")
+    b.link(t, "throttle", engine_throttle, "result")
+    b.link(t, "on", engine_run, "result")
 for t in BURNERS:
     b.link(t, "throttle", burn, "output")
     b.link(t, "on", burning, "is_true")

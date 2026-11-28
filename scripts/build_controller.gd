@@ -1390,6 +1390,12 @@ func _update_seat() -> void:
 				var riding: Array = _seat_place(frame)
 				player.hold_seat(riding[0], riding[1])
 				player.ride_velocity = _seat_owner.seat_velocity(seat_uid)
+				# A camera bound to this seat gives the first-person view.
+				var view: Array = _seat_owner.camera_for_seat(seat_uid)
+				if view.is_empty():
+					player.clear_seat_view()
+				else:
+					player.set_seat_view(view[0], view[1])
 		return
 	if _seat_request or _tick % SEAT_EVERY_TICKS == 0:
 		near_seat_uid = _nearest_seat()
@@ -1504,6 +1510,7 @@ func _leave_seat() -> void:
 		exit_point = _seat_exit(frame)
 	seat_uid = 0
 	_seat_owner = null
+	player.clear_seat_view()
 	player.stand_up(exit_point)
 
 

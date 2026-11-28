@@ -160,6 +160,7 @@ const PORTS := {
 	},
 	# Misc
 	"seat": {"inputs": [], "outputs": [["occupied", "Occupied", "bool"]]},
+	"camera": {"inputs": [["seat", "Seat (link a seat's Occupied here)", "bool"]], "outputs": []},
 	"magnet": {"inputs": [["on", "On", "bool"]], "outputs": [["holding", "Holding", "bool"]]},
 	"winch": {
 		"inputs": [["reel", "Reel (+1 in, -1 out)", "number"], ["grab", "Hook grabs", "bool"]],
