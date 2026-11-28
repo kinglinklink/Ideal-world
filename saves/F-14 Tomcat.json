@@ -454,17 +454,17 @@
    ]
   },
   {
-   "type": "wedge",
+   "type": "rounded_wedge",
    "material": "balsa",
    "color": "#15283f",
    "pos": [
     128.0,
-    19.0,
+    19.25,
     156.0
    ],
    "size": [
     8.0,
-    5.0,
+    5.5,
     6.0
    ],
    "x_axis": [
@@ -574,17 +574,47 @@
    ]
   },
   {
-   "type": "wedge",
+   "type": "block",
    "material": "balsa",
    "color": "#17171a",
    "pos": [
     128.0,
-    18.5,
+    16.25,
+    133.5
+   ],
+   "size": [
+    6.0,
+    0.5,
+    15.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "type": "rounded_wedge",
+   "material": "balsa",
+   "color": "#17171a",
+   "pos": [
+    128.0,
+    19.25,
     133.5
    ],
    "size": [
     15.0,
-    5.0,
+    5.5,
     6.0
    ],
    "x_axis": [
@@ -692,6 +722,45 @@
     0.0,
     -1.0
    ]
+  },
+  {
+   "type": "camera",
+   "material": "plastic",
+   "color": "#24252a",
+   "pos": [
+    128.0,
+    19.25,
+    152.5
+   ],
+   "size": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "x_axis": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "settings": {
+    "fov": 80.0
+   },
+   "links": {
+    "seat": {
+     "part": 23,
+     "output": "occupied"
+    }
+   }
   },
   {
    "type": "block",
@@ -2708,7 +2777,7 @@
    },
    "links": {
     "fire": {
-     "part": 499,
+     "part": 512,
      "output": "result"
     }
    }
@@ -2748,7 +2817,7 @@
    },
    "links": {
     "fire": {
-     "part": 499,
+     "part": 512,
      "output": "result"
     }
    }
@@ -2789,7 +2858,7 @@
    },
    "links": {
     "fire": {
-     "part": 496,
+     "part": 509,
      "output": "result"
     }
    }
@@ -2830,7 +2899,7 @@
    },
    "links": {
     "fire": {
-     "part": 496,
+     "part": 509,
      "output": "result"
     }
    }
@@ -2866,7 +2935,7 @@
    ],
    "links": {
     "stowed": {
-     "part": 517,
+     "part": 530,
      "output": "result"
     }
    }
@@ -3151,7 +3220,7 @@
    },
    "links": {
     "go_positive": {
-     "part": 462,
+     "part": 475,
      "output": "result"
     }
    }
@@ -3376,7 +3445,7 @@
    },
    "links": {
     "go_positive": {
-     "part": 462,
+     "part": 475,
      "output": "result"
     }
    }
@@ -3601,7 +3670,7 @@
    },
    "links": {
     "angle": {
-     "part": 415,
+     "part": 417,
      "output": "result"
     }
    }
@@ -3646,7 +3715,7 @@
    },
    "links": {
     "angle": {
-     "part": 416,
+     "part": 418,
      "output": "result"
     }
    }
@@ -3751,7 +3820,7 @@
    },
    "links": {
     "angle": {
-     "part": 429,
+     "part": 431,
      "output": "result"
     }
    }
@@ -3796,7 +3865,7 @@
    },
    "links": {
     "angle": {
-     "part": 430,
+     "part": 432,
      "output": "result"
     }
    }
@@ -4115,7 +4184,7 @@
    },
    "links": {
     "angle": {
-     "part": 408,
+     "part": 410,
      "output": "result"
     }
    }
@@ -4160,7 +4229,7 @@
    },
    "links": {
     "angle": {
-     "part": 409,
+     "part": 411,
      "output": "result"
     }
    }
@@ -4265,7 +4334,7 @@
    },
    "links": {
     "angle": {
-     "part": 422,
+     "part": 424,
      "output": "result"
     }
    }
@@ -4310,7 +4379,7 @@
    },
    "links": {
     "angle": {
-     "part": 423,
+     "part": 425,
      "output": "result"
     }
    }
@@ -4539,7 +4608,7 @@
    },
    "links": {
     "angle": {
-     "part": 443,
+     "part": 445,
      "output": "result"
     }
    }
@@ -4584,7 +4653,7 @@
    },
    "links": {
     "angle": {
-     "part": 444,
+     "part": 446,
      "output": "result"
     }
    }
@@ -4809,7 +4878,7 @@
    },
    "links": {
     "angle": {
-     "part": 436,
+     "part": 438,
      "output": "result"
     }
    }
@@ -4854,7 +4923,7 @@
    },
    "links": {
     "angle": {
-     "part": 437,
+     "part": 439,
      "output": "result"
     }
    }
@@ -5049,7 +5118,7 @@
    },
    "links": {
     "angle": {
-     "part": 386,
+     "part": 388,
      "output": "result"
     }
    }
@@ -5214,7 +5283,7 @@
    },
    "links": {
     "angle": {
-     "part": 386,
+     "part": 388,
      "output": "result"
     }
    }
@@ -5349,7 +5418,7 @@
    },
    "links": {
     "angle": {
-     "part": 448,
+     "part": 450,
      "output": "result"
     }
    }
@@ -5749,12 +5818,12 @@
    },
    "links": {
     "throttle": {
-     "part": 323,
+     "part": 461,
      "output": "result"
     },
     "on": {
-     "part": 324,
-     "output": "is_true"
+     "part": 462,
+     "output": "result"
     }
    }
   },
@@ -5793,11 +5862,11 @@
    },
    "links": {
     "throttle": {
-     "part": 335,
+     "part": 337,
      "output": "output"
     },
     "on": {
-     "part": 336,
+     "part": 338,
      "output": "is_true"
     }
    }
@@ -5837,19 +5906,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 457,
+     "part": 470,
      "output": "result"
     },
     "blue": {
-     "part": 458,
+     "part": 471,
      "output": "result"
     }
    }
@@ -5889,19 +5958,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -5941,19 +6010,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -5993,19 +6062,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6045,19 +6114,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6097,19 +6166,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6149,19 +6218,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6201,19 +6270,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6253,19 +6322,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6340,7 +6409,7 @@
    },
    "links": {
     "angle": {
-     "part": 448,
+     "part": 450,
      "output": "result"
     }
    }
@@ -6740,12 +6809,12 @@
    },
    "links": {
     "throttle": {
-     "part": 323,
+     "part": 461,
      "output": "result"
     },
     "on": {
-     "part": 324,
-     "output": "is_true"
+     "part": 462,
+     "output": "result"
     }
    }
   },
@@ -6784,11 +6853,11 @@
    },
    "links": {
     "throttle": {
-     "part": 335,
+     "part": 337,
      "output": "output"
     },
     "on": {
-     "part": 336,
+     "part": 338,
      "output": "is_true"
     }
    }
@@ -6828,19 +6897,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 457,
+     "part": 470,
      "output": "result"
     },
     "blue": {
-     "part": 458,
+     "part": 471,
      "output": "result"
     }
    }
@@ -6880,19 +6949,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6932,19 +7001,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -6984,19 +7053,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -7036,19 +7105,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -7088,19 +7157,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -7140,19 +7209,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -7192,19 +7261,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -7244,19 +7313,19 @@
    },
    "links": {
     "on": {
-     "part": 324,
+     "part": 326,
      "output": "is_true"
     },
     "red": {
-     "part": 450,
+     "part": 463,
      "output": "result"
     },
     "green": {
-     "part": 453,
+     "part": 466,
      "output": "result"
     },
     "blue": {
-     "part": 454,
+     "part": 467,
      "output": "result"
     }
    }
@@ -7301,7 +7370,7 @@
    },
    "links": {
     "extend": {
-     "part": 493,
+     "part": 506,
      "output": "result"
     }
    }
@@ -7346,7 +7415,7 @@
    },
    "links": {
     "angle": {
-     "part": 449,
+     "part": 451,
      "output": "result"
     }
    }
@@ -7669,7 +7738,7 @@
    },
    "links": {
     "extend": {
-     "part": 489,
+     "part": 502,
      "output": "result"
     }
    }
@@ -7744,7 +7813,7 @@
    },
    "links": {
     "extend": {
-     "part": 493,
+     "part": 506,
      "output": "result"
     }
    }
@@ -7943,7 +8012,7 @@
    },
    "links": {
     "extend": {
-     "part": 489,
+     "part": 502,
      "output": "result"
     }
    }
@@ -8018,7 +8087,7 @@
    },
    "links": {
     "extend": {
-     "part": 493,
+     "part": 506,
      "output": "result"
     }
    }
@@ -8217,7 +8286,7 @@
    },
    "links": {
     "extend": {
-     "part": 489,
+     "part": 502,
      "output": "result"
     }
    }
@@ -8288,7 +8357,7 @@
    },
    "links": {
     "ignite": {
-     "part": 503,
+     "part": 516,
      "output": "result"
     }
    }
@@ -8421,7 +8490,7 @@
    },
    "links": {
     "detonate": {
-     "part": 247,
+     "part": 249,
      "output": "triggered"
     }
    }
@@ -8671,7 +8740,7 @@
    },
    "links": {
     "release": {
-     "part": 503,
+     "part": 516,
      "output": "result"
     }
    }
@@ -8772,7 +8841,7 @@
    },
    "links": {
     "ignite": {
-     "part": 511,
+     "part": 524,
      "output": "result"
     }
    }
@@ -8905,7 +8974,7 @@
    },
    "links": {
     "detonate": {
-     "part": 262,
+     "part": 264,
      "output": "triggered"
     }
    }
@@ -9155,7 +9224,7 @@
    },
    "links": {
     "release": {
-     "part": 511,
+     "part": 524,
      "output": "result"
     }
    }
@@ -9256,7 +9325,7 @@
    },
    "links": {
     "ignite": {
-     "part": 507,
+     "part": 520,
      "output": "result"
     }
    }
@@ -9389,7 +9458,7 @@
    },
    "links": {
     "detonate": {
-     "part": 277,
+     "part": 279,
      "output": "triggered"
     }
    }
@@ -9639,7 +9708,7 @@
    },
    "links": {
     "release": {
-     "part": 507,
+     "part": 520,
      "output": "result"
     }
    }
@@ -9740,7 +9809,7 @@
    },
    "links": {
     "ignite": {
-     "part": 515,
+     "part": 528,
      "output": "result"
     }
    }
@@ -9873,7 +9942,7 @@
    },
    "links": {
     "detonate": {
-     "part": 292,
+     "part": 294,
      "output": "triggered"
     }
    }
@@ -10123,7 +10192,7 @@
    },
    "links": {
     "release": {
-     "part": 515,
+     "part": 528,
      "output": "result"
     }
    }
@@ -10316,7 +10385,7 @@
    },
    "links": {
     "on": {
-     "part": 459,
+     "part": 472,
      "output": "output"
     }
    }
@@ -10430,11 +10499,11 @@
    },
    "links": {
     "a": {
-     "part": 309,
+     "part": 311,
      "output": "value"
     },
     "b": {
-     "part": 310,
+     "part": 312,
      "output": "value"
     }
    }
@@ -10548,11 +10617,11 @@
    },
    "links": {
     "a": {
-     "part": 312,
+     "part": 314,
      "output": "value"
     },
     "b": {
-     "part": 313,
+     "part": 315,
      "output": "value"
     }
    }
@@ -10667,11 +10736,11 @@
    },
    "links": {
     "a": {
-     "part": 315,
+     "part": 317,
      "output": "value"
     },
     "b": {
-     "part": 316,
+     "part": 318,
      "output": "value"
     }
    }
@@ -10821,7 +10890,7 @@
    },
    "links": {
     "a": {
-     "part": 320,
+     "part": 322,
      "output": "value"
     }
    }
@@ -10861,11 +10930,11 @@
    },
    "links": {
     "a": {
-     "part": 318,
+     "part": 320,
      "output": "value"
     },
     "b": {
-     "part": 321,
+     "part": 323,
      "output": "result"
     }
    }
@@ -10905,11 +10974,11 @@
    },
    "links": {
     "a": {
-     "part": 322,
+     "part": 324,
      "output": "result"
     },
     "b": {
-     "part": 319,
+     "part": 321,
      "output": "value"
     }
    }
@@ -10949,7 +11018,7 @@
    },
    "links": {
     "a": {
-     "part": 323,
+     "part": 325,
      "output": "result"
     }
    }
@@ -10989,7 +11058,7 @@
    },
    "links": {
     "a": {
-     "part": 323,
+     "part": 325,
      "output": "result"
     }
    }
@@ -11103,11 +11172,11 @@
    },
    "links": {
     "a": {
-     "part": 326,
+     "part": 328,
      "output": "value"
     },
     "b": {
-     "part": 327,
+     "part": 329,
      "output": "value"
     }
    }
@@ -11147,11 +11216,11 @@
    },
    "links": {
     "a": {
-     "part": 328,
+     "part": 330,
      "output": "result"
     },
     "b": {
-     "part": 325,
+     "part": 327,
      "output": "is_true"
     }
    }
@@ -11191,11 +11260,11 @@
    },
    "links": {
     "a": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     },
     "b": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     }
    }
@@ -11235,7 +11304,7 @@
    },
    "links": {
     "a": {
-     "part": 330,
+     "part": 332,
      "output": "result"
     }
    }
@@ -11275,7 +11344,7 @@
    },
    "links": {
     "a": {
-     "part": 331,
+     "part": 333,
      "output": "result"
     }
    }
@@ -11315,7 +11384,7 @@
    },
    "links": {
     "a": {
-     "part": 332,
+     "part": 334,
      "output": "result"
     }
    }
@@ -11355,11 +11424,11 @@
    },
    "links": {
     "a": {
-     "part": 329,
+     "part": 331,
      "output": "result"
     },
     "b": {
-     "part": 333,
+     "part": 335,
      "output": "result"
     }
    }
@@ -11402,11 +11471,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 334,
+     "part": 336,
      "output": "result"
     },
     "measurement": {
-     "part": 335,
+     "part": 337,
      "output": "output"
     }
    }
@@ -11446,7 +11515,7 @@
    },
    "links": {
     "a": {
-     "part": 335,
+     "part": 337,
      "output": "output"
     }
    }
@@ -11486,11 +11555,11 @@
    },
    "links": {
     "a": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     },
     "b": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     }
    }
@@ -11530,7 +11599,7 @@
    },
    "links": {
     "a": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     }
    }
@@ -11604,11 +11673,11 @@
    },
    "links": {
     "a": {
-     "part": 339,
+     "part": 341,
      "output": "result"
     },
     "b": {
-     "part": 338,
+     "part": 340,
      "output": "result"
     }
    }
@@ -11648,7 +11717,7 @@
    },
    "links": {
     "a": {
-     "part": 337,
+     "part": 339,
      "output": "result"
     }
    }
@@ -11722,11 +11791,11 @@
    },
    "links": {
     "a": {
-     "part": 342,
+     "part": 344,
      "output": "result"
     },
     "b": {
-     "part": 341,
+     "part": 343,
      "output": "result"
     }
    }
@@ -11766,11 +11835,11 @@
    },
    "links": {
     "a": {
-     "part": 340,
+     "part": 342,
      "output": "result"
     },
     "b": {
-     "part": 343,
+     "part": 345,
      "output": "result"
     }
    }
@@ -11810,7 +11879,7 @@
    },
    "links": {
     "a": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     }
    }
@@ -11850,7 +11919,7 @@
    },
    "links": {
     "a": {
-     "part": 345,
+     "part": 347,
      "output": "result"
     }
    }
@@ -11890,7 +11959,7 @@
    },
    "links": {
     "a": {
-     "part": 346,
+     "part": 348,
      "output": "result"
     }
    }
@@ -11964,11 +12033,11 @@
    },
    "links": {
     "a": {
-     "part": 348,
+     "part": 350,
      "output": "result"
     },
     "b": {
-     "part": 347,
+     "part": 349,
      "output": "result"
     }
    }
@@ -12008,7 +12077,7 @@
    },
    "links": {
     "a": {
-     "part": 306,
+     "part": 308,
      "output": "speed"
     }
    }
@@ -12082,11 +12151,11 @@
    },
    "links": {
     "a": {
-     "part": 351,
+     "part": 353,
      "output": "result"
     },
     "b": {
-     "part": 350,
+     "part": 352,
      "output": "result"
     }
    }
@@ -12126,7 +12195,7 @@
    },
    "links": {
     "a": {
-     "part": 352,
+     "part": 354,
      "output": "result"
     }
    }
@@ -12166,11 +12235,11 @@
    },
    "links": {
     "a": {
-     "part": 311,
+     "part": 313,
      "output": "result"
     },
     "b": {
-     "part": 353,
+     "part": 355,
      "output": "result"
     }
    }
@@ -12210,11 +12279,11 @@
    },
    "links": {
     "a": {
-     "part": 354,
+     "part": 356,
      "output": "result"
     },
     "b": {
-     "part": 305,
+     "part": 307,
      "output": "pitch_rate"
     }
    }
@@ -12254,11 +12323,11 @@
    },
    "links": {
     "a": {
-     "part": 355,
+     "part": 357,
      "output": "result"
     },
     "b": {
-     "part": 347,
+     "part": 349,
      "output": "result"
     }
    }
@@ -12298,11 +12367,11 @@
    },
    "links": {
     "a": {
-     "part": 305,
+     "part": 307,
      "output": "pitch_rate"
     },
     "b": {
-     "part": 356,
+     "part": 358,
      "output": "result"
     }
    }
@@ -12345,11 +12414,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 357,
+     "part": 359,
      "output": "result"
     },
     "measurement": {
-     "part": 305,
+     "part": 307,
      "output": "pitch_rate"
     }
    }
@@ -12389,11 +12458,11 @@
    },
    "links": {
     "a": {
-     "part": 358,
+     "part": 360,
      "output": "output"
     },
     "b": {
-     "part": 344,
+     "part": 346,
      "output": "result"
     }
    }
@@ -12433,7 +12502,7 @@
    },
    "links": {
     "a": {
-     "part": 311,
+     "part": 313,
      "output": "result"
     }
    }
@@ -12473,11 +12542,11 @@
    },
    "links": {
     "a": {
-     "part": 360,
+     "part": 362,
      "output": "result"
     },
     "b": {
-     "part": 349,
+     "part": 351,
      "output": "result"
     }
    }
@@ -12517,11 +12586,11 @@
    },
    "links": {
     "a": {
-     "part": 359,
+     "part": 361,
      "output": "result"
     },
     "b": {
-     "part": 361,
+     "part": 363,
      "output": "result"
     }
    }
@@ -12595,11 +12664,11 @@
    },
    "links": {
     "a": {
-     "part": 363,
+     "part": 365,
      "output": "result"
     },
     "b": {
-     "part": 350,
+     "part": 352,
      "output": "result"
     }
    }
@@ -12639,7 +12708,7 @@
    },
    "links": {
     "a": {
-     "part": 364,
+     "part": 366,
      "output": "result"
     }
    }
@@ -12679,11 +12748,11 @@
    },
    "links": {
     "a": {
-     "part": 314,
+     "part": 316,
      "output": "result"
     },
     "b": {
-     "part": 365,
+     "part": 367,
      "output": "result"
     }
    }
@@ -12723,11 +12792,11 @@
    },
    "links": {
     "a": {
-     "part": 366,
+     "part": 368,
      "output": "result"
     },
     "b": {
-     "part": 305,
+     "part": 307,
      "output": "roll_rate"
     }
    }
@@ -12767,11 +12836,11 @@
    },
    "links": {
     "a": {
-     "part": 367,
+     "part": 369,
      "output": "result"
     },
     "b": {
-     "part": 347,
+     "part": 349,
      "output": "result"
     }
    }
@@ -12811,11 +12880,11 @@
    },
    "links": {
     "a": {
-     "part": 305,
+     "part": 307,
      "output": "roll_rate"
     },
     "b": {
-     "part": 368,
+     "part": 370,
      "output": "result"
     }
    }
@@ -12858,11 +12927,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 369,
+     "part": 371,
      "output": "result"
     },
     "measurement": {
-     "part": 305,
+     "part": 307,
      "output": "roll_rate"
     }
    }
@@ -12902,11 +12971,11 @@
    },
    "links": {
     "a": {
-     "part": 370,
+     "part": 372,
      "output": "output"
     },
     "b": {
-     "part": 344,
+     "part": 346,
      "output": "result"
     }
    }
@@ -12946,7 +13015,7 @@
    },
    "links": {
     "a": {
-     "part": 314,
+     "part": 316,
      "output": "result"
     }
    }
@@ -12986,11 +13055,11 @@
    },
    "links": {
     "a": {
-     "part": 372,
+     "part": 374,
      "output": "result"
     },
     "b": {
-     "part": 349,
+     "part": 351,
      "output": "result"
     }
    }
@@ -13030,11 +13099,11 @@
    },
    "links": {
     "a": {
-     "part": 371,
+     "part": 373,
      "output": "result"
     },
     "b": {
-     "part": 373,
+     "part": 375,
      "output": "result"
     }
    }
@@ -13108,11 +13177,11 @@
    },
    "links": {
     "a": {
-     "part": 375,
+     "part": 377,
      "output": "result"
     },
     "b": {
-     "part": 350,
+     "part": 352,
      "output": "result"
     }
    }
@@ -13152,7 +13221,7 @@
    },
    "links": {
     "a": {
-     "part": 376,
+     "part": 378,
      "output": "result"
     }
    }
@@ -13192,11 +13261,11 @@
    },
    "links": {
     "a": {
-     "part": 317,
+     "part": 319,
      "output": "result"
     },
     "b": {
-     "part": 377,
+     "part": 379,
      "output": "result"
     }
    }
@@ -13236,11 +13305,11 @@
    },
    "links": {
     "a": {
-     "part": 378,
+     "part": 380,
      "output": "result"
     },
     "b": {
-     "part": 305,
+     "part": 307,
      "output": "yaw_rate"
     }
    }
@@ -13280,11 +13349,11 @@
    },
    "links": {
     "a": {
-     "part": 379,
+     "part": 381,
      "output": "result"
     },
     "b": {
-     "part": 347,
+     "part": 349,
      "output": "result"
     }
    }
@@ -13324,11 +13393,11 @@
    },
    "links": {
     "a": {
-     "part": 305,
+     "part": 307,
      "output": "yaw_rate"
     },
     "b": {
-     "part": 380,
+     "part": 382,
      "output": "result"
     }
    }
@@ -13371,11 +13440,11 @@
    },
    "links": {
     "setpoint": {
-     "part": 381,
+     "part": 383,
      "output": "result"
     },
     "measurement": {
-     "part": 305,
+     "part": 307,
      "output": "yaw_rate"
     }
    }
@@ -13415,11 +13484,11 @@
    },
    "links": {
     "a": {
-     "part": 382,
+     "part": 384,
      "output": "output"
     },
     "b": {
-     "part": 344,
+     "part": 346,
      "output": "result"
     }
    }
@@ -13459,7 +13528,7 @@
    },
    "links": {
     "a": {
-     "part": 317,
+     "part": 319,
      "output": "result"
     }
    }
@@ -13499,11 +13568,11 @@
    },
    "links": {
     "a": {
-     "part": 384,
+     "part": 386,
      "output": "result"
     },
     "b": {
-     "part": 349,
+     "part": 351,
      "output": "result"
     }
    }
@@ -13543,11 +13612,11 @@
    },
    "links": {
     "a": {
-     "part": 383,
+     "part": 385,
      "output": "result"
     },
     "b": {
-     "part": 385,
+     "part": 387,
      "output": "result"
     }
    }
@@ -13661,11 +13730,11 @@
    },
    "links": {
     "a": {
-     "part": 387,
+     "part": 389,
      "output": "pressed"
     },
     "b": {
-     "part": 388,
+     "part": 390,
      "output": "pressed"
     }
    }
@@ -13705,7 +13774,7 @@
    },
    "links": {
     "a": {
-     "part": 389,
+     "part": 391,
      "output": "result"
     }
    }
@@ -13745,7 +13814,7 @@
    },
    "links": {
     "a": {
-     "part": 337,
+     "part": 339,
      "output": "result"
     }
    }
@@ -13819,11 +13888,11 @@
    },
    "links": {
     "a": {
-     "part": 392,
+     "part": 394,
      "output": "result"
     },
     "b": {
-     "part": 391,
+     "part": 393,
      "output": "result"
     }
    }
@@ -13863,11 +13932,11 @@
    },
    "links": {
     "a": {
-     "part": 390,
+     "part": 392,
      "output": "result"
     },
     "b": {
-     "part": 393,
+     "part": 395,
      "output": "result"
     }
    }
@@ -13907,7 +13976,7 @@
    },
    "links": {
     "a": {
-     "part": 374,
+     "part": 376,
      "output": "result"
     }
    }
@@ -13947,7 +14016,7 @@
    },
    "links": {
     "a": {
-     "part": 362,
+     "part": 364,
      "output": "result"
     }
    }
@@ -13987,11 +14056,11 @@
    },
    "links": {
     "a": {
-     "part": 362,
+     "part": 364,
      "output": "result"
     },
     "b": {
-     "part": 395,
+     "part": 397,
      "output": "result"
     }
    }
@@ -14031,11 +14100,11 @@
    },
    "links": {
     "a": {
-     "part": 362,
+     "part": 364,
      "output": "result"
     },
     "b": {
-     "part": 395,
+     "part": 397,
      "output": "result"
     }
    }
@@ -14075,11 +14144,11 @@
    },
    "links": {
     "a": {
-     "part": 396,
+     "part": 398,
      "output": "result"
     },
     "b": {
-     "part": 374,
+     "part": 376,
      "output": "result"
     }
    }
@@ -14119,11 +14188,11 @@
    },
    "links": {
     "a": {
-     "part": 396,
+     "part": 398,
      "output": "result"
     },
     "b": {
-     "part": 374,
+     "part": 376,
      "output": "result"
     }
    }
@@ -14163,11 +14232,11 @@
    },
    "links": {
     "a": {
-     "part": 362,
+     "part": 364,
      "output": "result"
     },
     "b": {
-     "part": 374,
+     "part": 376,
      "output": "result"
     }
    }
@@ -14207,11 +14276,11 @@
    },
    "links": {
     "a": {
-     "part": 362,
+     "part": 364,
      "output": "result"
     },
     "b": {
-     "part": 374,
+     "part": 376,
      "output": "result"
     }
    }
@@ -14251,7 +14320,7 @@
    },
    "links": {
     "a": {
-     "part": 397,
+     "part": 399,
      "output": "result"
     }
    }
@@ -14291,7 +14360,7 @@
    },
    "links": {
     "a": {
-     "part": 397,
+     "part": 399,
      "output": "result"
     }
    }
@@ -14304,6 +14373,1118 @@
     22.5,
     0.25,
     13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 405,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    13.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 406,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 407,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 408,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 409,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 400,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 400,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 412,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 413,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 414,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 415,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 416,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 401,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 401,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 419,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    15.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 420,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 421,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 422,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 423,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 402,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 402,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Max",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 426,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 427,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 428,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 429,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 430,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": -1.0
+   },
+   "links": {
+    "a": {
+     "part": 403,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    16.5
    ],
    "size": [
     1.0,
@@ -14341,1118 +15522,6 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    24.0,
-    0.25,
-    13.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 404,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 405,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 406,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 407,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 398,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    10.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 398,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 410,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 411,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 412,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 413,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 414,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 399,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 399,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 417,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    15.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 418,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 419,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 420,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 421,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 400,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    10.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 400,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 424,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 425,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 426,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 427,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 428,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Multiply",
-    "value": -1.0
-   },
-   "links": {
-    "a": {
-     "part": 401,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 401,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
     22.5,
     0.25,
     16.5
@@ -15479,99 +15548,99 @@
    ],
    "settings": {
     "operation": "Max",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 431,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    16.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
-    "value": 0.0
-   },
-   "links": {
-    "a": {
-     "part": 432,
-     "output": "result"
-    },
-    "b": {
-     "part": 394,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    18.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Add",
     "value": 0.0
    },
    "links": {
     "a": {
      "part": 433,
      "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    16.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 434,
+     "output": "result"
     },
     "b": {
-     "part": 394,
+     "part": 396,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    18.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 435,
+     "output": "result"
+    },
+    "b": {
+     "part": 396,
      "output": "result"
     }
    }
@@ -15611,7 +15680,7 @@
    },
    "links": {
     "a": {
-     "part": 434,
+     "part": 436,
      "output": "result"
     }
    }
@@ -15651,7 +15720,7 @@
    },
    "links": {
     "a": {
-     "part": 435,
+     "part": 437,
      "output": "result"
     }
    }
@@ -15691,7 +15760,7 @@
    },
    "links": {
     "a": {
-     "part": 402,
+     "part": 404,
      "output": "result"
     }
    }
@@ -15731,7 +15800,7 @@
    },
    "links": {
     "a": {
-     "part": 402,
+     "part": 404,
      "output": "result"
     }
    }
@@ -15771,7 +15840,7 @@
    },
    "links": {
     "a": {
-     "part": 438,
+     "part": 440,
      "output": "result"
     }
    }
@@ -15811,11 +15880,11 @@
    },
    "links": {
     "a": {
-     "part": 439,
+     "part": 441,
      "output": "result"
     },
     "b": {
-     "part": 394,
+     "part": 396,
      "output": "result"
     }
    }
@@ -15855,11 +15924,11 @@
    },
    "links": {
     "a": {
-     "part": 440,
+     "part": 442,
      "output": "result"
     },
     "b": {
-     "part": 394,
+     "part": 396,
      "output": "result"
     }
    }
@@ -15899,7 +15968,7 @@
    },
    "links": {
     "a": {
-     "part": 441,
+     "part": 443,
      "output": "result"
     }
    }
@@ -15939,7 +16008,7 @@
    },
    "links": {
     "a": {
-     "part": 442,
+     "part": 444,
      "output": "result"
     }
    }
@@ -15979,7 +16048,7 @@
    },
    "links": {
     "a": {
-     "part": 335,
+     "part": 337,
      "output": "output"
     }
    }
@@ -16019,7 +16088,7 @@
    },
    "links": {
     "a": {
-     "part": 445,
+     "part": 447,
      "output": "result"
     }
    }
@@ -16059,7 +16128,7 @@
    },
    "links": {
     "a": {
-     "part": 362,
+     "part": 364,
      "output": "result"
     }
    }
@@ -16099,11 +16168,11 @@
    },
    "links": {
     "a": {
-     "part": 447,
+     "part": 449,
      "output": "result"
     },
     "b": {
-     "part": 446,
+     "part": 448,
      "output": "result"
     }
    }
@@ -16143,13 +16212,13 @@
    },
    "links": {
     "a": {
-     "part": 317,
+     "part": 319,
      "output": "result"
     }
    }
   },
   {
-   "type": "number_gate",
+   "type": "gamepad_input",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16178,18 +16247,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 255.0
-   },
-   "links": {
-    "a": {
-     "part": 323,
-     "output": "result"
-    }
+    "control": "RB / R1",
+    "mode": "Hold",
+    "curve": 1.0,
+    "deadzone": 0.12,
+    "scale": 1.0,
+    "output": "One control"
    }
   },
   {
-   "type": "number_gate",
+   "type": "input_block",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16218,18 +16285,14 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 80.0
-   },
-   "links": {
-    "a": {
-     "part": 323,
-     "output": "result"
-    }
+    "key": "N",
+    "mode": "Hold",
+    "output": "Boolean",
+    "second_key": ""
    }
   },
   {
-   "type": "number_gate",
+   "type": "boolean_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16258,13 +16321,17 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 120.0
+    "operation": "OR",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 335,
-     "output": "output"
+     "part": 452,
+     "output": "pressed"
+    },
+    "b": {
+     "part": 453,
+     "output": "pressed"
     }
    }
   },
@@ -16298,22 +16365,18 @@
     1.0
    ],
    "settings": {
-    "operation": "Add",
-    "value": 0.0
+    "operation": "Compare",
+    "value": 5.0
    },
    "links": {
     "a": {
-     "part": 451,
-     "output": "result"
-    },
-    "b": {
-     "part": 452,
-     "output": "result"
+     "part": 309,
+     "output": "distance"
     }
    }
   },
   {
-   "type": "number_gate",
+   "type": "boolean_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16342,18 +16405,18 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 40.0
+    "operation": "NOT",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 335,
-     "output": "output"
+     "part": 455,
+     "output": "is_true"
     }
    }
   },
   {
-   "type": "number_gate",
+   "type": "boolean_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16382,18 +16445,22 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 200.0
+    "operation": "AND",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 323,
+     "part": 454,
+     "output": "result"
+    },
+    "b": {
+     "part": 456,
      "output": "result"
     }
    }
   },
   {
-   "type": "number_gate",
+   "type": "boolean_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -16422,13 +16489,13 @@
     1.0
    ],
    "settings": {
-    "operation": "Multiply",
-    "value": 55.0
+    "operation": "NOT",
+    "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 335,
-     "output": "output"
+     "part": 457,
+     "output": "result"
     }
    }
   },
@@ -16462,16 +16529,16 @@
     1.0
    ],
    "settings": {
-    "operation": "Add",
+    "operation": "Multiply",
     "value": 0.0
    },
    "links": {
     "a": {
-     "part": 455,
+     "part": 325,
      "output": "result"
     },
     "b": {
-     "part": 456,
+     "part": 458,
      "output": "result"
     }
    }
@@ -16507,11 +16574,467 @@
    ],
    "settings": {
     "operation": "Multiply",
+    "value": -0.025
+   },
+   "links": {
+    "a": {
+     "part": 457,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 459,
+     "output": "result"
+    },
+    "b": {
+     "part": 460,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 326,
+     "output": "is_true"
+    },
+    "b": {
+     "part": 457,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
     "value": 255.0
    },
    "links": {
     "a": {
-     "part": 335,
+     "part": 325,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    19.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 80.0
+   },
+   "links": {
+    "a": {
+     "part": 325,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 120.0
+   },
+   "links": {
+    "a": {
+     "part": 337,
+     "output": "output"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 464,
+     "output": "result"
+    },
+    "b": {
+     "part": 465,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 40.0
+   },
+   "links": {
+    "a": {
+     "part": 337,
+     "output": "output"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 200.0
+   },
+   "links": {
+    "a": {
+     "part": 325,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 55.0
+   },
+   "links": {
+    "a": {
+     "part": 337,
+     "output": "output"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Add",
+    "value": 0.0
+   },
+   "links": {
+    "a": {
+     "part": 468,
+     "output": "result"
+    },
+    "b": {
+     "part": 469,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "number_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    21.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Multiply",
+    "value": 255.0
+   },
+   "links": {
+    "a": {
+     "part": 337,
      "output": "output"
     }
    }
@@ -16521,9 +17044,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    19.5,
+    15.0,
     0.25,
-    19.5
+    21.0
    ],
    "size": [
     1.0,
@@ -16555,9 +17078,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    21.0,
+    16.5,
     0.25,
-    19.5
+    21.0
    ],
    "size": [
     1.0,
@@ -16591,9 +17114,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    22.5,
+    18.0,
     0.25,
-    19.5
+    21.0
    ],
    "size": [
     1.0,
@@ -16629,9 +17152,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    24.0,
+    19.5,
     0.25,
-    19.5
+    21.0
    ],
    "size": [
     1.0,
@@ -16659,11 +17182,11 @@
    },
    "links": {
     "a": {
-     "part": 460,
+     "part": 473,
      "output": "pressed"
     },
     "b": {
-     "part": 461,
+     "part": 474,
      "output": "pressed"
     }
    }
@@ -16673,7 +17196,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    4.5,
+    21.0,
     0.25,
     21.0
    ],
@@ -16711,7 +17234,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    6.0,
+    22.5,
     0.25,
     21.0
    ],
@@ -16747,7 +17270,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    24.0,
     0.25,
     21.0
    ],
@@ -16777,456 +17300,12 @@
    },
    "links": {
     "a": {
-     "part": 463,
+     "part": 476,
      "output": "pressed"
     },
     "b": {
-     "part": 464,
+     "part": 477,
      "output": "pressed"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 0.15
-   },
-   "links": {
-    "a": {
-     "part": 465,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    10.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Compare",
-    "value": 5.0
-   },
-   "links": {
-    "a": {
-     "part": 307,
-     "output": "distance"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Compare",
-    "value": 50.0
-   },
-   "links": {
-    "a": {
-     "part": 307,
-     "output": "distance"
-    }
-   }
-  },
-  {
-   "type": "number_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Compare",
-    "value": 35.0
-   },
-   "links": {
-    "a": {
-     "part": 307,
-     "output": "distance"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 469,
-     "output": "is_true"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    16.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 0.15
-   },
-   "links": {
-    "a": {
-     "part": 468,
-     "output": "is_true"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    18.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 0.15
-   },
-   "links": {
-    "a": {
-     "part": 470,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    19.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Latch",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 484,
-     "output": "result"
-    },
-    "b": {
-     "part": 485,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    21.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 0.4
-   },
-   "links": {
-    "a": {
-     "part": 473,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 473,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    21.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 0.4
-   },
-   "links": {
-    "a": {
-     "part": 475,
-     "output": "result"
     }
    }
   },
@@ -17260,22 +17339,18 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.15
    },
    "links": {
     "a": {
-     "part": 475,
+     "part": 478,
      "output": "result"
-    },
-    "b": {
-     "part": 467,
-     "output": "is_true"
     }
    }
   },
   {
-   "type": "boolean_gate",
+   "type": "number_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -17304,18 +17379,18 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
+    "operation": "Compare",
+    "value": 5.0
    },
    "links": {
     "a": {
-     "part": 476,
-     "output": "result"
+     "part": 309,
+     "output": "distance"
     }
    }
   },
   {
-   "type": "boolean_gate",
+   "type": "number_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -17344,22 +17419,18 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Compare",
+    "value": 50.0
    },
    "links": {
     "a": {
-     "part": 477,
-     "output": "result"
-    },
-    "b": {
-     "part": 478,
-     "output": "result"
+     "part": 309,
+     "output": "distance"
     }
    }
   },
   {
-   "type": "boolean_gate",
+   "type": "number_gate",
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
@@ -17388,17 +17459,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Compare",
+    "value": 35.0
    },
    "links": {
     "a": {
-     "part": 466,
-     "output": "result"
-    },
-    "b": {
-     "part": 479,
-     "output": "result"
+     "part": 309,
+     "output": "distance"
     }
    }
   },
@@ -17437,8 +17504,8 @@
    },
    "links": {
     "a": {
-     "part": 474,
-     "output": "result"
+     "part": 482,
+     "output": "is_true"
     }
    }
   },
@@ -17472,17 +17539,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.15
    },
    "links": {
     "a": {
-     "part": 473,
-     "output": "result"
-    },
-    "b": {
      "part": 481,
-     "output": "result"
+     "output": "is_true"
     }
    }
   },
@@ -17516,16 +17579,12 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.15
    },
    "links": {
     "a": {
-     "part": 466,
-     "output": "result"
-    },
-    "b": {
-     "part": 482,
+     "part": 483,
      "output": "result"
     }
    }
@@ -17560,16 +17619,16 @@
     1.0
    ],
    "settings": {
-    "operation": "OR",
+    "operation": "Latch",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 480,
+     "part": 497,
      "output": "result"
     },
     "b": {
-     "part": 471,
+     "part": 498,
      "output": "result"
     }
    }
@@ -17604,16 +17663,12 @@
     1.0
    ],
    "settings": {
-    "operation": "OR",
-    "seconds": 1.0
+    "operation": "Timer",
+    "seconds": 0.4
    },
    "links": {
     "a": {
-     "part": 483,
-     "output": "result"
-    },
-    "b": {
-     "part": 472,
+     "part": 486,
      "output": "result"
     }
    }
@@ -17648,12 +17703,12 @@
     1.0
    ],
    "settings": {
-    "operation": "Latch",
+    "operation": "NOT",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 473,
+     "part": 486,
      "output": "result"
     }
    }
@@ -17689,11 +17744,11 @@
    ],
    "settings": {
     "operation": "Timer",
-    "seconds": 2.6
+    "seconds": 0.4
    },
    "links": {
     "a": {
-     "part": 473,
+     "part": 488,
      "output": "result"
     }
    }
@@ -17706,6 +17761,178 @@
     21.0,
     0.25,
     22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 488,
+     "output": "result"
+    },
+    "b": {
+     "part": 480,
+     "output": "is_true"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 489,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    22.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 490,
+     "output": "result"
+    },
+    "b": {
+     "part": 491,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 479,
+     "output": "result"
+    },
+    "b": {
+     "part": 492,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    24.0
    ],
    "size": [
     1.0,
@@ -17743,131 +17970,7 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    22.5,
-    0.25,
-    22.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 473,
-     "output": "result"
-    },
-    "b": {
-     "part": 488,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    22.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 473,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "Timer",
-    "seconds": 2.2
-   },
-   "links": {
-    "a": {
-     "part": 490,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
+    7.5,
     0.25,
     24.0
    ],
@@ -17897,12 +18000,12 @@
    },
    "links": {
     "a": {
-     "part": 491,
-     "output": "result"
-    },
-    "b": {
      "part": 486,
      "output": "result"
+    },
+    "b": {
+     "part": 494,
+     "output": "result"
     }
    }
   },
@@ -17911,7 +18014,51 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    7.5,
+    9.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 479,
+     "output": "result"
+    },
+    "b": {
+     "part": 495,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
     0.25,
     24.0
    ],
@@ -17941,11 +18088,387 @@
    },
    "links": {
     "a": {
-     "part": 473,
+     "part": 493,
      "output": "result"
     },
     "b": {
-     "part": 492,
+     "part": 484,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 496,
+     "output": "result"
+    },
+    "b": {
+     "part": 485,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Latch",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 486,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 2.6
+   },
+   "links": {
+    "a": {
+     "part": 486,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 500,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 486,
+     "output": "result"
+    },
+    "b": {
+     "part": 501,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    19.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 486,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    21.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "Timer",
+    "seconds": 2.2
+   },
+   "links": {
+    "a": {
+     "part": 503,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    22.5,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 504,
+     "output": "result"
+    },
+    "b": {
+     "part": 499,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    24.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 486,
+     "output": "result"
+    },
+    "b": {
+     "part": 505,
      "output": "result"
     }
    }
@@ -17955,9 +18478,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    9.0,
+    4.5,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -17993,9 +18516,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    10.5,
+    6.0,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18027,9 +18550,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    12.0,
+    7.5,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18057,11 +18580,11 @@
    },
    "links": {
     "a": {
-     "part": 494,
+     "part": 507,
      "output": "pressed"
     },
     "b": {
-     "part": 495,
+     "part": 508,
      "output": "pressed"
     }
    }
@@ -18071,9 +18594,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    13.5,
+    9.0,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18109,9 +18632,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    15.0,
+    10.5,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18145,9 +18668,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    16.5,
+    12.0,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18175,11 +18698,11 @@
    },
    "links": {
     "a": {
-     "part": 497,
+     "part": 510,
      "output": "pressed"
     },
     "b": {
-     "part": 498,
+     "part": 511,
      "output": "pressed"
     }
    }
@@ -18189,9 +18712,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    18.0,
+    13.5,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18227,9 +18750,9 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    19.5,
+    15.0,
     0.25,
-    24.0
+    25.5
    ],
    "size": [
     1.0,
@@ -18263,478 +18786,6 @@
    "material": "plastic",
    "color": "#2a2c33",
    "pos": [
-    21.0,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 500,
-     "output": "pressed"
-    },
-    "b": {
-     "part": 501,
-     "output": "pressed"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    22.5,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 502,
-     "output": "result"
-    },
-    "b": {
-     "part": 257,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    24.0,
-    0.25,
-    24.0
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 257,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    4.5,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 502,
-     "output": "result"
-    },
-    "b": {
-     "part": 287,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    6.0,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 504,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    7.5,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 505,
-     "output": "result"
-    },
-    "b": {
-     "part": 506,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    9.0,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 504,
-     "output": "result"
-    },
-    "b": {
-     "part": 287,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    10.5,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 502,
-     "output": "result"
-    },
-    "b": {
-     "part": 272,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    12.0,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "NOT",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 508,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    13.5,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "AND",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 509,
-     "output": "result"
-    },
-    "b": {
-     "part": 510,
-     "output": "result"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
-    15.0,
-    0.25,
-    25.5
-   ],
-   "size": [
-    1.0,
-    0.5,
-    1.0
-   ],
-   "x_axis": [
-    1.0,
-    0.0,
-    0.0
-   ],
-   "y_axis": [
-    0.0,
-    1.0,
-    0.0
-   ],
-   "z_axis": [
-    0.0,
-    0.0,
-    1.0
-   ],
-   "settings": {
-    "operation": "OR",
-    "seconds": 1.0
-   },
-   "links": {
-    "a": {
-     "part": 508,
-     "output": "result"
-    },
-    "b": {
-     "part": 272,
-     "output": "loaded"
-    }
-   }
-  },
-  {
-   "type": "boolean_gate",
-   "material": "plastic",
-   "color": "#2a2c33",
-   "pos": [
     16.5,
     0.25,
     25.5
@@ -18760,17 +18811,17 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 502,
-     "output": "result"
+     "part": 513,
+     "output": "pressed"
     },
     "b": {
-     "part": 302,
-     "output": "loaded"
+     "part": 514,
+     "output": "pressed"
     }
    }
   },
@@ -18804,13 +18855,17 @@
     1.0
    ],
    "settings": {
-    "operation": "NOT",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 512,
+     "part": 515,
      "output": "result"
+    },
+    "b": {
+     "part": 259,
+     "output": "loaded"
     }
    }
   },
@@ -18844,17 +18899,13 @@
     1.0
    ],
    "settings": {
-    "operation": "AND",
+    "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 513,
-     "output": "result"
-    },
-    "b": {
-     "part": 514,
-     "output": "result"
+     "part": 259,
+     "output": "loaded"
     }
    }
   },
@@ -18888,16 +18939,16 @@
     1.0
    ],
    "settings": {
-    "operation": "OR",
+    "operation": "AND",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 512,
+     "part": 515,
      "output": "result"
     },
     "b": {
-     "part": 302,
+     "part": 289,
      "output": "loaded"
     }
    }
@@ -18932,16 +18983,488 @@
     1.0
    ],
    "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 517,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    24.0,
+    0.25,
+    25.5
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 518,
+     "output": "result"
+    },
+    "b": {
+     "part": 519,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    4.5,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
     "operation": "OR",
     "seconds": 1.0
    },
    "links": {
     "a": {
-     "part": 324,
+     "part": 517,
+     "output": "result"
+    },
+    "b": {
+     "part": 289,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    6.0,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 515,
+     "output": "result"
+    },
+    "b": {
+     "part": 274,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    7.5,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 521,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    9.0,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 522,
+     "output": "result"
+    },
+    "b": {
+     "part": 523,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    10.5,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 521,
+     "output": "result"
+    },
+    "b": {
+     "part": 274,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    12.0,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 515,
+     "output": "result"
+    },
+    "b": {
+     "part": 304,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    13.5,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "NOT",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 525,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    15.0,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "AND",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 526,
+     "output": "result"
+    },
+    "b": {
+     "part": 527,
+     "output": "result"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    16.5,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 525,
+     "output": "result"
+    },
+    "b": {
+     "part": 304,
+     "output": "loaded"
+    }
+   }
+  },
+  {
+   "type": "boolean_gate",
+   "material": "plastic",
+   "color": "#2a2c33",
+   "pos": [
+    18.0,
+    0.25,
+    27.0
+   ],
+   "size": [
+    1.0,
+    0.5,
+    1.0
+   ],
+   "x_axis": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "y_axis": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "settings": {
+    "operation": "OR",
+    "seconds": 1.0
+   },
+   "links": {
+    "a": {
+     "part": 326,
      "output": "is_true"
     },
     "b": {
-     "part": 493,
+     "part": 506,
      "output": "result"
     }
    }

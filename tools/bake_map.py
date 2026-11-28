@@ -254,20 +254,29 @@ def main():
     def wh_profile(tt):
         return mid + slope * tt
 
+    wh_width = 45.0   # (was 30: wide enough now for the B-2's wheels and a wingtip's drift)
     for grid in (detail, coarse):
-        grade(grid, wh_centre, wh_heading, wh_half + 30.0, 30.0, wh_profile, 50.0, ASPHALT, (wh_half, 15.0))
+        grade(grid, wh_centre, wh_heading, wh_half + 30.0, wh_width, wh_profile, 50.0, ASPHALT,
+              (wh_half, wh_width * 0.5))
     # The apron, beside the middle of the runway on the side toward the pad.
     side = 1.0 if np.dot(np.array([home_centre[0], home_centre[1]]) - wh_centre, across) > 0 else -1.0
-    apron_centre = wh_centre + across * side * (15.0 + 25.0 + 45.0)
+    apron_centre = wh_centre + across * side * (wh_width * 0.5 + 25.0 + 45.0)
     for grid in (detail, coarse):
         grade(grid, apron_centre, wh_heading, 90.0, 45.0, lambda tt: np.full_like(tt, mid), 40.0,
               ASPHALT, (90.0, 45.0))
-    clearings.append(("rect", wh_centre, wh_heading, wh_half + 120.0, 60.0))
+    # Trees well back from the runway: 100 m either side, 250 m past each end.
+    clearings.append(("rect", wh_centre, wh_heading, wh_half + 250.0, 100.0))
     clearings.append(("rect", apron_centre, wh_heading, 120.0, 75.0))
+    # A taxiway from the build pad's west edge round the ridge to the apron's
+    # north-east corner: west off the pad, up the valley, onto the level
+    # ground beside the runway. A steady 7 % at most, 20 m wide.
+    lay_taxiway(detail, coarse, [(0.0, 32.0), (-110.0, 40.0), (-150.0, 110.0), (-165.0, 260.0),
+                                 (-180.0, 420.0), (-185.0, 600.0), (-185.0, 700.0)],
+                base, mid, 0.07, 10.0, clearings)
     features["runways"].append({
         "name": "Wild Horse Island", "surface": "asphalt",
         "centre": [float(wh_centre[0]), float(wh_centre[1])], "heading": wh_heading,
-        "length": wh_half * 2.0, "width": 30.0,
+        "length": wh_half * 2.0, "width": wh_width,
         "height_mid": mid - base, "slope": slope,
         "apron": {"centre": [float(apron_centre[0]), float(apron_centre[1])], "length": 180.0, "width": 90.0,
                   "side": side},
@@ -808,6 +817,85 @@ def lay_road(detail, coarse, raw, points, lake, clearings, width=8.0):
             grade(grid, centre, heading, length * 0.5 + width * 0.5, width * 0.5 + 2.0,
                   lambda tt, t=t, prof=prof: np.interp(tt, t, prof), 10.0, SITE, (length * 0.5, width * 0.5))
         clearings.append(("rect", centre, heading, length * 0.5 + 6.0, width * 0.5 + 6.0))
+
+
+def lay_taxiway(detail, coarse, points, start_h, end_h, max_grade, half_width, clearings):
+    """An asphalt taxiway through the given points (map x, z), from height
+    `start_h` to `end_h`, following the ground where it can and cutting or
+    filling where it must, never steeper than `max_grade`."""
+    points = [np.asarray(p, dtype=float) for p in points]
+    step = 5.0
+    ts, xs, zs = [], [], []
+    total = 0.0
+    for a, b in zip(points[:-1], points[1:]):
+        length = float(np.linalg.norm(b - a))
+        for t in np.arange(0.0, length, step):
+            p = a + (b - a) * (t / length)
+            ts.append(total + t)
+            xs.append(p[0])
+            zs.append(p[1])
+        total += length
+    ts.append(total)
+    xs.append(points[-1][0])
+    zs.append(points[-1][1])
+    t = np.array(ts)
+    ground = ndimage.gaussian_filter1d(detail.sample(detail.h, np.array(xs), np.array(zs)), 6.0, mode="nearest")
+    # As near the ground as the grade allows from both ends ...
+    low = np.maximum(start_h - max_grade * t, end_h - max_grade * (total - t))
+    high = np.minimum(start_h + max_grade * t, end_h + max_grade * (total - t))
+    road = np.clip(ground, low, high)
+    # ... and nowhere steeper, between the pinned ends.
+    for _ in range(8):
+        up = road.copy()
+        for i in range(1, len(up)):
+            rise = max_grade * (t[i] - t[i - 1])
+            up[i] = np.clip(up[i], up[i - 1] - rise, up[i - 1] + rise)
+        down = road.copy()
+        for i in range(len(down) - 2, -1, -1):
+            rise = max_grade * (t[i + 1] - t[i])
+            down[i] = np.clip(down[i], down[i + 1] - rise, down[i + 1] + rise)
+        road = (up + down) * 0.5
+        road[0], road[-1] = start_h, end_h
+    # The whole path in one go: every point near it takes the profile's
+    # height at the nearest point of the path, blended out over the skirt.
+    # (Grading each straight stretch on its own left steps where one
+    # stretch's skirt ran over the end of the one before.)
+    skirt = 20.0
+    shoulder = half_width + 4.0
+    for grid in (detail, coarse):
+        reach = shoulder + skirt + grid.sp
+        xs = np.array([p[0] for p in points])
+        zs = np.array([p[1] for p in points])
+        near = ((grid.X >= xs.min() - reach) & (grid.X <= xs.max() + reach)
+                & (grid.Z >= zs.min() - reach) & (grid.Z <= zs.max() + reach))
+        px, pz = grid.X[near], grid.Z[near]
+        best_d = np.full(px.shape, np.inf)
+        best_s = np.zeros(px.shape)
+        made = 0.0
+        for a, b in zip(points[:-1], points[1:]):
+            seg = b - a
+            length = float(np.linalg.norm(seg))
+            u = np.clip(((px - a[0]) * seg[0] + (pz - a[1]) * seg[1]) / (length * length), 0.0, 1.0)
+            d = np.hypot(px - (a[0] + u * seg[0]), pz - (a[1] + u * seg[1]))
+            closer = d < best_d
+            best_d[closer] = d[closer]
+            best_s[closer] = made + u[closer] * length
+            made += length
+        target = np.interp(best_s, t, road)
+        keep = smooth01(np.maximum(best_d - shoulder, 0.0) / skirt)
+        sub = grid.h[near]
+        sub = target * (1.0 - keep) + sub * keep
+        grid.h[near] = sub
+        kinds = grid.kind[near]
+        kinds[best_d <= half_width] = ASPHALT
+        grid.kind[near] = kinds
+    for a, b in zip(points[:-1], points[1:]):
+        length = float(np.linalg.norm(b - a))
+        heading = math.degrees(math.atan2(b[0] - a[0], -(b[1] - a[1]))) % 360.0
+        clearings.append(("rect", (a + b) * 0.5, heading, length * 0.5 + 30.0, half_width + 30.0))
+    cut = road - ground
+    print("  Wild Horse taxiway: %.0f m, up %.0f m, cut up to %.0f m, fill up to %.0f m" % (
+        total, end_h - start_h, -cut.min(), cut.max()))
 
 
 def _profile_heights(grid, centre, heading, half, offsets=(0.0,), step=10.0):

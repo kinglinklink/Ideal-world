@@ -165,12 +165,15 @@ func check(record: Dictionary, ignore: Array = []) -> String:
 	if low.x < -EPSILON or low.y < -EPSILON or low.z < -EPSILON \
 			or high.x > pad.x + EPSILON or high.y > pad.y + EPSILON or high.z > pad.z + EPSILON:
 		return "That is outside the build grid."
+	var is_camera: bool = record["type"] == "camera"
 	for uid in _parts:
 		if ignore.has(uid):
 			continue
 		var other: Dictionary = _parts[uid]
 		if not _overlaps(bounds, bounds_of(other)):
 			continue
+		if is_camera or other["type"] == "camera":
+			continue   # a camera is only a point of view: it may sit inside anything
 		if other["material"] != record["material"]:
 			return "Materials must be homogeneous to overlap."
 		if other["type"] == record["type"] and other["pos"] == record["pos"] \
@@ -210,7 +213,7 @@ static func volume_of(record: Dictionary) -> float:
 ## they measure where they are. Their "Visible after spawn" setting keeps
 ## one as an ordinary part, for checking a build.
 const CONTROL_PARTS := ["input_block", "boolean_gate", "number_gate", "pid_controller", "pwm_generator", "mouse_click",
-		"gamepad_input"]
+		"gamepad_input", "camera"]
 
 
 static func is_hidden_control(record: Dictionary) -> bool:

@@ -240,6 +240,7 @@ static func _build_table() -> void:
 		_number("brightness", "Brightness", "", 1.0, 0.0, 100.0, 0.1),
 	]
 	_table["vanish_block"] = [_flag("returns", "Comes back when the signal ends", false)]
+	_table["camera"] = [_number("fov", "Field of view", "°", 75.0, 30.0, 120.0, 1.0)]
 
 	# --- Combat ---
 	_table["explosive_block"] = [_number("blast_radius", "Blast radius", "m", 2.0, 0.0, 1000.0, 0.05)]

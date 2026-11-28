@@ -38,6 +38,7 @@ VEC_ROLL = 0.5             # and of roll command, each side opposite
 PITCH_KP, PITCH_KI = 4.0, 3.0
 INNER_ROLL = 1.0           # the inner elevons' share of the roll command
 ROLL_KI = 1.5
+REVERSE = 0.05             # reverse thrust on the ground, a share of full: about 0.05 g
 GEAR_UP_AT = 50.0          # m above the ground: the gear goes up
 GEAR_DOWN_AT = 35.0        # and comes down again below this
 
@@ -460,6 +461,11 @@ b.box((cx0, cx1, SLAB, 14.0, CP_Z1 - 0.5, CP_Z1), SKIN)                         
 SEAT = b.add("seat", (X0 - 1.5, X0 + 1.5, SLAB, SLAB + 3.0, 150.5, 153.5), ([-1, 0, 0], [0, 1, 0], [0, 0, -1]),
              METAL, settings={})
 b.box((X0 - 3.0, X0 + 3.0, SLAB, SLAB + 3.0, 158.0, 159.0), DARK)    # instrument panel
+# The first-person view: just inside the windscreen, at a seated pilot's eye
+# height, looking ahead. (Inside the glass, it sees out through it.)
+CAMERA = b.add("camera", (X0 - 0.25, X0 + 0.25, 16.0, 16.5, 164.25, 164.75), ([-1, 0, 0], [0, 1, 0], [0, 0, -1]),
+               DARK, material="plastic", settings={"fov": 80.0})
+b.link(CAMERA, "seat", SEAT, "occupied")
 # Ladder: up through the hatch from the ground, folded away in flight.
 LADDER = b.add("ladder", (X0 - 2.0, X0 + 2.0, 1.0, SLAB + 0.5, HATCH[2], HATCH[2] + 0.25), IDENT, METAL)
 
@@ -676,13 +682,27 @@ b.link(NOSE_STEER, "angle", steer, "result")
 # right opens the left pair up and the right pair down, by up to half the
 # throttle's travel (the yaw command's 40 degrees), within 0 and full.
 diff = gate("Multiply", R(Y_), value=DIFF_THRUST / 40.0)
+# Reverse thrust, for taxiing: RB (or N) on the ground pushes the plane back,
+# gently (REVERSE of full thrust), in place of the throttle. (In the air RB
+# drops bombs; they only drop 160 m up, so the two never meet.)
+pad_rb_rev = pad("RB / R1")
+key_n = key("N")
+rev_ask = bgate("OR", P(pad_rb_rev), P(key_n))
+rev_high = gate("Compare", (DIST, "distance"), value=5.0)
+rev_low = bgate("NOT", T(rev_high))
+reversing = bgate("AND", (rev_ask, "result"), (rev_low, "result"))
+not_reversing = bgate("NOT", (reversing, "result"))
+rev_part = gate("Multiply", (reversing, "result"), value=-REVERSE)
 for s in SIDES:
     side_thr = gate("Add" if s > 0 else "Subtract", R(throttle), R(diff))
     side_thr = gate("Clamp", R(side_thr), value=1.0)
     side_on = gate("Compare", R(side_thr), value=0.02)
+    fwd_part = gate("Multiply", R(side_thr), (not_reversing, "result"))
+    side_final = gate("Add", R(fwd_part), R(rev_part))
+    side_run = bgate("OR", T(side_on), (reversing, "result"))
     for t in THRUSTERS[s]:
-        b.link(t, "throttle", side_thr, "result")
-        b.link(t, "on", side_on, "is_true")
+        b.link(t, "throttle", side_final, "result")
+        b.link(t, "on", side_run, "result")
 # Thrust vectoring: the engines swivel with the stability system's pitch
 # command (all four the same way) and roll command (each side opposite),
 # within 20 degrees.

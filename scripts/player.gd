@@ -68,6 +68,13 @@ var _floor_grip := GROUND_GRIP        # friction coefficient of whatever is unde
 var _ladder := Vector3.ZERO           # the face of a ladder the character is up against (flat, pointing out at it), or zero
 var _ladder_velocity := Vector3.ZERO  # how fast that ladder is moving
 var ride_velocity := Vector3.ZERO     # while seated: the velocity of the seat, for the speed readout
+# A camera part bound to the seat: seated in first person, the view comes
+# from it and turns with the build. Set every tick by the build controller.
+var seat_view_on := false
+var seat_view := Transform3D()
+var seat_view_fov := 75.0
+var _viewing := false                 # looking through a seat's camera now
+var _world_look := Vector2.ZERO       # yaw and pitch from before, to go back to
 var terrain: Node3D = null            # terrain.gd, for the height of the ground under the camera
 var swimming := false                 # in the lake, deeper than standing height
 var g_force := 1.0                    # the acceleration the character feels, in g: 1 standing still, 0 in free fall
@@ -167,6 +174,18 @@ func hold_seat(cushion: Vector3, heading: float) -> void:
 	# The feet are the character's origin; the hips rest on the cushion.
 	global_position = cushion - Vector3(0.0, HIP_HEIGHT - THIGH_HALF, 0.0)
 	_model.rotation.y = heading
+
+
+## Looks through a camera part bound to the seat: `frame` is the camera in
+## the world (it looks along its -Z), `fov` how wide in degrees.
+func set_seat_view(frame: Transform3D, fov: float) -> void:
+	seat_view_on = true
+	seat_view = frame
+	seat_view_fov = fov
+
+
+func clear_seat_view() -> void:
+	seat_view_on = false
 
 
 ## Gets up. `exit_point` is where the feet go, in world space.
@@ -788,8 +807,26 @@ func _process(delta: float) -> void:
 	var bob := _animate(delta)
 	_model.position.y = _step_offset + bob
 	_pivot.position.y = EYE_HEIGHT + _step_offset
+	# Through a seat's camera, the look is measured from the camera's own
+	# forward, so it turns with the build; back out, the old look returns.
+	var through := seat_view_on and seated and is_first_person()
+	if through and not _viewing:
+		_world_look = Vector2(yaw, pitch)
+		yaw = 0.0
+		pitch = 0.0
+		_viewing = true
+	elif not through and _viewing:
+		yaw = _world_look.x
+		pitch = _world_look.y
+		_viewing = false
 	_pivot.rotation = Vector3(pitch, yaw, 0.0)
 	_camera.position = Vector3(0.0, 0.0, zoom)
+	_camera.rotation = Vector3.ZERO
+	_camera.fov = 75.0
+	if _viewing:
+		var turned := Basis.from_euler(Vector3(pitch, yaw, 0.0))
+		_camera.global_transform = Transform3D(seat_view.basis.orthonormalized() * turned, seat_view.origin)
+		_camera.fov = seat_view_fov
 	if camera_shake > 0.001:
 		_camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-0.5, 0.5)) * camera_shake
 	# Keep a third-person camera from dipping under the ground (but not in a
